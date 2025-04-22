@@ -1,4 +1,4 @@
-package com.loltracker.playerservices.services;
+package com.loltracker.playerservices.webclient;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -20,11 +20,11 @@ public class RiotApiClient {
         WebClient.builder().baseUrl(baseUrl).defaultHeader("X-Riot-Token", apiKey).build();
   }
 
-  public Mono<String> getSummonerByName(String summonerName) {
+  public Mono<String> getSummonerByPUUID(String puuid) {
     return webClient
         .get()
-        .uri("/lol/summoner/v4/summoners/by-name/{summonerName}", summonerName)
+        .uri("/lol/summoner/v4/summoners/by-name/{summonerName}", puuid)
         .retrieve()
-        .bodyToMono(String.class); // Luego definimos DTOs
+        .bodyToMono(String.class);
   }
 }
