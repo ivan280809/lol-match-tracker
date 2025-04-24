@@ -1,21 +1,20 @@
 package com.loltracker.playerservices.controllers;
 
-import com.loltracker.playerservices.webclient.RiotApiClient;
+import com.loltracker.playerservices.domain.services.PlayerServiceUseCase;
+import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
 @RestController
+@AllArgsConstructor
 @RequestMapping("/api/riot")
 public class RiotController {
 
-    private final RiotApiClient riotApiClient;
+  private final PlayerServiceUseCase playerServiceUseCase;
 
-    public RiotController(RiotApiClient riotApiClient) {
-        this.riotApiClient = riotApiClient;
-    }
-
-    @GetMapping("/summoner/{name}")
-    public Mono<String> getSummoner(@PathVariable("name") String summonerName) {
-        return riotApiClient.getSummonerByPUUID(summonerName);
-    }
+  @GetMapping("/summoner/{name}/{tagLine}")
+  public Mono<String> getSummoner(
+      @PathVariable("name") String summonerName, @PathVariable("tagLine") String tagLine) {
+    return playerServiceUseCase.getSummoner(summonerName, tagLine);
+  }
 }
