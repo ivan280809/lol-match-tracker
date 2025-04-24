@@ -13,7 +13,7 @@ public class PlayerServiceUseCase {
 
   public Mono<String> getSummoner(String summonerName, String tagLine) {
     return riotApiClient
-        .getSummonerByPUUID(summonerName)
+        .getSummonerByNameAndTagLine(summonerName, tagLine)
         .flatMap(
             response -> {
               return Mono.just(response);

@@ -20,10 +20,10 @@ public class RiotApiClient {
         WebClient.builder().baseUrl(baseUrl).defaultHeader("X-Riot-Token", apiKey).build();
   }
 
-  public Mono<String> getSummonerByPUUID(String puuid) {
+  public Mono<String> getSummonerByNameAndTagLine(String summonerName, String tagLine) {
     return webClient
         .get()
-        .uri("/lol/summoner/v4/summoners/by-name/{summonerName}", puuid)
+        .uri("riot/account/v1/accounts/by-riot-id/{gameName}/{tagLine}", summonerName, tagLine)
         .retrieve()
         .bodyToMono(String.class);
   }
