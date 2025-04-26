@@ -1,15 +1,14 @@
 package com.loltracker.playerservices.domain.models;
 
+import java.io.Serializable;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.io.Serializable;
-
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class UserGameHeader implements Serializable {
+public class LolPlayerHeader implements Serializable {
   private String puuid;
   private String gameName;
   private String tagLine;

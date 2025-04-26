@@ -10,7 +10,6 @@
         <module>player-service</module>
         <module>match-history-service</module>
         <module>notification-service</module>
-        <module>common</module>
     </modules>
 
     <dependencyManagement>

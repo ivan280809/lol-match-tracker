@@ -11,7 +11,7 @@ public class PlayerServiceUseCase {
 
   private final PlayerDataService playerDataService;
 
-  public Mono<String> getSummoner(String summonerName, String tagLine) {
-    return playerDataService.getSummoner(summonerName, tagLine);
+  public Mono<String> getSummonerData(String summonerName, String tagLine) {
+    return playerDataService.getSummonerData(summonerName, tagLine);
   }
 }

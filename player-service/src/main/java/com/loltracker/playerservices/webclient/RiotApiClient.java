@@ -10,9 +10,9 @@ public class RiotApiClient {
 
   private final WebClient webClient;
 
-    public RiotApiClient(
+  public RiotApiClient(
       @Value("${riot.api.key}") String apiKey, @Value("${riot.api.base-url}") String baseUrl) {
-        this.webClient =
+    this.webClient =
         WebClient.builder().baseUrl(baseUrl).defaultHeader("X-Riot-Token", apiKey).build();
   }
 
