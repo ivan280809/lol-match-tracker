@@ -24,24 +24,22 @@ public class PlayerServiceUseCase {
 
   private Function<String, Mono<? extends String>> handleResponse() {
     return response -> {
-      ObjectMapper objectMapper = new ObjectMapper();
       try {
-        return processUser(response, objectMapper);
+        return processUser(response);
       } catch (JsonProcessingException e) {
         throw new RuntimeException(e);
       }
     };
   }
 
-  private static Mono<String> processUser(String response, ObjectMapper objectMapper)
+  private Mono<String> processUser(String response)
       throws JsonProcessingException {
+    ObjectMapper objectMapper = new ObjectMapper();
     UserGameHeader userGameHeader = objectMapper.readValue(response, UserGameHeader.class);
     return Mono.just(userGameHeader.toString());
   }
 
   private Function<Throwable, Mono<? extends String>> handleError() {
-    return e -> {
-      return Mono.error(new RuntimeException("Error fetching summoner data", e));
-    };
+    return e -> Mono.error(new RuntimeException("Error fetching summoner data", e));
   }
 }

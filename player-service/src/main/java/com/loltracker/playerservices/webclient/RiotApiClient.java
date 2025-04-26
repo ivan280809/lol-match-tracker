@@ -9,14 +9,10 @@ import reactor.core.publisher.Mono;
 public class RiotApiClient {
 
   private final WebClient webClient;
-  private final String apiKey;
-  private final String baseUrl;
 
-  public RiotApiClient(
+    public RiotApiClient(
       @Value("${riot.api.key}") String apiKey, @Value("${riot.api.base-url}") String baseUrl) {
-    this.apiKey = apiKey;
-    this.baseUrl = baseUrl;
-    this.webClient =
+        this.webClient =
         WebClient.builder().baseUrl(baseUrl).defaultHeader("X-Riot-Token", apiKey).build();
   }
 
