@@ -1,6 +1,6 @@
 package com.loltracker.playerservices.controllers;
 
-import com.loltracker.playerservices.domain.services.PlayerServiceUseCase;
+import com.loltracker.playerservices.domain.PlayerServiceUseCase;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
