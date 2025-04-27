@@ -17,6 +17,4 @@ public class PlayerServicesController {
       @PathVariable("name") String summonerName, @PathVariable("tagLine") String tagLine) {
     return playerServiceUseCase.getSummonerData(summonerName, tagLine);
   }
-
-
 }

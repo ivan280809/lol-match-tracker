@@ -27,7 +27,7 @@ public class RiotApiClient {
   public Mono<String> getMatchesByPuuid(String puuid) {
     return webClient
         .get()
-        .uri("riot/lol/match/v5/matches/by-puuid/{puuid}/idss", puuid)
+        .uri("lol/match/v5/matches/by-puuid/{puuid}/ids", puuid)
         .retrieve()
         .bodyToMono(String.class);
   }
