@@ -1,4 +1,4 @@
-package com.loltracker.playerservices.webclient;
+package com.loltracker.playerservices.infraestructure.models;
 
 import java.util.List;
 import lombok.AllArgsConstructor;

@@ -1,4 +1,4 @@
-package com.loltracker.playerservices.webclient;
+package com.loltracker.playerservices.infraestructure.webclients;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;

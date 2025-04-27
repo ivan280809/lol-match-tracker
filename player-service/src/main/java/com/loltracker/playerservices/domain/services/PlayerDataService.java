@@ -5,11 +5,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loltracker.playerservices.domain.exceptions.UserNotFoundException;
 import com.loltracker.playerservices.domain.models.LolPlayerHeader;
-import com.loltracker.playerservices.domain.models.Matches;
-import com.loltracker.playerservices.webclient.MatchServiceWebClient;
-import com.loltracker.playerservices.webclient.MatchesDTO;
-import com.loltracker.playerservices.webclient.RiotApiClient;
-
+import com.loltracker.playerservices.infraestructure.models.MatchesDTO;
+import com.loltracker.playerservices.infraestructure.webclients.MatchServiceWebClient;
+import com.loltracker.playerservices.infraestructure.webclients.RiotApiClient;
 import java.util.List;
 import java.util.function.Function;
 import lombok.AllArgsConstructor;

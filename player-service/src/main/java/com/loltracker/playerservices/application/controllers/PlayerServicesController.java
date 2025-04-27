@@ -1,4 +1,4 @@
-package com.loltracker.playerservices.controllers;
+package com.loltracker.playerservices.application.controllers;
 
 import com.loltracker.playerservices.domain.PlayerServiceUseCase;
 import lombok.AllArgsConstructor;
