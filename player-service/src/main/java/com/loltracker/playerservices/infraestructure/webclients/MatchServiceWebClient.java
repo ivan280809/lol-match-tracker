@@ -1,6 +1,6 @@
 package com.loltracker.playerservices.infraestructure.webclients;
 
-import com.loltracker.playerservices.infraestructure.models.MatchesDTO;
+import com.loltracker.playerservices.infraestructure.models.matches.MatchesDTO;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;

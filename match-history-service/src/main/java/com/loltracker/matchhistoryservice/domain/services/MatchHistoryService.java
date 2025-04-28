@@ -5,6 +5,8 @@ import com.loltracker.matchhistoryservice.infrastructure.models.LolPlayerHeaderM
 import com.loltracker.matchhistoryservice.infrastructure.models.PlayerMatchMO;
 import com.loltracker.matchhistoryservice.infrastructure.repositories.LolPlayerHeaderRepository;
 import com.loltracker.matchhistoryservice.infrastructure.repositories.PlayerMatchRepository;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -16,15 +18,38 @@ public class MatchHistoryService {
   private final PlayerMatchRepository playerMatchRepository;
 
   public String processMatchHistory(String puuid, MatchesDTO matches) {
+    ensurePlayerHeaderExists(puuid);
+
+    List<String> matchesSaved = new ArrayList<>();
+
     matches
         .getMatches()
         .forEach(
             match -> {
-              playerMatchRepository.save(new PlayerMatchMO(puuid, match));
+              long matchId = generateMatchId(puuid, match);
+
+              boolean alreadyExists = playerMatchRepository.findById(matchId).isPresent();
+
+              if (!alreadyExists) {
+                playerMatchRepository.save(new PlayerMatchMO(matchId, puuid, match));
+                matchesSaved.add(matchId + "");
+              }
             });
 
-    lolPlayerHeaderRepository.save(LolPlayerHeaderMO.builder().puuid(puuid).build());
+    return "Processed match history for PUUID: "
+        + puuid
+        + ", new matches saved: "
+        + matchesSaved.size();
+  }
 
-    return "Match history saved successfully for PUUID: " + puuid;
+  private void ensurePlayerHeaderExists(String puuid) {
+    boolean exists = lolPlayerHeaderRepository.findById(puuid).isPresent();
+    if (!exists) {
+      lolPlayerHeaderRepository.save(LolPlayerHeaderMO.builder().puuid(puuid).build());
+    }
+  }
+
+  private long generateMatchId(String puuid, Object match) {
+    return (puuid + "-" + match.hashCode()).hashCode();
   }
 }

@@ -5,9 +5,11 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loltracker.playerservices.domain.exceptions.UserNotFoundException;
 import com.loltracker.playerservices.domain.models.LolPlayerHeader;
-import com.loltracker.playerservices.infraestructure.models.MatchesDTO;
+import com.loltracker.playerservices.domain.models.PlayerJson;
+import com.loltracker.playerservices.infraestructure.models.matches.MatchesDTO;
 import com.loltracker.playerservices.infraestructure.webclients.MatchServiceWebClient;
 import com.loltracker.playerservices.infraestructure.webclients.RiotApiClient;
+import java.io.InputStream;
 import java.util.List;
 import java.util.function.Function;
 import lombok.AllArgsConstructor;
@@ -21,12 +23,39 @@ public class PlayerDataService {
   private final RiotApiClient riotApiClient;
   private final MatchServiceWebClient matchServiceWebClient;
   private final ObjectMapper objectMapper = new ObjectMapper();
+  private List<PlayerJson> players;
+
+  public void loadPlayers() {
+    try {
+      InputStream inputStream = getClass().getClassLoader().getResourceAsStream("players.json");
+      players = objectMapper.readValue(inputStream, new TypeReference<List<PlayerJson>>() {});
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to load players.json", e);
+    }
+  }
 
   public Mono<String> getSummonerData(String summonerName, String tagLine) {
     return riotApiClient
         .getSummonerByNameAndTagLine(summonerName, tagLine)
         .flatMap(handleSummonerDetails())
         .onErrorResume(handleError());
+  }
+
+  public void refreshPlayerData() {
+    for (PlayerJson player : players) {
+      getSummonerData(player.getSummonerName(), player.getTagLine())
+          .subscribe(
+              result -> {
+                System.out.println("Summoner data refreshed for " + player.getSummonerName());
+              },
+              error -> {
+                System.err.println(
+                    "Error refreshing data for "
+                        + player.getSummonerName()
+                        + ": "
+                        + error.getMessage());
+              });
+    }
   }
 
   private Function<String, Mono<? extends String>> handleSummonerDetails() {

@@ -9,14 +9,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PlayerMatchMO {
-  @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
-  private Long id;
+  @Id private Long id;
 
   private String puuid;
   private String matchId;
 
   public PlayerMatchMO(String puuid, String match) {
+    this.id = (long) (puuid + "-" + match.hashCode()).hashCode();
     this.puuid = puuid;
     this.matchId = match;
   }
