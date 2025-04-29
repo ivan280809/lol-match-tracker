@@ -1,6 +1,6 @@
 package com.loltracker.playerservices.infraestructure.webclients;
 
-import com.loltracker.playerservices.infraestructure.models.matches.MatchesDTO;
+import com.loltracker.playerservices.infraestructure.models.AccountMatchesDTO;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -14,14 +14,12 @@ public class MatchServiceWebClient {
     this.webClient = webClientBuilder.baseUrl("http://localhost:8084").build();
   }
 
-  public Mono<String> putMatches(String puuid, Mono<MatchesDTO> matches) {
-    return matches.flatMap(
-        matchesDTO ->
-            webClient
-                .post()
-                .uri("/match-history/createMatchHistory/{puuid}", puuid)
-                .bodyValue(matchesDTO)
-                .retrieve()
-                .bodyToMono(String.class));
+  public Mono<String> putMatches(AccountMatchesDTO accountMatchesDTO) {
+    return webClient
+        .post()
+        .uri("/match-history/createMatchHistory")
+        .bodyValue(accountMatchesDTO)
+        .retrieve()
+        .bodyToMono(String.class);
   }
 }

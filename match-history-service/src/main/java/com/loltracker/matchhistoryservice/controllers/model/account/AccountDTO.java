@@ -1,4 +1,4 @@
-package com.loltracker.matchhistoryservice.controllers.model;
+package com.loltracker.matchhistoryservice.controllers.model.account;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

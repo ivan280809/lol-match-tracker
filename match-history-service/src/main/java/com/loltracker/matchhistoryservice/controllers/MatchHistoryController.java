@@ -1,6 +1,6 @@
 package com.loltracker.matchhistoryservice.controllers;
 
-import com.loltracker.matchhistoryservice.controllers.model.MatchesDTO;
+import com.loltracker.matchhistoryservice.controllers.model.AccountMatchesDTO;
 import com.loltracker.matchhistoryservice.domain.MatchHistoryUseCase;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -13,10 +13,9 @@ public class MatchHistoryController {
 
   private final MatchHistoryUseCase matchHistoryUseCase;
 
-  @PostMapping("/createMatchHistory/{puuid}")
-  public Mono<String> getMatchHistory(
-      @PathVariable("puuid") String puuid, @RequestBody MatchesDTO matches) {
-    matchHistoryUseCase.processMatchHistory(puuid, matches);
-    return Mono.just(matches.toString() + puuid);
+  @PostMapping("/match-history/createMatchHistory")
+  public Mono<String> getMatchHistory(@RequestBody AccountMatchesDTO matches) {
+    matchHistoryUseCase.processMatchHistory(matches);
+    return Mono.just(matches.getAccountDTO().getGameName());
   }
 }

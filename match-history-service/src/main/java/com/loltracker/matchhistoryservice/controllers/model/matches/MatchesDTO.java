@@ -1,4 +1,4 @@
-package com.loltracker.matchhistoryservice.controllers.model;
+package com.loltracker.matchhistoryservice.controllers.model.matches;
 
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -9,5 +9,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class MatchesDTO {
-  List<String> matches;
+  List<MatchDto> matches;
 }

@@ -39,13 +39,6 @@ public class PlayerDataService {
     }
   }
 
-  public Mono<String> getSummonerData(String summonerName, String tagLine) {
-    return riotApiClient
-        .getSummonerByNameAndTagLine(summonerName, tagLine)
-        .flatMap(handleSummonerDetails())
-        .onErrorResume(handleError());
-  }
-
   public void refreshPlayerData() {
     for (PlayerJson player : players) {
       getSummonerData(player.getSummonerName(), player.getTagLine())
@@ -61,6 +54,13 @@ public class PlayerDataService {
     }
   }
 
+  public Mono<String> getSummonerData(String summonerName, String tagLine) {
+    return riotApiClient
+        .getSummonerByNameAndTagLine(summonerName, tagLine)
+        .flatMap(handleSummonerDetails())
+        .onErrorResume(handleError());
+  }
+
   private Function<String, Mono<? extends String>> handleSummonerDetails() {
     return response -> {
       try {
@@ -72,26 +72,25 @@ public class PlayerDataService {
   }
 
   private Mono<String> processUser(String response) throws JsonProcessingException {
-    Account account = objectMapper.readValue(response, Account.class);
-    Mono<MatchesDTO> matchesByPuuid = getMatchesByPuuid(account);
-    return matchServiceWebClient.putMatches(account.getPuuid(), matchesByPuuid);
+    AccountDTO accountDTO = objectMapper.readValue(response, AccountDTO.class);
+    return getMatchesByPuuid(accountDTO)
+        .map(matchesDTO -> new AccountMatchesDTO(accountDTO, matchesDTO))
+        .flatMap(matchServiceWebClient::putMatches);
   }
 
-  private Mono<MatchesDTO> getMatchesByPuuid(Account account) {
-    return riotApiClient
-        .getMatchesByPuuid(account.getPuuid())
-        .flatMap(matches -> parseMatches(matches, account));
+  private Mono<MatchesDTO> getMatchesByPuuid(AccountDTO accountDTO) {
+    return riotApiClient.getMatchesByPuuid(accountDTO.getPuuid()).flatMap(this::parseMatches);
   }
 
-  private Mono<MatchesDTO> parseMatches(String response, Account account) {
+  private Mono<MatchesDTO> parseMatches(String response) {
     try {
       List<String> matchIds =
           objectMapper.readValue(response, new TypeReference<List<String>>() {});
 
       List<Mono<MatchDto>> matchMonos =
           matchIds.stream()
-              .map(riotApiClient::getMatchById) // Mono<String>
-              .map(mono -> mono.map(parseMatch())) // Mono<MatchDto>
+              .map(riotApiClient::getMatchById)
+              .map(mono -> mono.map(parseMatch()))
               .collect(Collectors.toList());
 
       return Mono.zip(
