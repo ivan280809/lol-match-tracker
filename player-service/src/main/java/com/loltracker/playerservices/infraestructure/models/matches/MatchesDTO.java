@@ -9,5 +9,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class MatchesDTO {
-  List<String> matches;
+  List<MatchDto> matches;
 }

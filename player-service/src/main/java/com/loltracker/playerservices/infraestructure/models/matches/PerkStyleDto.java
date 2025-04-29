@@ -1,16 +1,15 @@
 package com.loltracker.playerservices.infraestructure.models.matches;
 
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.List;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class PerkStyleDto {
-    private String description;
-    private List<PerkStyleSelectionDto> selections;
-    private int style;
+  private String description;
+  private List<PerkStyleSelectionDto> selections;
+  private int style;
 }

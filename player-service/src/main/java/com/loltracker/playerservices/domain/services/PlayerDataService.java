@@ -4,14 +4,19 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loltracker.playerservices.domain.exceptions.UserNotFoundException;
-import com.loltracker.playerservices.domain.models.LolPlayerHeader;
+import com.loltracker.playerservices.domain.models.Account;
 import com.loltracker.playerservices.domain.models.PlayerJson;
+import com.loltracker.playerservices.infraestructure.models.AccountMatchesDTO;
+import com.loltracker.playerservices.infraestructure.models.account.AccountDTO;
+import com.loltracker.playerservices.infraestructure.models.matches.MatchDto;
 import com.loltracker.playerservices.infraestructure.models.matches.MatchesDTO;
 import com.loltracker.playerservices.infraestructure.webclients.MatchServiceWebClient;
 import com.loltracker.playerservices.infraestructure.webclients.RiotApiClient;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -45,16 +50,14 @@ public class PlayerDataService {
     for (PlayerJson player : players) {
       getSummonerData(player.getSummonerName(), player.getTagLine())
           .subscribe(
-              result -> {
-                System.out.println("Summoner data refreshed for " + player.getSummonerName());
-              },
-              error -> {
-                System.err.println(
-                    "Error refreshing data for "
-                        + player.getSummonerName()
-                        + ": "
-                        + error.getMessage());
-              });
+              result ->
+                  System.out.println("Summoner data refreshed for " + player.getSummonerName()),
+              error ->
+                  System.err.println(
+                      "Error refreshing data for "
+                          + player.getSummonerName()
+                          + ": "
+                          + error.getMessage()));
     }
   }
 
@@ -63,27 +66,65 @@ public class PlayerDataService {
       try {
         return processUser(response);
       } catch (JsonProcessingException e) {
-        throw new RuntimeException(e);
+        return Mono.error(e);
       }
     };
   }
 
   private Mono<String> processUser(String response) throws JsonProcessingException {
-    LolPlayerHeader lolPlayerHeader = objectMapper.readValue(response, LolPlayerHeader.class);
-    Mono<MatchesDTO> matchesByPuuid = getMatchesByPuuid(lolPlayerHeader);
-    return matchServiceWebClient.putMatches(lolPlayerHeader.getPuuid(), matchesByPuuid);
+    Account account = objectMapper.readValue(response, Account.class);
+    Mono<MatchesDTO> matchesByPuuid = getMatchesByPuuid(account);
+    return matchServiceWebClient.putMatches(account.getPuuid(), matchesByPuuid);
   }
 
-  private Mono<MatchesDTO> getMatchesByPuuid(LolPlayerHeader lolPlayerHeader) {
-    return riotApiClient.getMatchesByPuuid(lolPlayerHeader.getPuuid()).map(this::parseMatches);
+  private Mono<MatchesDTO> getMatchesByPuuid(Account account) {
+    return riotApiClient
+        .getMatchesByPuuid(account.getPuuid())
+        .flatMap(matches -> parseMatches(matches, account));
   }
 
-  private MatchesDTO parseMatches(String response) {
+  private Mono<MatchesDTO> parseMatches(String response, Account account) {
     try {
-      List<String> matches = objectMapper.readValue(response, new TypeReference<List<String>>() {});
-      return new MatchesDTO(matches);
+      List<String> matchIds =
+          objectMapper.readValue(response, new TypeReference<List<String>>() {});
+
+      List<Mono<MatchDto>> matchMonos =
+          matchIds.stream()
+              .map(riotApiClient::getMatchById) // Mono<String>
+              .map(mono -> mono.map(parseMatch())) // Mono<MatchDto>
+              .collect(Collectors.toList());
+
+      return Mono.zip(
+          matchMonos,
+          results -> {
+            List<MatchDto> matchDtos =
+                Arrays.stream(results).map(obj -> (MatchDto) obj).collect(Collectors.toList());
+            return new MatchesDTO(matchDtos);
+          });
+
     } catch (JsonProcessingException e) {
-      throw new RuntimeException("Error parsing MatchesIds", e);
+      return Mono.error(new RuntimeException("Error parsing MatchesIds", e));
+    }
+  }
+
+  private Function<String, MatchDto> parseMatch() {
+    return match -> {
+      try {
+        return objectMapper.readValue(match, MatchDto.class);
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException("Error parsing Match", e);
+      }
+    };
+  }
+
+  private AccountMatchesDTO parseAccountMatches(String response, Account account) {
+    try {
+      MatchesDTO matchesDTOS = objectMapper.readValue(response, new TypeReference<MatchesDTO>() {});
+      AccountDTO accountDTO =
+          new AccountDTO(account.getPuuid(), account.getGameName(), account.getTagLine());
+      return new AccountMatchesDTO(accountDTO, matchesDTOS);
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException("Error parsing AccountMatches", e);
     }
   }
 

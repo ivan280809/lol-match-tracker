@@ -1,6 +1,5 @@
 package com.loltracker.playerservices.infraestructure.models.account;
 
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,7 +8,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class AccountDTO {
-    private String puuid;
-    private String gameName;
-    private String tagLine;
+  private String puuid;
+  private String gameName;
+  private String tagLine;
 }

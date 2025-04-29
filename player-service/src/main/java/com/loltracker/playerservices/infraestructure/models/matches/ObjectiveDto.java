@@ -8,6 +8,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ObjectiveDto {
-    private boolean first;
-    private int kills;
+  private boolean first;
+  private int kills;
 }

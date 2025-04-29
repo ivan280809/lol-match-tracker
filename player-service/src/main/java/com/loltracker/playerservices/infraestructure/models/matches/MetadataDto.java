@@ -1,16 +1,15 @@
 package com.loltracker.playerservices.infraestructure.models.matches;
 
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.util.List;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class MetadataDto {
-    private String dataVersion;
-    private String matchId;
-    private List<String> participants;
+  private String dataVersion;
+  private String matchId;
+  private List<String> participants;
 }

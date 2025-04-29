@@ -8,6 +8,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class MatchDto {
-    private MetadataDto metadata;
-    private InfoDto info;
+  private MetadataDto metadata;
+  private InfoDto info;
 }

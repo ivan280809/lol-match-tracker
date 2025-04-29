@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class LolPlayerHeader {
+public class Account {
   private String puuid;
   private String gameName;
   private String tagLine;

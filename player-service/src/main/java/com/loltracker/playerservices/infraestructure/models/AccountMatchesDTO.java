@@ -8,6 +8,6 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class AccountMatchesDTO {
-    private AccountDTO accountDTO;
-    private MatchesDTO matchesDTO;
+  private AccountDTO accountDTO;
+  private MatchesDTO matchesDTO;
 }
