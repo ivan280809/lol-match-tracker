@@ -1,9 +1,6 @@
 package com.loltracker.matchhistoryservice.infrastructure.models;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 
@@ -12,9 +9,14 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AccountMO {
-  @Id @GeneratedValue private Long id;
 
+  @Id
+  @Column(name = "id")
   private String puuid;
+
   private String gameName;
   private String tagLine;
+
+  @OneToOne(mappedBy = "accountMO")
+  private AccountMatchesMO accountMatchesMO;
 }

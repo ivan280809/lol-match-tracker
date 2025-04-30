@@ -11,7 +11,7 @@ public class MatchHistoryUseCase {
 
   private final MatchHistoryService matchHistoryService;
 
-  public String processMatchHistory(AccountMatchesDTO matches) {
-    return matchHistoryService.processMatchHistory(matches);
+  public void processMatchHistory(AccountMatchesDTO matches) {
+    matchHistoryService.processMatchHistory(matches);
   }
 }
