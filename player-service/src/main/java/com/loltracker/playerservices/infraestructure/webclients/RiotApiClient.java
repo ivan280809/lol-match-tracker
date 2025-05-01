@@ -24,9 +24,11 @@ public class RiotApiClient {
         .uri("riot/account/v1/accounts/by-riot-id/{gameName}/{tagLine}", summonerName, tagLine)
         .retrieve()
         .bodyToMono(String.class)
-            .doOnSubscribe(s -> log.info("Fetching summoner: {} with tag: {}", summonerName, tagLine))
-            .doOnNext(response -> log.info("Response for summoner: {}: {}", summonerName, response))
-            .doOnError(response -> log.info("Error fetching summoner: {} with tag: {}", summonerName, tagLine));
+        .doOnSubscribe(s -> log.info("Fetching summoner: {} with tag: {}", summonerName, tagLine))
+        .doOnNext(response -> log.info("Response for summoner: {}: {}", summonerName, response))
+        .doOnError(
+            response ->
+                log.info("Error fetching summoner: {} with tag: {}", summonerName, tagLine));
   }
 
   public Mono<String> getMatchesByPuuid(String puuid) {
@@ -35,8 +37,8 @@ public class RiotApiClient {
         .uri("lol/match/v5/matches/by-puuid/{puuid}/ids", puuid)
         .retrieve()
         .bodyToMono(String.class)
-            .doOnSubscribe(s -> log.info("Fetching Data getMatchesByPuuid with puuid: {} ", puuid))
-            .doOnNext(response -> log.info("Response for puuid: {}: {}", puuid, response));
+        .doOnSubscribe(s -> log.info("Fetching Data getMatchesByPuuid with puuid: {} ", puuid))
+        .doOnNext(response -> log.info("Response for puuid: {}: {}", puuid, response));
   }
 
   public Mono<String> getMatchById(String matchId) {
@@ -45,7 +47,7 @@ public class RiotApiClient {
         .uri("/lol/match/v5/matches/{matchId}", matchId)
         .retrieve()
         .bodyToMono(String.class)
-            .doOnSubscribe(s -> log.info("getMatchById: {}", matchId))
-            .doOnNext(response -> log.info("Response for getMatchById: {}: {}", matchId, response));
+        .doOnSubscribe(s -> log.info("getMatchById: {}", matchId))
+        .doOnNext(response -> log.info("Response for getMatchById: {}: {}", matchId, response));
   }
 }

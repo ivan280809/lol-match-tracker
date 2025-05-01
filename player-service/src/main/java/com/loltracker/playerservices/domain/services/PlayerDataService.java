@@ -3,8 +3,6 @@ package com.loltracker.playerservices.domain.services;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loltracker.playerservices.domain.exceptions.UserNotFoundException;
-import com.loltracker.playerservices.domain.models.Account;
 import com.loltracker.playerservices.domain.models.PlayerJson;
 import com.loltracker.playerservices.infraestructure.models.AccountMatchesDTO;
 import com.loltracker.playerservices.infraestructure.models.account.AccountDTO;
@@ -13,10 +11,8 @@ import com.loltracker.playerservices.infraestructure.models.matches.MatchesDTO;
 import com.loltracker.playerservices.infraestructure.webclients.MatchServiceWebClient;
 import com.loltracker.playerservices.infraestructure.webclients.RiotApiClient;
 import java.io.InputStream;
-import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -45,9 +41,10 @@ public class PlayerDataService {
   public void refreshPlayerData() {
     for (PlayerJson player : players) {
       getSummonerData(player.getSummonerName(), player.getTagLine())
-              .doOnSubscribe(s -> log.info("Subscribed to getSummonerData for {}", player.getSummonerName()))
-              .doOnNext(r -> log.info("putMatches OK -> {}", r))
-              .doOnError(e -> log.error("putMatches FAILED", e))
+          .doOnSubscribe(
+              s -> log.info("Subscribed to getSummonerData for {}", player.getSummonerName()))
+          .doOnNext(r -> log.info("putMatches OK -> {}", r))
+          .doOnError(e -> log.error("putMatches FAILED", e))
           .subscribe(
               result ->
                   System.out.println("Summoner data refreshed for " + player.getSummonerName()),
@@ -56,8 +53,7 @@ public class PlayerDataService {
                       "Error refreshing data for "
                           + player.getSummonerName()
                           + ": "
-                          + error.getMessage()))
-      ;
+                          + error.getMessage()));
     }
   }
 
@@ -92,11 +88,12 @@ public class PlayerDataService {
 
   private Mono<MatchesDTO> parseMatches(String response) {
     try {
-      List<String> matchIds = objectMapper.readValue(response, new TypeReference<List<String>>() {});
+      List<String> matchIds =
+          objectMapper.readValue(response, new TypeReference<List<String>>() {});
       return Flux.fromIterable(matchIds)
-              .flatMap(matchId -> riotApiClient.getMatchById(matchId).map(parseMatch()), 1)
-              .collectList()
-              .map(MatchesDTO::new);
+          .flatMap(matchId -> riotApiClient.getMatchById(matchId).map(parseMatch()), 1)
+          .collectList()
+          .map(MatchesDTO::new);
     } catch (JsonProcessingException e) {
       return Mono.error(new RuntimeException("Error parsing MatchesIds", e));
     }
@@ -114,7 +111,7 @@ public class PlayerDataService {
 
   private Function<Throwable, Mono<? extends String>> handleError() {
     return e -> {
-      log.error("Error occurred during summoner data fetching: ", e);  // Log detallado de errores
+      log.error("Error occurred during summoner data fetching: ", e); // Log detallado de errores
       return Mono.error(new RuntimeException("User not found " + e));
     };
   }
