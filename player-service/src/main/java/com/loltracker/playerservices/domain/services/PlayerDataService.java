@@ -75,7 +75,6 @@ public class PlayerDataService {
   }
 
   private Mono<String> processUser(String response) throws JsonProcessingException {
-    log.info("Processing response: {}", response);
     AccountDTO accountDTO = objectMapper.readValue(response, AccountDTO.class);
     return getMatchesByPuuid(accountDTO)
         .map(matchesDTO -> new AccountMatchesDTO(accountDTO, matchesDTO))
@@ -111,7 +110,7 @@ public class PlayerDataService {
 
   private Function<Throwable, Mono<? extends String>> handleError() {
     return e -> {
-      log.error("Error occurred during summoner data fetching: ", e); // Log detallado de errores
+      log.error("Error occurred during summoner data fetching: ", e);
       return Mono.error(new RuntimeException("User not found " + e));
     };
   }
