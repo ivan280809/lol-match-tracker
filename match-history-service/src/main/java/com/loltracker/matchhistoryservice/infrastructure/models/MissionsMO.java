@@ -5,12 +5,14 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "Missions")
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class MissionsMO {
 
   @Id @GeneratedValue private Long id;

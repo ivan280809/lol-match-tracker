@@ -1,17 +1,16 @@
 package com.loltracker.matchhistoryservice.infrastructure.models;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import java.util.List;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "Challenges")
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class ChallengesMO {
   @Id @GeneratedValue private Long id;
 
@@ -62,7 +61,14 @@ public class ChallengesMO {
   private int dodgeSkillShotsSmallWindow;
   private int doubleAces;
   private int dragonTakedowns;
+
+  @ElementCollection
+  @CollectionTable(
+      name = "challenge_legendary_items",
+      joinColumns = @JoinColumn(name = "challenge_id"))
+  @Column(name = "legendary_item_id")
   private List<Integer> legendaryItemUsed;
+
   private float effectiveHealAndShielding;
   private int elderDragonKillsWithOpposingSoul;
   private int elderDragonMultikills;

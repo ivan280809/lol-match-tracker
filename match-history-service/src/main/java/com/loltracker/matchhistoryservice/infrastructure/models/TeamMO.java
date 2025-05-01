@@ -1,23 +1,28 @@
 package com.loltracker.matchhistoryservice.infrastructure.models;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import java.util.List;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "Team")
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class TeamMO {
 
   @Id @GeneratedValue private Long id;
 
+  @OneToMany
+  @JoinColumn(name = "team_id")
   private List<BanMO> bans;
+
+  @OneToOne
+  @JoinColumn(name = "objectives_id")
   private ObjectivesMO objectives;
+
   private int teamId;
   private boolean win;
 }

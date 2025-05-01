@@ -13,7 +13,7 @@ public class MatchHistoryController {
 
   private final MatchHistoryUseCase matchHistoryUseCase;
 
-  @PostMapping("/match-history/createMatchHistory")
+  @PostMapping("/createMatchHistory")
   public Mono<String> getMatchHistory(@RequestBody AccountMatchesDTO matches) {
     matchHistoryUseCase.processMatchHistory(matches);
     return Mono.just(matches.getAccountDTO().getGameName());

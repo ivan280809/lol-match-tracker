@@ -4,9 +4,11 @@ import com.loltracker.playerservices.domain.services.PlayerDataService;
 import jakarta.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
 import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.time.Duration;
 
 @Service
 @AllArgsConstructor
@@ -18,10 +20,18 @@ public class PlayerServiceUseCase {
   @PostConstruct
   public void loadPlayers() {
     playerDataService.loadPlayers();
+    refreshPlayerData();
   }
 
-  @Scheduled(fixedRate = 1000 * 60)
-  public void refreshPlayerData() {
+  @PostConstruct
+  public void scheduleReactiveTask() {
+    Flux.interval(Duration.ofMinutes(5))
+            .flatMap(tick -> Mono.fromRunnable(this::refreshPlayerData))
+            .subscribe();
+
+  }
+
+  private void refreshPlayerData() {
     playerDataService.refreshPlayerData();
   }
 

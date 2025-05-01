@@ -2,12 +2,14 @@ package com.loltracker.matchhistoryservice.infrastructure.models;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "Participant")
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class ParticipantMO {
 
   @Id @GeneratedValue private Long id;
@@ -25,7 +27,10 @@ public class ParticipantMO {
   private int championTransform;
   private int consumablesPurchased;
 
-  @OneToOne private ChallengesMO challenges;
+  @OneToOne
+  @JoinColumn(name = "challenges_id")
+  private ChallengesMO challenges;
+
   private int damageDealtToBuildings;
   private int damageDealtToObjectives;
   private int damageDealtToTurrets;
@@ -70,7 +75,10 @@ public class ParticipantMO {
   private int magicDamageDealtToChampions;
   private int magicDamageTaken;
 
-  @OneToOne private MissionsMO missions;
+  @OneToOne
+  @JoinColumn(name = "missions_id")
+  private MissionsMO missions;
+
   private int neutralMinionsKilled;
   private int needVisionPings;
   private int nexusKills;
@@ -94,7 +102,10 @@ public class ParticipantMO {
   private int playerScore11;
   private int pentaKills;
 
-  @OneToOne private PerksMO perks;
+  @OneToOne
+  @JoinColumn(name = "perks_id")
+  private PerksMO perks;
+
   private int physicalDamageDealt;
   private int physicalDamageDealtToChampions;
   private int physicalDamageTaken;

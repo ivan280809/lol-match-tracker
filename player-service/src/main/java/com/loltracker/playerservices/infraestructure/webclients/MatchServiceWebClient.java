@@ -1,11 +1,13 @@
 package com.loltracker.playerservices.infraestructure.webclients;
 
 import com.loltracker.playerservices.infraestructure.models.AccountMatchesDTO;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 @Component
+@Slf4j
 public class MatchServiceWebClient {
 
   private final WebClient webClient;
@@ -15,6 +17,7 @@ public class MatchServiceWebClient {
   }
 
   public Mono<String> putMatches(AccountMatchesDTO accountMatchesDTO) {
+    log.info("Sending account match data: {}", accountMatchesDTO);
     return webClient
         .post()
         .uri("/match-history/createMatchHistory")

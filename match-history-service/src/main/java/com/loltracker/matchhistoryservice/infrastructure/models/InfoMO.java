@@ -1,17 +1,16 @@
 package com.loltracker.matchhistoryservice.infrastructure.models;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import java.util.List;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "Info")
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class InfoMO {
 
   @Id @GeneratedValue private Long id;
@@ -27,9 +26,17 @@ public class InfoMO {
   private String gameType;
   private String gameVersion;
   private int mapId;
+
+  @OneToMany
+  @JoinColumn(name = "info_id")
   private List<ParticipantMO> participants;
+
   private String platformId;
   private int queueId;
+
+  @OneToMany
+  @JoinColumn(name = "info_id")
   private List<TeamMO> teams;
+
   private String tournamentCode;
 }

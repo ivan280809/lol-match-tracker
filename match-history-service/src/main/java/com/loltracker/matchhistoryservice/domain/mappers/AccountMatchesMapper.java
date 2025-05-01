@@ -9,6 +9,8 @@ public interface AccountMatchesMapper {
 
   AccountMatchesDTO toDTO(AccountMatchesMO entity);
 
-  //Hacer el mapper bien porque no esta mapeando nada, rompo para que no compile
-  AccountMatchesMO toEntity(AccountMatchesDTO dto)
+  //Hacer el mapper bien
+  default AccountMatchesMO toEntity(AccountMatchesDTO dto){
+    return AccountMatchesMO.builder().build();
+  }
 }

@@ -18,16 +18,19 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Service
 @AllArgsConstructor
+@Slf4j
 public class PlayerDataService {
 
   private final RiotApiClient riotApiClient;
   private final MatchServiceWebClient matchServiceWebClient;
-  private final ObjectMapper objectMapper = new ObjectMapper();
+  private final ObjectMapper objectMapper;
   private List<PlayerJson> players;
 
   public void loadPlayers() {
@@ -42,6 +45,9 @@ public class PlayerDataService {
   public void refreshPlayerData() {
     for (PlayerJson player : players) {
       getSummonerData(player.getSummonerName(), player.getTagLine())
+              .doOnSubscribe(s -> log.info("Subscribed to getSummonerData for {}", player.getSummonerName()))
+              .doOnNext(r -> log.info("putMatches OK -> {}", r))
+              .doOnError(e -> log.error("putMatches FAILED", e))
           .subscribe(
               result ->
                   System.out.println("Summoner data refreshed for " + player.getSummonerName()),
@@ -50,7 +56,8 @@ public class PlayerDataService {
                       "Error refreshing data for "
                           + player.getSummonerName()
                           + ": "
-                          + error.getMessage()));
+                          + error.getMessage()))
+      ;
     }
   }
 
@@ -72,6 +79,7 @@ public class PlayerDataService {
   }
 
   private Mono<String> processUser(String response) throws JsonProcessingException {
+    log.info("Processing response: {}", response);
     AccountDTO accountDTO = objectMapper.readValue(response, AccountDTO.class);
     return getMatchesByPuuid(accountDTO)
         .map(matchesDTO -> new AccountMatchesDTO(accountDTO, matchesDTO))
@@ -84,23 +92,11 @@ public class PlayerDataService {
 
   private Mono<MatchesDTO> parseMatches(String response) {
     try {
-      List<String> matchIds =
-          objectMapper.readValue(response, new TypeReference<List<String>>() {});
-
-      List<Mono<MatchDto>> matchMonos =
-          matchIds.stream()
-              .map(riotApiClient::getMatchById)
-              .map(mono -> mono.map(parseMatch()))
-              .collect(Collectors.toList());
-
-      return Mono.zip(
-          matchMonos,
-          results -> {
-            List<MatchDto> matchDtos =
-                Arrays.stream(results).map(obj -> (MatchDto) obj).collect(Collectors.toList());
-            return new MatchesDTO(matchDtos);
-          });
-
+      List<String> matchIds = objectMapper.readValue(response, new TypeReference<List<String>>() {});
+      return Flux.fromIterable(matchIds)
+              .flatMap(matchId -> riotApiClient.getMatchById(matchId).map(parseMatch()), 1)
+              .collectList()
+              .map(MatchesDTO::new);
     } catch (JsonProcessingException e) {
       return Mono.error(new RuntimeException("Error parsing MatchesIds", e));
     }
@@ -116,18 +112,10 @@ public class PlayerDataService {
     };
   }
 
-  private AccountMatchesDTO parseAccountMatches(String response, Account account) {
-    try {
-      MatchesDTO matchesDTOS = objectMapper.readValue(response, new TypeReference<MatchesDTO>() {});
-      AccountDTO accountDTO =
-          new AccountDTO(account.getPuuid(), account.getGameName(), account.getTagLine());
-      return new AccountMatchesDTO(accountDTO, matchesDTOS);
-    } catch (JsonProcessingException e) {
-      throw new RuntimeException("Error parsing AccountMatches", e);
-    }
-  }
-
   private Function<Throwable, Mono<? extends String>> handleError() {
-    return e -> Mono.error(new UserNotFoundException("User not found " + e));
+    return e -> {
+      log.error("Error occurred during summoner data fetching: ", e);  // Log detallado de errores
+      return Mono.error(new RuntimeException("User not found " + e));
+    };
   }
 }
