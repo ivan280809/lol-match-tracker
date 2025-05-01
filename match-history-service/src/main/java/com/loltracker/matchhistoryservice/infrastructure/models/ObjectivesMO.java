@@ -15,31 +15,31 @@ import lombok.NoArgsConstructor;
 public class ObjectivesMO {
   @Id @GeneratedValue private Long id;
 
-  @OneToOne
+  @OneToOne(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "baron_id")
   private ObjectiveMO baron;
 
-  @OneToOne
+  @OneToOne(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "champion_id")
   private ObjectiveMO champion;
 
-  @OneToOne
+  @OneToOne(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "dragon_id")
   private ObjectiveMO dragon;
 
-  @OneToOne
+  @OneToOne(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "horde_id")
   private ObjectiveMO horde;
 
-  @OneToOne
+  @OneToOne(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "inhibitor_id")
   private ObjectiveMO inhibitor;
 
-  @OneToOne
+  @OneToOne(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "rift_herald_id")
   private ObjectiveMO riftHerald;
 
-  @OneToOne
+  @OneToOne(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "tower_id")
   private ObjectiveMO tower;
 }

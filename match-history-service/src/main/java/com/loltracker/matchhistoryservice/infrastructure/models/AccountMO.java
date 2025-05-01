@@ -14,9 +14,7 @@ import lombok.NoArgsConstructor;
 @Data
 public class AccountMO {
 
-  @Id
-  @Column(name = "id")
-  private String puuid;
+  @Id private String puuid;
 
   private String gameName;
   private String tagLine;

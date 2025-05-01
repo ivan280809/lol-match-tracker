@@ -17,11 +17,11 @@ public class TeamMO {
 
   @Id @GeneratedValue private Long id;
 
-  @OneToMany
+  @OneToMany(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "team_id")
   private List<BanMO> bans;
 
-  @OneToOne
+  @OneToOne(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "objectives_id")
   private ObjectivesMO objectives;
 

@@ -17,5 +17,6 @@ public class MatchesMO {
 
   @Id @GeneratedValue private Long id;
 
-  @OneToMany private List<MatchMO> matches;
+  @OneToMany(cascade = CascadeType.PERSIST)
+  private List<MatchMO> matches;
 }

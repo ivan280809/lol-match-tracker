@@ -16,7 +16,7 @@ public class PerkStyleMO {
 
   private String description;
 
-  @OneToMany
+  @OneToMany(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "perkStyleSelection_id")
   private List<PerkStyleSelectionMO> selections;
 

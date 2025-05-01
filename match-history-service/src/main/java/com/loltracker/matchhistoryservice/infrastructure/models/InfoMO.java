@@ -29,14 +29,14 @@ public class InfoMO {
   private String gameVersion;
   private int mapId;
 
-  @OneToMany
+  @OneToMany(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "info_id")
   private List<ParticipantMO> participants;
 
   private String platformId;
   private int queueId;
 
-  @OneToMany
+  @OneToMany(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "info_id")
   private List<TeamMO> teams;
 

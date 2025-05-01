@@ -16,11 +16,11 @@ public class MatchMO {
 
   @Id @GeneratedValue private Long id;
 
-  @OneToOne
+  @OneToOne(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "metadata_id")
   private MetadataMO metadata;
 
-  @OneToOne
+  @OneToOne(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "info_id")
   private InfoMO info;
 }

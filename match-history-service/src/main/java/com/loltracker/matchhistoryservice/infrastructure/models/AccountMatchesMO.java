@@ -16,7 +16,7 @@ public class AccountMatchesMO {
   @Id @GeneratedValue private Long id;
 
   @OneToOne(cascade = CascadeType.PERSIST)
-  @JoinColumn(name = "account_id", referencedColumnName = "id")
+  @JoinColumn(name = "account_id", referencedColumnName = "puuid")
   private AccountMO accountMO;
 
   @OneToOne(cascade = CascadeType.PERSIST)

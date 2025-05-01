@@ -29,7 +29,7 @@ public class ParticipantMO {
   private int championTransform;
   private int consumablesPurchased;
 
-  @OneToOne
+  @OneToOne(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "challenges_id")
   private ChallengesMO challenges;
 
@@ -77,7 +77,7 @@ public class ParticipantMO {
   private int magicDamageDealtToChampions;
   private int magicDamageTaken;
 
-  @OneToOne
+  @OneToOne(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "missions_id")
   private MissionsMO missions;
 
@@ -104,7 +104,7 @@ public class ParticipantMO {
   private int playerScore11;
   private int pentaKills;
 
-  @OneToOne
+  @OneToOne(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "perks_id")
   private PerksMO perks;
 

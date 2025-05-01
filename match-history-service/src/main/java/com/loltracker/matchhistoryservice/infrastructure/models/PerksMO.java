@@ -15,11 +15,11 @@ public class PerksMO {
 
   @Id @GeneratedValue private Long id;
 
-  @OneToOne
+  @OneToOne(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "statPerks_id")
   private PerkStatsMO statPerks;
 
-  @OneToMany
+  @OneToMany(cascade = CascadeType.PERSIST)
   @JoinColumn(name = "perkStyle_id")
   private List<PerkStyleMO> styles;
 }

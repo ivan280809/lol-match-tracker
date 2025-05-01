@@ -15,6 +15,7 @@ public class MatchHistoryService {
 
   public void processMatchHistory(AccountMatchesDTO matches) {
     try {
+      log.info(matches.toString());
       accountMatchesRepository.save(AccountMatchesMapper.toEntity(matches));
     } catch (Exception e) {
       log.error("Error saving match history", e);
