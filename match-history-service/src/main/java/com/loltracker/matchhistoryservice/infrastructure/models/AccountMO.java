@@ -18,7 +18,4 @@ public class AccountMO {
 
   private String gameName;
   private String tagLine;
-
-  @OneToOne(mappedBy = "accountMO")
-  private AccountMatchesMO accountMatchesMO;
 }

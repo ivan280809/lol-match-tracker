@@ -10,8 +10,9 @@ public interface AccountMatchesMapper {
 
   static AccountMatchesMO toEntity(AccountMatchesDTO dto) {
     if (dto == null) return null;
+    AccountMO accountMO = toAccountMO(dto.getAccountDTO());
     return AccountMatchesMO.builder()
-        .accountMO(toAccountMO(dto.getAccountDTO()))
+        .accountMO(accountMO)
         .matchesMO(toMatchesMO(dto.getMatchesDTO()))
         .build();
   }

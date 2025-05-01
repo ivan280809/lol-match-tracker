@@ -13,10 +13,11 @@ import lombok.NoArgsConstructor;
 @Builder
 @Data
 public class AccountMatchesMO {
-  @Id @GeneratedValue private Long id;
+  @Id private String puuid;
 
   @OneToOne(cascade = CascadeType.PERSIST)
-  @JoinColumn(name = "account_id", referencedColumnName = "puuid")
+  @MapsId
+  @JoinColumn(name = "puuid")
   private AccountMO accountMO;
 
   @OneToOne(cascade = CascadeType.PERSIST)
