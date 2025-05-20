@@ -54,7 +54,7 @@ public class MatchHistoryService {
                     .stream()
                     .noneMatch(existingMatch -> existingMatch.getMetadata().getMatchId().equals(newMatch.getMetadata().getMatchId()))
     ).toList();
-
+    // TODO: create listener with matchAnalyzerService
     existing.getMatchesMO()
             .getMatches()
             .addAll(newMatches);
