@@ -1,4 +1,4 @@
-package com.loltracker.playerservices.infraestructure.models.account;
+package com.loltracker.playerservices.infrastructure.models.account;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

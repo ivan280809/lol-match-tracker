@@ -1,7 +1,7 @@
-package com.loltracker.playerservices.infraestructure.models;
+package com.loltracker.playerservices.infrastructure.models;
 
-import com.loltracker.playerservices.infraestructure.models.account.AccountDTO;
-import com.loltracker.playerservices.infraestructure.models.matches.MatchesDTO;
+import com.loltracker.playerservices.infrastructure.models.account.AccountDTO;
+import com.loltracker.playerservices.infrastructure.models.matches.MatchesDTO;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

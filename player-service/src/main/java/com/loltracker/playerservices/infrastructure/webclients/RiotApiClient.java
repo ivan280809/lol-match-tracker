@@ -1,4 +1,4 @@
-package com.loltracker.playerservices.infraestructure.webclients;
+package com.loltracker.playerservices.infrastructure.webclients;
 
 import java.time.Duration;
 import java.util.concurrent.Semaphore;
