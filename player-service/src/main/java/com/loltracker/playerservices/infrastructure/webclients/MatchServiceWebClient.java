@@ -17,7 +17,9 @@ public class MatchServiceWebClient {
   }
 
   public Mono<String> putMatches(AccountMatchesDTO accountMatchesDTO) {
-    log.info("Sending account match data for player: {}", accountMatchesDTO.getAccountDTO().getGameName());
+    log.info(
+        "Sending account match data for player: {}",
+        accountMatchesDTO.getAccountDTO().getGameName());
     return webClient
         .post()
         .uri("/match-history/createMatchHistory")

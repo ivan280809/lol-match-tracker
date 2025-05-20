@@ -2,10 +2,14 @@ package com.loltracker.matchhistoryservice.domain.services;
 
 import com.loltracker.matchhistoryservice.controllers.model.AccountMatchesDTO;
 import com.loltracker.matchhistoryservice.domain.mappers.AccountMatchesMapper;
+import com.loltracker.matchhistoryservice.infrastructure.models.AccountMatchesMO;
+import com.loltracker.matchhistoryservice.infrastructure.models.MatchMO;
 import com.loltracker.matchhistoryservice.infrastructure.repositories.AccountMatchesRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 @AllArgsConstructor
@@ -15,12 +19,42 @@ public class MatchHistoryService {
 
   public void processMatchHistory(AccountMatchesDTO matches) {
     try {
-      if (!accountMatchesRepository.findById(matches.getAccountDTO().getPuuid()).isPresent()) {
-        accountMatchesRepository.save(AccountMatchesMapper.toEntity(matches));
-      }
+      processData(matches);
     } catch (Exception e) {
       log.error("Error saving match history", e);
       throw e;
     }
+  }
+
+  public void processData(AccountMatchesDTO matches) {
+    String puuid = matches.getAccountDTO().getPuuid();
+    List<MatchMO> newMatchMos = mapToMatchMos(matches);
+
+    AccountMatchesMO entity = accountMatchesRepository.findById(puuid)
+            .map(existing -> updateExisting(existing, newMatchMos, matches.getAccountDTO().getGameName()))
+            .orElseGet(() -> createNew(matches));
+
+    accountMatchesRepository.save(entity);
+  }
+
+  private List<MatchMO> mapToMatchMos(AccountMatchesDTO matches) {
+    return matches.getMatchesDTO().getMatches()
+            .stream()
+            .map(AccountMatchesMapper::toMatchMO)
+            .toList();
+  }
+
+  private AccountMatchesMO updateExisting(AccountMatchesMO existing,
+                                        List<MatchMO> newMatchMos,
+                                        String gameName) {
+    existing.getMatchesMO()
+            .getMatches()
+            .addAll(newMatchMos);
+    log.info("Player {} matches updated in the database", gameName);
+    return existing;
+  }
+
+  private AccountMatchesMO createNew(AccountMatchesDTO matches) {
+    return AccountMatchesMapper.toEntity(matches);
   }
 }
