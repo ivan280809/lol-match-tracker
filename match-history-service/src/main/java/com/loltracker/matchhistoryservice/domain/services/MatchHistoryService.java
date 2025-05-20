@@ -7,6 +7,7 @@ import com.loltracker.matchhistoryservice.infrastructure.models.MatchMO;
 import com.loltracker.matchhistoryservice.infrastructure.repositories.AccountMatchesRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import lombok.val;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -28,10 +29,10 @@ public class MatchHistoryService {
 
   public void processData(AccountMatchesDTO matches) {
     String puuid = matches.getAccountDTO().getPuuid();
-    List<MatchMO> newMatchMos = mapToMatchMos(matches);
+    List<MatchMO> incomingMatches = mapToMatchMos(matches);
 
     AccountMatchesMO entity = accountMatchesRepository.findById(puuid)
-            .map(existing -> updateExisting(existing, newMatchMos, matches.getAccountDTO().getGameName()))
+            .map(existing -> updateExisting(existing, incomingMatches, matches.getAccountDTO().getGameName()))
             .orElseGet(() -> createNew(matches));
 
     accountMatchesRepository.save(entity);
@@ -45,11 +46,18 @@ public class MatchHistoryService {
   }
 
   private AccountMatchesMO updateExisting(AccountMatchesMO existing,
-                                        List<MatchMO> newMatchMos,
+                                        List<MatchMO> incomingMatches,
                                         String gameName) {
+
+    List<MatchMO> newMatches = incomingMatches.stream().filter(
+            newMatch -> existing.getMatchesMO().getMatches()
+                    .stream()
+                    .noneMatch(existingMatch -> existingMatch.getMetadata().getMatchId().equals(newMatch.getMetadata().getMatchId()))
+    ).toList();
+
     existing.getMatchesMO()
             .getMatches()
-            .addAll(newMatchMos);
+            .addAll(newMatches);
     log.info("Player {} matches updated in the database", gameName);
     return existing;
   }
