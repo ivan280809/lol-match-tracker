@@ -11,6 +11,7 @@ import com.loltracker.playerservices.infrastructure.models.matches.MatchesDTO;
 import com.loltracker.playerservices.infrastructure.webclients.MatchServiceWebClient;
 import com.loltracker.playerservices.infrastructure.webclients.RiotApiClient;
 import java.io.InputStream;
+import java.time.Duration;
 import java.util.List;
 import java.util.function.Function;
 import lombok.AllArgsConstructor;
@@ -39,22 +40,31 @@ public class PlayerDataService {
   }
 
   public void refreshPlayerData() {
-    for (PlayerJson player : players) {
-      getSummonerData(player.getSummonerName(), player.getTagLine())
-          .doOnSubscribe(
-              s -> log.info("Subscribed to getSummonerData for {}", player.getSummonerName()))
-          .doOnNext(r -> log.info("putMatches OK -> {}", r))
-          .doOnError(e -> log.error("putMatches FAILED", e))
-          .subscribe(
-              result ->
-                  System.out.println("Summoner data refreshed for " + player.getSummonerName()),
-              error ->
-                  System.err.println(
-                      "Error refreshing data for "
-                          + player.getSummonerName()
-                          + ": "
-                          + error.getMessage()));
-    }
+    Flux.fromIterable(players)
+        .concatMap(
+            player ->
+                getSummonerData(player.getSummonerName(), player.getTagLine())
+                    .doOnSubscribe(
+                        s ->
+                            log.info(
+                                "Subscribed to getSummonerData for {}", player.getSummonerName()))
+                    .doOnNext(r -> log.info("putMatches OK -> {}", r))
+                    .doOnError(e -> log.error("putMatches FAILED", e))
+                    .doOnSuccess(
+                        result ->
+                            System.out.println(
+                                "Summoner data refreshed for " + player.getSummonerName()))
+                    .onErrorResume(
+                        error -> {
+                          System.err.println(
+                              "Error refreshing data for "
+                                  + player.getSummonerName()
+                                  + ": "
+                                  + error.getMessage());
+                          return Mono.empty();
+                        })
+                    .delaySubscription(Duration.ofSeconds(20)))
+        .subscribe();
   }
 
   public Mono<String> getSummonerData(String summonerName, String tagLine) {

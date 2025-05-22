@@ -1,21 +1,31 @@
 version: '3.8'
 services:
-  postgres:
-    image: postgres:16
-    container_name: my_postgres_db
+  db:
+    image: postgres:15
+    container_name: postgres-micro
+    restart: always
     environment:
-      POSTGRES_DB: mydatabase
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: micros
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - my_network
+      - pgdata:/var/lib/postgresql/data
+
+  match-history-service:
+    build:
+      context: ../../../../
+    depends_on:
+      - db
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: match_history
+      DB_USER: postgres
+      DB_PASSWORD: admin
+    ports:
+      - "8080:8080"
 
 volumes:
-  postgres_data:
-
-networks:
-  my_network:
+  pgdata:

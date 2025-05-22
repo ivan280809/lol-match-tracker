@@ -10,13 +10,14 @@ import org.springframework.stereotype.Service;
 public class MatchAnalyzerService {
 
   private final MatchNotificationService matchNotificationService;
+  private final MatchMessageBuilder matchMessageBuilder;
 
   public void analyzeMatches(String gameName, List<MatchMO> newMatches) {
-    newMatches.forEach(
-        match -> {
-          String endOfGameResult = match.getInfo().getEndOfGameResult();
-          String gameMode = match.getInfo().getGameMode();
-          matchNotificationService.notifyMatchHistory(gameName, endOfGameResult, gameMode);
-        });
+    newMatches.forEach(match -> processNewMatches(match, gameName));
+  }
+
+  private void processNewMatches(MatchMO match, String gameName) {
+    String message = matchMessageBuilder.buildMatchMessage(match, gameName);
+    matchNotificationService.notifyMatchHistory(message);
   }
 }

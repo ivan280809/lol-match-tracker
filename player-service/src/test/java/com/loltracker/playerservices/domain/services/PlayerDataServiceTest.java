@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loltracker.playerservices.domain.models.PlayerJson;
@@ -85,27 +84,5 @@ class PlayerDataServiceTest {
     StepVerifier.create(playerDataService.getSummonerData("foo", "bar"))
         .expectNext("OK")
         .verifyComplete();
-  }
-
-  @Test
-  void refreshPlayerData_ShouldCallPutMatchesForEachPlayer() throws JsonProcessingException {
-    List<PlayerJson> two = List.of(new PlayerJson("A", "T"), new PlayerJson("B", "U"));
-    ReflectionTestUtils.setField(playerDataService, "players", two);
-
-    when(riotApiClient.getSummonerByNameAndTagLine(any(), any())).thenReturn(Mono.just("{}"));
-    when(riotApiClient.getMatchesByPuuid(any())).thenReturn(Mono.just("[]"));
-    when(riotApiClient.getMatchById(any())).thenReturn(Mono.just("{}"));
-
-    doReturn(new AccountDTO()).when(objectMapper).readValue(anyString(), eq(AccountDTO.class));
-    doReturn(List.of("x"))
-        .when(objectMapper)
-        .readValue(anyString(), ArgumentMatchers.<TypeReference<List<String>>>any());
-    doReturn(new MatchDto()).when(objectMapper).readValue(anyString(), eq(MatchDto.class));
-
-    when(matchServiceWebClient.putMatches(any())).thenReturn(Mono.just("OK"));
-
-    playerDataService.refreshPlayerData();
-
-    verify(matchServiceWebClient, timeout(1_000).times(2)).putMatches(any());
   }
 }

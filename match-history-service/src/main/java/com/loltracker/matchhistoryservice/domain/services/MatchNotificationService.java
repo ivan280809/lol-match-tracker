@@ -11,12 +11,7 @@ public class MatchNotificationService {
 
   private final WebClient.Builder webClientBuilder;
 
-  public void notifyMatchHistory(String gameName, String endOfGameResult, String gameMode) {
-    String message =
-        String.format(
-            "Game Name: %s\nEnd of Game Result: %s\nGame Mode: %s",
-            gameName, endOfGameResult, gameMode);
-
+  public void notifyMatchHistory(String message) {
     String url = "http://localhost:8083/notification";
     webClientBuilder
         .build()
@@ -25,9 +20,8 @@ public class MatchNotificationService {
         .bodyValue(Map.of("text", message))
         .retrieve()
         .bodyToMono(String.class)
+        .doOnSuccess(response -> System.out.println("Notification sent successfully: " + response))
         .doOnError(Throwable::printStackTrace)
         .subscribe();
-
-    System.out.println("Notification sent: " + message);
   }
 }

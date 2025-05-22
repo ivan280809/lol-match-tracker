@@ -79,7 +79,8 @@ public class MatchHistoryService {
 
   private AccountMatchesMO createNew(AccountMatchesDTO matches) {
     AccountMatchesMO entity = AccountMatchesMapper.toEntity(matches);
-    matchAnalyzerService.analyzeMatches(entity.getAccountMO().getGameName(), entity.getMatchesMO().getMatches());
+    matchAnalyzerService.analyzeMatches(
+        entity.getAccountMO().getGameName(), entity.getMatchesMO().getMatches());
     return accountMatchesRepository.save(entity);
   }
 }
