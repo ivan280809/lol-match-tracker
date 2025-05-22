@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class MatchHistoryService {
   private final AccountMatchesRepository accountMatchesRepository;
+  private final MatchAnalyzerService matchAnalyzerService;
 
   public void processMatchHistory(AccountMatchesDTO matches) {
     try {
@@ -25,20 +26,11 @@ public class MatchHistoryService {
     }
   }
 
-  public void processData(AccountMatchesDTO matches) {
-    String puuid = matches.getAccountDTO().getPuuid();
-    List<MatchMO> incomingMatches = mapToMatchMos(matches);
-
-    AccountMatchesMO entity =
-        accountMatchesRepository
-            .findById(puuid)
-            .map(
-                existing ->
-                    updateExisting(
-                        existing, incomingMatches, matches.getAccountDTO().getGameName()))
-            .orElseGet(() -> createNew(matches));
-
-    accountMatchesRepository.save(entity);
+  private void processData(AccountMatchesDTO matches) {
+    accountMatchesRepository
+        .findById(matches.getAccountDTO().getPuuid())
+        .map(existing -> updateExisting(existing, matches))
+        .orElseGet(() -> createNew(matches));
   }
 
   private List<MatchMO> mapToMatchMos(AccountMatchesDTO matches) {
@@ -47,28 +39,43 @@ public class MatchHistoryService {
         .toList();
   }
 
-  private AccountMatchesMO updateExisting(
-      AccountMatchesMO existing, List<MatchMO> incomingMatches, String gameName) {
+  private AccountMatchesMO updateExisting(AccountMatchesMO existing, AccountMatchesDTO matches) {
 
-    List<MatchMO> newMatches =
-        incomingMatches.stream()
-            .filter(
-                newMatch ->
-                    existing.getMatchesMO().getMatches().stream()
-                        .noneMatch(
-                            existingMatch ->
-                                existingMatch
-                                    .getMetadata()
-                                    .getMatchId()
-                                    .equals(newMatch.getMetadata().getMatchId())))
-            .toList();
-    // TODO: create listener with matchAnalyzerService
+    String gameName = matches.getAccountDTO().getGameName();
+    List<MatchMO> incomingMatches = mapToMatchMos(matches);
+
+    List<MatchMO> newMatches = getNewMatches(existing, incomingMatches);
+
+    if (newMatches.isEmpty()) {
+      log.info("No new matches to update for player {}", gameName);
+      return existing;
+    }
+    return processNewMatches(existing, newMatches, gameName);
+  }
+
+  private AccountMatchesMO processNewMatches(
+      AccountMatchesMO existing, List<MatchMO> newMatches, String gameName) {
+    matchAnalyzerService.analyzeMatches(gameName, newMatches);
     existing.getMatchesMO().getMatches().addAll(newMatches);
     log.info("Player {} matches updated in the database", gameName);
-    return existing;
+    return accountMatchesRepository.save(existing);
+  }
+
+  private List<MatchMO> getNewMatches(AccountMatchesMO existing, List<MatchMO> incomingMatches) {
+    return incomingMatches.stream()
+        .filter(
+            newMatch ->
+                existing.getMatchesMO().getMatches().stream()
+                    .noneMatch(
+                        existingMatch ->
+                            existingMatch
+                                .getMetadata()
+                                .getMatchId()
+                                .equals(newMatch.getMetadata().getMatchId())))
+        .toList();
   }
 
   private AccountMatchesMO createNew(AccountMatchesDTO matches) {
-    return AccountMatchesMapper.toEntity(matches);
+    return accountMatchesRepository.save(AccountMatchesMapper.toEntity(matches));
   }
 }
