@@ -16,7 +16,7 @@ public class RiotApiClient {
 
   private final WebClient webClient;
   private final Semaphore rateLimiter;
-  private static final int PERMITS = 10;
+  private static final int PERMITS = 5;
 
   public RiotApiClient(
       @Value("${riot.api.key}") String apiKey, @Value("${riot.api.base-url}") String baseUrl) {
@@ -29,13 +29,13 @@ public class RiotApiClient {
     Schedulers.parallel()
         .schedulePeriodically(
             () -> {
-              int permitsToRelease = 10 - rateLimiter.availablePermits();
+              int permitsToRelease = 5 - rateLimiter.availablePermits();
               if (permitsToRelease > 0) {
                 rateLimiter.release(permitsToRelease);
               }
             },
             0,
-            10,
+            50,
             TimeUnit.MILLISECONDS);
   }
 

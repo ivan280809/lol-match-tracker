@@ -9,6 +9,7 @@ import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @AllArgsConstructor
@@ -17,6 +18,7 @@ public class MatchHistoryService {
   private final AccountMatchesRepository accountMatchesRepository;
   private final MatchAnalyzerService matchAnalyzerService;
 
+  @Transactional
   public void processMatchHistory(AccountMatchesDTO matches) {
     try {
       processData(matches);
@@ -33,12 +35,6 @@ public class MatchHistoryService {
         .orElseGet(() -> createNew(matches));
   }
 
-  private List<MatchMO> mapToMatchMos(AccountMatchesDTO matches) {
-    return matches.getMatchesDTO().getMatches().stream()
-        .map(AccountMatchesMapper::toMatchMO)
-        .toList();
-  }
-
   private AccountMatchesMO updateExisting(AccountMatchesMO existing, AccountMatchesDTO matches) {
 
     String gameName = matches.getAccountDTO().getGameName();
@@ -53,12 +49,10 @@ public class MatchHistoryService {
     return processNewMatches(existing, newMatches, gameName);
   }
 
-  private AccountMatchesMO processNewMatches(
-      AccountMatchesMO existing, List<MatchMO> newMatches, String gameName) {
-    matchAnalyzerService.analyzeMatches(gameName, newMatches);
-    existing.getMatchesMO().getMatches().addAll(newMatches);
-    log.info("Player {} matches updated in the database", gameName);
-    return accountMatchesRepository.save(existing);
+  private List<MatchMO> mapToMatchMos(AccountMatchesDTO matches) {
+    return matches.getMatchesDTO().getMatches().stream()
+        .map(AccountMatchesMapper::toMatchMO)
+        .toList();
   }
 
   private List<MatchMO> getNewMatches(AccountMatchesMO existing, List<MatchMO> incomingMatches) {
@@ -75,7 +69,17 @@ public class MatchHistoryService {
         .toList();
   }
 
+  private AccountMatchesMO processNewMatches(
+      AccountMatchesMO existing, List<MatchMO> newMatches, String gameName) {
+    matchAnalyzerService.analyzeMatches(gameName, newMatches);
+    existing.getMatchesMO().getMatches().addAll(newMatches);
+    log.info("Player {} matches updated in the database", gameName);
+    return accountMatchesRepository.save(existing);
+  }
+
   private AccountMatchesMO createNew(AccountMatchesDTO matches) {
-    return accountMatchesRepository.save(AccountMatchesMapper.toEntity(matches));
+    AccountMatchesMO entity = AccountMatchesMapper.toEntity(matches);
+    matchAnalyzerService.analyzeMatches(entity.getAccountMO().getGameName(), entity.getMatchesMO().getMatches());
+    return accountMatchesRepository.save(entity);
   }
 }
