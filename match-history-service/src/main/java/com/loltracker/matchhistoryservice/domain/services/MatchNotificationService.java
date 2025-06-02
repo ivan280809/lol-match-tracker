@@ -2,6 +2,7 @@ package com.loltracker.matchhistoryservice.domain.services;
 
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -11,12 +12,14 @@ public class MatchNotificationService {
 
   private final WebClient.Builder webClientBuilder;
 
+  @Value("${notification.service.url}")
+  private String notificationServiceUrl;
+
   public void notifyMatchHistory(String message) {
-    String url = "http://localhost:8083/notification";
     webClientBuilder
         .build()
         .post()
-        .uri(url)
+        .uri(notificationServiceUrl)
         .bodyValue(Map.of("text", message))
         .retrieve()
         .bodyToMono(String.class)

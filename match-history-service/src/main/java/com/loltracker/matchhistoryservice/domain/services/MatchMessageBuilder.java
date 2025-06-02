@@ -2,7 +2,6 @@ package com.loltracker.matchhistoryservice.domain.services;
 
 import com.loltracker.matchhistoryservice.infrastructure.models.MatchMO;
 import com.loltracker.matchhistoryservice.infrastructure.models.ParticipantMO;
-
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -49,8 +48,8 @@ public class MatchMessageBuilder {
   private String getEndTime(MatchMO match) {
     long timestampMillis = match.getInfo().getGameEndTimestamp();
 
-    ZonedDateTime dateTimeInSpain = Instant.ofEpochMilli(timestampMillis)
-            .atZone(ZoneId.of("Europe/Madrid"));
+    ZonedDateTime dateTimeInSpain =
+        Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.of("Europe/Madrid"));
 
     return dateTimeInSpain.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss"));
   }

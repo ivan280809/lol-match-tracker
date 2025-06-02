@@ -1,24 +1,20 @@
 package com.loltracker.playerservices.domain.services;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loltracker.playerservices.domain.models.PlayerJson;
 import com.loltracker.playerservices.infrastructure.models.account.AccountDTO;
 import com.loltracker.playerservices.infrastructure.models.matches.MatchDto;
 import com.loltracker.playerservices.infrastructure.webclients.MatchServiceWebClient;
 import com.loltracker.playerservices.infrastructure.webclients.RiotApiClient;
-import java.util.Collections;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -35,28 +31,15 @@ class PlayerDataServiceTest {
 
   @BeforeEach
   void setUp() {
-    playerDataService =
-        new PlayerDataService(
-            riotApiClient, matchServiceWebClient, objectMapper, Collections.emptyList());
+    playerDataService = new PlayerDataService(riotApiClient, matchServiceWebClient, objectMapper);
   }
 
   @Test
   void loadPlayers_ShouldLoadNonEmptyList() {
     ObjectMapper realMapper = new ObjectMapper();
-    playerDataService =
-        new PlayerDataService(
-            riotApiClient, matchServiceWebClient, realMapper, Collections.emptyList());
+    playerDataService = new PlayerDataService(riotApiClient, matchServiceWebClient, realMapper);
 
-    playerDataService.loadPlayers();
-
-    @SuppressWarnings("unchecked")
-    List<PlayerJson> loaded =
-        (List<PlayerJson>) ReflectionTestUtils.getField(playerDataService, "players");
-
-    assertThat(loaded)
-        .as("Debe cargar al menos un PlayerJson desde players.json")
-        .isNotNull()
-        .isNotEmpty();
+    playerDataService.refreshPlayerData();
   }
 
   @Test
@@ -70,6 +53,7 @@ class PlayerDataServiceTest {
     when(riotApiClient.getMatchesByPuuid(anyString())).thenReturn(Mono.just(matchIdsJson));
     when(riotApiClient.getMatchById(anyString())).thenReturn(Mono.just(matchJson));
     when(matchServiceWebClient.putMatches(any())).thenReturn(Mono.just("OK"));
+    when(matchServiceWebClient.matchExists(anyString(), anyString())).thenReturn(Mono.just(false));
 
     AccountDTO acct = new AccountDTO();
     acct.setPuuid("puuid-123");
@@ -81,7 +65,7 @@ class PlayerDataServiceTest {
 
     doReturn(new MatchDto()).when(objectMapper).readValue(eq(matchJson), eq(MatchDto.class));
 
-    StepVerifier.create(playerDataService.getSummonerData("foo", "bar"))
+    StepVerifier.create(playerDataService.fetchAccountAndStoreMatches("foo", "bar"))
         .expectNext("OK")
         .verifyComplete();
   }

@@ -13,7 +13,6 @@ import com.loltracker.playerservices.infrastructure.webclients.RiotApiClient;
 import java.io.InputStream;
 import java.time.Duration;
 import java.util.List;
-import java.util.function.Function;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,100 +27,85 @@ public class PlayerDataService {
   private final RiotApiClient riotApiClient;
   private final MatchServiceWebClient matchServiceWebClient;
   private final ObjectMapper objectMapper;
-  private List<PlayerJson> players;
 
-  public void loadPlayers() {
+  public void refreshPlayerData() {
+    loadPlayers().concatMap(this::refreshDataForPlayer).subscribe();
+  }
+
+  private Flux<PlayerJson> loadPlayers() {
     try {
       InputStream inputStream = getClass().getClassLoader().getResourceAsStream("players.json");
-      players = objectMapper.readValue(inputStream, new TypeReference<List<PlayerJson>>() {});
+      List<PlayerJson> players = objectMapper.readValue(inputStream, new TypeReference<>() {});
+      return Flux.fromIterable(players);
     } catch (Exception e) {
-      throw new RuntimeException("Failed to load players.json", e);
+      log.error("Failed to load players.json", e);
+      return Flux.error(new RuntimeException("Failed to load players.json", e));
     }
   }
 
-  public void refreshPlayerData() {
-    Flux.fromIterable(players)
-        .concatMap(
-            player ->
-                getSummonerData(player.getSummonerName(), player.getTagLine())
-                    .doOnSubscribe(
-                        s ->
-                            log.info(
-                                "Subscribed to getSummonerData for {}", player.getSummonerName()))
-                    .doOnNext(r -> log.info("putMatches OK -> {}", r))
-                    .doOnError(e -> log.error("putMatches FAILED", e))
-                    .doOnSuccess(
-                        result ->
-                            System.out.println(
-                                "Summoner data refreshed for " + player.getSummonerName()))
-                    .onErrorResume(
-                        error -> {
-                          System.err.println(
-                              "Error refreshing data for "
-                                  + player.getSummonerName()
-                                  + ": "
-                                  + error.getMessage());
-                          return Mono.empty();
-                        })
-                    .delaySubscription(Duration.ofSeconds(20)))
-        .subscribe();
+  private Mono<Void> refreshDataForPlayer(PlayerJson player) {
+    return fetchAccountAndStoreMatches(player.getSummonerName(), player.getTagLine())
+        .doOnSubscribe(s -> log.info("Fetching data for {}", player.getSummonerName()))
+        .doOnNext(r -> log.info("putMatches OK -> {}", r))
+        .doOnError(e -> log.error("putMatches FAILED for {}", player.getSummonerName(), e))
+        .doOnSuccess(r -> log.info("Data refreshed for {}", player.getSummonerName()))
+        .onErrorResume(
+            e -> {
+              log.warn("Skipping {}: {}", player.getSummonerName(), e.getMessage());
+              return Mono.empty();
+            })
+        .delaySubscription(Duration.ofSeconds(20))
+        .then();
   }
 
-  public Mono<String> getSummonerData(String summonerName, String tagLine) {
+  Mono<String> fetchAccountAndStoreMatches(String summonerName, String tagLine) {
     return riotApiClient
         .getSummonerByNameAndTagLine(summonerName, tagLine)
-        .flatMap(handleSummonerDetails())
-        .onErrorResume(handleError());
+        .flatMap(this::parseAndStoreAccountMatches)
+        .onErrorResume(this::handleSummonerError);
   }
 
-  private Function<String, Mono<? extends String>> handleSummonerDetails() {
-    return response -> {
-      try {
-        return processUser(response);
-      } catch (JsonProcessingException e) {
-        return Mono.error(e);
-      }
-    };
-  }
-
-  private Mono<String> processUser(String response) throws JsonProcessingException {
-    AccountDTO accountDTO = objectMapper.readValue(response, AccountDTO.class);
-    return getMatchesByPuuid(accountDTO)
-        .map(matchesDTO -> new AccountMatchesDTO(accountDTO, matchesDTO))
-        .flatMap(matchServiceWebClient::putMatches);
-  }
-
-  private Mono<MatchesDTO> getMatchesByPuuid(AccountDTO accountDTO) {
-    return riotApiClient.getMatchesByPuuid(accountDTO.getPuuid()).flatMap(this::parseMatches);
-  }
-
-  private Mono<MatchesDTO> parseMatches(String response) {
+  private Mono<String> parseAndStoreAccountMatches(String response) {
     try {
-      List<String> matchIds =
-          objectMapper.readValue(response, new TypeReference<List<String>>() {});
+      AccountDTO account = objectMapper.readValue(response, AccountDTO.class);
+      return getFilteredMatchesForAccount(account)
+          .map(matches -> new AccountMatchesDTO(account, matches))
+          .flatMap(matchServiceWebClient::putMatches);
+    } catch (JsonProcessingException e) {
+      return Mono.error(new RuntimeException("Failed to parse account response", e));
+    }
+  }
+
+  private Mono<MatchesDTO> getFilteredMatchesForAccount(AccountDTO account) {
+    return riotApiClient
+        .getMatchesByPuuid(account.getPuuid())
+        .flatMap(matchesJson -> filterAndParseMatches(matchesJson, account.getPuuid()));
+  }
+
+  private Mono<MatchesDTO> filterAndParseMatches(String matchesJson, String puuid) {
+    try {
+      List<String> matchIds = objectMapper.readValue(matchesJson, new TypeReference<>() {});
       return Flux.fromIterable(matchIds)
-          .flatMap(matchId -> riotApiClient.getMatchById(matchId).map(parseMatch()), 1)
+          .filterWhen(
+              matchId -> matchServiceWebClient.matchExists(puuid, matchId).map(exists -> !exists))
+          .flatMap(matchId -> riotApiClient.getMatchById(matchId).map(this::toMatchDto), 1)
           .collectList()
           .map(MatchesDTO::new);
     } catch (JsonProcessingException e) {
-      return Mono.error(new RuntimeException("Error parsing MatchesIds", e));
+      return Mono.error(new RuntimeException("Error parsing match IDs", e));
     }
   }
 
-  private Function<String, MatchDto> parseMatch() {
-    return match -> {
-      try {
-        return objectMapper.readValue(match, MatchDto.class);
-      } catch (JsonProcessingException e) {
-        throw new RuntimeException("Error parsing Match", e);
-      }
-    };
+  private MatchDto toMatchDto(String matchJson) {
+    try {
+      return objectMapper.readValue(matchJson, MatchDto.class);
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException("Failed to parse match JSON", e);
+    }
   }
 
-  private Function<Throwable, Mono<? extends String>> handleError() {
-    return e -> {
-      log.error("Error occurred during summoner data fetching: ", e);
-      return Mono.error(new RuntimeException("User not found " + e));
-    };
+  private Mono<String> handleSummonerError(Throwable e) {
+    log.error("Error occurred during summoner data fetching", e);
+    return Mono.error(new RuntimeException("Summoner data fetch failed", e));
   }
 }

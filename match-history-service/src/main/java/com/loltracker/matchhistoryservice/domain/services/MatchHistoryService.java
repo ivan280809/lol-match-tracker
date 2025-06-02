@@ -10,6 +10,7 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Mono;
 
 @Service
 @AllArgsConstructor
@@ -82,5 +83,26 @@ public class MatchHistoryService {
     matchAnalyzerService.analyzeMatches(
         entity.getAccountMO().getGameName(), entity.getMatchesMO().getMatches());
     return accountMatchesRepository.save(entity);
+  }
+
+  public Mono<Boolean> matchExists(String puuid, String matchId) {
+    return Mono.fromCallable(() -> accountMatchesRepository.findById(puuid))
+        .map(
+            optionalAccountMatches ->
+                optionalAccountMatches
+                    .map(
+                        accountMatches ->
+                            accountMatches.getMatchesMO().getMatches().stream()
+                                .anyMatch(
+                                    match -> match.getMetadata().getMatchId().equals(matchId)))
+                    .orElse(false))
+        .doOnNext(
+            exists -> {
+              if (exists) {
+                log.info("Match with ID {} exists for player {}", matchId, puuid);
+              } else {
+                log.info("No match with ID {} found for player {}", matchId, puuid);
+              }
+            });
   }
 }

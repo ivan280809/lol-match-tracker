@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-import reactor.core.publisher.Mono;
 import reactor.test.scheduler.VirtualTimeScheduler;
 
 @ExtendWith(SpringExtension.class)
@@ -28,8 +27,6 @@ class PlayerServiceUseCaseTest {
   @Test
   void loadPlayers() {
     playerServiceUseCase.loadPlayers();
-
-    verify(playerDataService).loadPlayers();
     verify(playerDataService).refreshPlayerData();
   }
 
@@ -44,18 +41,5 @@ class PlayerServiceUseCaseTest {
     VirtualTimeScheduler.get().advanceTimeBy(Duration.ofMinutes(5));
 
     verify(playerDataService, atLeastOnce()).refreshPlayerData();
-  }
-
-  @Test
-  void getSummonerData() {
-    String name = "Foo";
-    String tag = "Bar";
-    Mono<String> expected = Mono.just("datos");
-    when(playerDataService.getSummonerData(name, tag)).thenReturn(expected);
-
-    Mono<String> result = playerServiceUseCase.getSummonerData(name, tag);
-
-    assertSame(expected, result);
-    verify(playerDataService).getSummonerData(name, tag);
   }
 }

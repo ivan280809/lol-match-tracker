@@ -14,8 +14,14 @@ public class MatchHistoryController {
   private final MatchHistoryUseCase matchHistoryUseCase;
 
   @PostMapping("/createMatchHistory")
-  public Mono<String> getMatchHistory(@RequestBody AccountMatchesDTO matches) {
+  public Mono<String> processMatches(@RequestBody AccountMatchesDTO matches) {
     matchHistoryUseCase.processMatchHistory(matches);
     return Mono.just(matches.getAccountDTO().getGameName());
+  }
+
+  @GetMapping("/puuid/{puuid}/matchId/{matchId}/exists")
+  public Mono<Boolean> matchExists(
+      @PathVariable("puuid") String puuid, @PathVariable("matchId") String matchId) {
+    return matchHistoryUseCase.matchExists(puuid, matchId);
   }
 }

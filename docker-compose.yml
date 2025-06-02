@@ -1,0 +1,32 @@
+version: '3.8'
+services:
+  match-history-service:
+    image: ivan2808/match-history-service:latest
+    environment:
+      - DB_HOST=postgres-micro
+      - DB_PORT=5432
+      - DB_NAME=micros
+      - DB_USER=postgres
+      - DB_PASSWORD=admin
+    depends_on:
+      - postgres-micro
+  player-services:
+    image: ivan2808/player-service:latest
+    environment:
+      - RIOT_API_KEY=RGAPI-dae27e7c-22e2-4885-a539-78a42397d1fe
+      - RIOT_API_BASE_URL=https://europe.api.riotgames.com/
+  notification-service:
+    image: ivan2808/notification-service:latest
+    environment:
+      - TELEGRAM_BOT_TOKEN=7364236493:AAEopWXmdGjNI7_PrUuGUnoL1F5HbfiV-Rw
+      - TELEGRAM_CHAT_ID=258805266
+  postgres-micro:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=micros
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=admin
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

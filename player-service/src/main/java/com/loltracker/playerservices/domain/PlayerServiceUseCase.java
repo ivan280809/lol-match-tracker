@@ -18,7 +18,6 @@ public class PlayerServiceUseCase {
 
   @PostConstruct
   public void loadPlayers() {
-    playerDataService.loadPlayers();
     refreshPlayerData();
   }
 
@@ -31,9 +30,5 @@ public class PlayerServiceUseCase {
 
   private void refreshPlayerData() {
     playerDataService.refreshPlayerData();
-  }
-
-  public Mono<String> getSummonerData(String summonerName, String tagLine) {
-    return playerDataService.getSummonerData(summonerName, tagLine);
   }
 }
