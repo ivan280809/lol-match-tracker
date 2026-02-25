@@ -3,8 +3,6 @@ package com.loltracker.playerservices.domain.services;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loltracker.playerservices.domain.ports.out.MatchHistoryPort;
 import com.loltracker.playerservices.domain.ports.out.RiotApiPort;
 import com.loltracker.playerservices.infrastructure.models.account.AccountDTO;
@@ -17,6 +15,8 @@ import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
 class PlayerDataServiceTest {

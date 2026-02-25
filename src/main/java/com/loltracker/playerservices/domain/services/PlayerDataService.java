@@ -1,8 +1,6 @@
 package com.loltracker.playerservices.domain.services;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.loltracker.playerservices.domain.models.PlayerJson;
 import com.loltracker.playerservices.domain.ports.out.MatchHistoryPort;
 import com.loltracker.playerservices.domain.ports.out.RiotApiPort;
@@ -18,6 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 @AllArgsConstructor
@@ -71,7 +71,7 @@ public class PlayerDataService {
       return getFilteredMatchesForAccount(account)
           .map(matches -> new AccountMatchesDTO(account, matches))
           .flatMap(matchHistoryPort::putMatches);
-    } catch (JsonProcessingException e) {
+    } catch (Exception e) {
       return Mono.error(new RuntimeException("Failed to parse account response", e));
     }
   }
@@ -91,7 +91,7 @@ public class PlayerDataService {
           .flatMap(matchId -> riotApiPort.getMatchById(matchId).map(this::toMatchDto), 1)
           .collectList()
           .map(MatchesDTO::new);
-    } catch (JsonProcessingException e) {
+    } catch (Exception e) {
       return Mono.error(new RuntimeException("Error parsing match IDs", e));
     }
   }
@@ -99,7 +99,7 @@ public class PlayerDataService {
   private MatchDto toMatchDto(String matchJson) {
     try {
       return objectMapper.readValue(matchJson, MatchDto.class);
-    } catch (JsonProcessingException e) {
+    } catch (Exception e) {
       throw new RuntimeException("Failed to parse match JSON", e);
     }
   }
