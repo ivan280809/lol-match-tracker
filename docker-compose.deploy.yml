@@ -1,0 +1,40 @@
+services:
+  lol-match-tracker:
+    image: ${APP_IMAGE:-ghcr.io/ivan280809/lol-match-tracker:latest}
+    environment:
+      SERVER_PORT: 8080
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-micros}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-admin}
+      RIOT_API_KEY: ${RIOT_API_KEY}
+      RIOT_API_BASE_URL: ${RIOT_API_BASE_URL:-https://europe.api.riotgames.com/}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+      APP_POLL_FIXED_DELAY: ${APP_POLL_FIXED_DELAY:-PT5M}
+      APP_POLL_INITIAL_DELAY: ${APP_POLL_INITIAL_DELAY:-PT30S}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ${DB_NAME:-micros}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-admin}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:
