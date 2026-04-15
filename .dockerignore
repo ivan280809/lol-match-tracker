@@ -1,0 +1,11 @@
+.git
+.idea
+.mvn
+target
+.env
+.env.*
+!.env.example
+docs
+project-agents
+AGENTS.md
+*.log
