@@ -37,6 +37,7 @@ Importante:
 
 - si el paquete de `GHCR` es privado, en el otro equipo tendras que hacer `docker login ghcr.io`
 - si lo marcas como publico en GitHub Packages, no necesitara login para descargar la imagen
+- GitHub no me ha dejado automatizar ese cambio de visibilidad desde Actions: hazlo en la pagina del paquete, `Package settings` -> `Danger Zone` -> `Change visibility` -> `Public`
 
 ### Opcion 3: usar un fichero de secretos en otra ruta para build local
 
