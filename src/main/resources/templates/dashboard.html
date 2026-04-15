@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LOL Match Tracker</title>
+  <style>
+    :root { --bg: #f5efe3; --panel: #fffaf1; --line: #d8c8aa; --text: #1f2a30; --accent: #0b6e4f; --accent-soft: #d8efe4; --danger: #9f2a2a; --danger-soft: #f3d5d5; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Georgia, "Times New Roman", serif; color: var(--text); background: radial-gradient(circle at top left, #efe2c4 0, transparent 25%), linear-gradient(135deg, #f6f0e5, #efe5d0); }
+    .page { width: min(1180px, calc(100% - 32px)); margin: 24px auto 40px; }
+    .hero, .card { background: var(--panel); border: 1px solid var(--line); border-radius: 20px; padding: 20px; box-shadow: 0 18px 50px rgba(63, 49, 26, 0.08); }
+    .hero { margin-bottom: 20px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #eadfc7; vertical-align: top; }
+    .kpi { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+    .pill { padding: 10px 14px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: bold; }
+    .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 12px; }
+    input[type="text"] { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #fff; font: inherit; }
+    button { border: 0; border-radius: 12px; padding: 10px 14px; background: var(--accent); color: white; font: inherit; cursor: pointer; }
+    .button-secondary { background: #866c42; }
+    .message { padding: 12px 14px; border-radius: 12px; margin-bottom: 16px; }
+    .success { background: var(--accent-soft); color: var(--accent); }
+    .error { background: var(--danger-soft); color: var(--danger); }
+  </style>
+</head>
+<body>
+<div class="page">
+  <section class="hero">
+    <h1>LOL Match Tracker</h1>
+    <p>Gestiona jugadores, revisa actividad reciente y lanza el polling manual.</p>
+    <div class="kpi">
+      <div class="pill" th:text="'Jugadores: ' + ${dashboard.totalPlayers}"></div>
+      <div class="pill" th:text="'Partidas: ' + ${dashboard.totalMatches}"></div>
+    </div>
+  </section>
+  <div th:if="${successMessage}" class="message success" th:text="${successMessage}"></div>
+  <div th:if="${errorMessage}" class="message error" th:text="${errorMessage}"></div>
+  <div class="grid">
+    <section class="card">
+      <h2>Nuevo jugador</h2>
+      <form th:action="@{/players}" method="post" th:object="${playerForm}">
+        <div class="form-row">
+          <label>Nombre<input type="text" th:field="*{gameName}" placeholder="Summoner name"></label>
+          <label>Tag<input type="text" th:field="*{tagLine}" placeholder="EUW"></label>
+        </div>
+        <label><input type="checkbox" th:field="*{active}"> Activo</label>
+        <div style="margin-top: 12px;"><button type="submit">Guardar jugador</button></div>
+      </form>
+    </section>
+    <section class="card">
+      <h2>Operacion</h2>
+      <p>Ejecuta una comprobacion inmediata sin esperar al intervalo programado.</p>
+      <form th:action="@{/polling/run}" method="post"><button type="submit" class="button-secondary">Ejecutar polling</button></form>
+    </section>
+  </div>
+  <section class="card" style="margin-top: 16px;">
+    <h2>Jugadores</h2>
+    <table>
+      <thead><tr><th>Jugador</th><th>Estado</th><th>Ultima sync</th><th>Error</th><th>Accion</th></tr></thead>
+      <tbody>
+      <tr th:each="player : ${players}">
+        <td th:text="${player.gameName + '#' + player.tagLine}"></td>
+        <td th:text="${player.active ? player.lastSyncStatus : 'INACTIVE'}"></td>
+        <td th:text="${player.lastSuccessfulSyncAt}"></td>
+        <td th:text="${player.lastError}"></td>
+        <td>
+          <form th:action="@{'/players/' + ${player.id} + '/toggle'}" method="post">
+            <input type="hidden" name="active" th:value="${!player.active}">
+            <button type="submit" th:text="${player.active ? 'Desactivar' : 'Activar'}"></button>
+          </form>
+        </td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+  <div class="grid" style="margin-top: 16px;">
+    <section class="card">
+      <h2>Ultimas ejecuciones</h2>
+      <table>
+        <thead><tr><th>Inicio</th><th>Estado</th><th>Jugadores</th><th>Nuevas</th><th>Avisos</th></tr></thead>
+        <tbody>
+        <tr th:each="run : ${runs}">
+          <td th:text="${run.startedAt}"></td>
+          <td th:text="${run.status}"></td>
+          <td th:text="${run.playersProcessed}"></td>
+          <td th:text="${run.newMatchesFound}"></td>
+          <td th:text="${run.notificationsSent}"></td>
+        </tr>
+        </tbody>
+      </table>
+    </section>
+    <section class="card">
+      <h2>Partidas recientes</h2>
+      <table>
+        <thead><tr><th>Jugador</th><th>Campeon</th><th>Resultado</th><th>Modo</th><th>Fin</th></tr></thead>
+        <tbody>
+        <tr th:each="match : ${matches}">
+          <td th:text="${match.playerName}"></td>
+          <td th:text="${match.championName}"></td>
+          <td th:text="${match.result}"></td>
+          <td th:text="${match.gameMode}"></td>
+          <td th:text="${match.gameEndAt}"></td>
+        </tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+</div>
+</body>
+</html>
