@@ -12,6 +12,7 @@ permissions:
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/lol-match-tracker
+  PACKAGE_NAME: lol-match-tracker
 
 jobs:
   test-and-publish:
@@ -61,3 +62,43 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Make GHCR package public
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+
+          endpoints=(
+            "https://api.github.com/user/packages/container/${PACKAGE_NAME}/visibility"
+            "https://api.github.com/users/${OWNER}/packages/container/${PACKAGE_NAME}/visibility"
+          )
+
+          for endpoint in "${endpoints[@]}"; do
+            response_file="$(mktemp)"
+            status_code="$(
+              curl -sS \
+                -o "${response_file}" \
+                -w "%{http_code}" \
+                -X PATCH \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${GH_TOKEN}" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "${endpoint}" \
+                -d '{"visibility":"public"}'
+            )"
+
+            if [[ "${status_code}" =~ ^20[0-9]$ ]]; then
+              echo "Package visibility updated with ${endpoint}"
+              cat "${response_file}"
+              exit 0
+            fi
+
+            echo "Visibility update failed with status ${status_code} for ${endpoint}"
+            cat "${response_file}"
+          done
+
+          echo "Unable to make the GHCR package public"
+          exit 1
