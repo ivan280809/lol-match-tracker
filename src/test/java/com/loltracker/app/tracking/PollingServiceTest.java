@@ -1,6 +1,8 @@
 package com.loltracker.app.tracking;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 import com.loltracker.app.integration.riot.RiotClient;
@@ -15,11 +17,13 @@ import com.loltracker.app.player.PlayerService;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class PollingServiceTest {
@@ -163,5 +167,38 @@ class PollingServiceTest {
     verify(playerService).updateSyncFailure(failedPlayer, "Telegram timeout");
     verify(pollRunService)
         .completeRun(any(), eq(2), eq(0), eq(0), argThat(errors -> errors.size() == 1));
+  }
+
+  @Test
+  void runPollReturnsSkippedWhenAnotherRunIsActive() {
+    AtomicBoolean running =
+        (AtomicBoolean) ReflectionTestUtils.getField(pollingService, "running");
+    running.set(true);
+
+    PollSummary result = pollingService.runPoll();
+
+    assertEquals(0, result.playersProcessed());
+    assertEquals(0, result.newMatchesFound());
+    assertEquals(0, result.notificationsSent());
+    assertEquals(0, result.playerFailures());
+    assertEquals("SKIPPED", result.status());
+    verifyNoInteractions(playerService, riotClient, trackedMatchService, notificationService, pollRunService);
+  }
+
+  @Test
+  void runPollMarksRunAsFailedWhenLoadingPlayersFails() {
+    PollRunEntity run = new PollRunEntity();
+    when(pollRunService.startRun()).thenReturn(run);
+    when(playerService.getActivePlayers()).thenThrow(new IllegalStateException("Repository unavailable"));
+
+    IllegalStateException exception =
+        assertThrows(IllegalStateException.class, () -> pollingService.runPoll());
+
+    assertEquals("Repository unavailable", exception.getMessage());
+    verify(pollRunService).failRun(run, 0, 0, 0, "Repository unavailable");
+
+    AtomicBoolean running =
+        (AtomicBoolean) ReflectionTestUtils.getField(pollingService, "running");
+    assertFalse(running.get());
   }
 }
