@@ -4,7 +4,13 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record PlayerForm(
+    RiotPlatform platform,
     @NotBlank @Size(max = 64) String gameName,
     @NotBlank @Size(max = 32) String tagLine,
-    boolean active) {}
+    boolean active) {
+
+  public PlayerForm(String gameName, String tagLine, boolean active) {
+    this(null, gameName, tagLine, active);
+  }
+}
 

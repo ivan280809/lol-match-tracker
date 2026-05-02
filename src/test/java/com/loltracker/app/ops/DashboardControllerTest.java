@@ -19,6 +19,10 @@ import com.loltracker.app.match.TrackedMatchService;
 import com.loltracker.app.player.PlayerForm;
 import com.loltracker.app.player.PlayerService;
 import com.loltracker.app.player.PlayerView;
+import com.loltracker.app.settings.AppConfigurationForm;
+import com.loltracker.app.settings.AppConfigurationService;
+import com.loltracker.app.settings.AppConfigurationView;
+import com.loltracker.app.settings.RiotRegion;
 import com.loltracker.app.tracking.PollSummary;
 import com.loltracker.app.tracking.PollingService;
 import com.loltracker.lolmatchtracker.LolMatchTrackerApplication;
@@ -48,6 +52,7 @@ class DashboardControllerTest {
   @Autowired private TrackedMatchService trackedMatchService;
   @Autowired private PollRunService pollRunService;
   @Autowired private PollingService pollingService;
+  @Autowired private AppConfigurationService appConfigurationService;
 
   private MockMvc mockMvc;
 
@@ -60,6 +65,10 @@ class DashboardControllerTest {
         .thenReturn(List.of(new PlayerView(7L, "Bazaga", "ESP", "puuid-1", true, null, null, "SUCCESS", null)));
     when(trackedMatchService.getRecentMatches()).thenReturn(List.of());
     when(pollRunService.getRecentRuns()).thenReturn(List.of());
+    when(appConfigurationService.getView())
+        .thenReturn(new AppConfigurationView(true, RiotRegion.EUROPE, true, true, true));
+    when(appConfigurationService.getForm())
+        .thenReturn(new AppConfigurationForm("", RiotRegion.EUROPE.name(), "", ""));
   }
 
   @TestConfiguration
@@ -88,6 +97,12 @@ class DashboardControllerTest {
     PollingService pollingService() {
       return mock(PollingService.class);
     }
+
+    @Bean
+    @Primary
+    AppConfigurationService appConfigurationService() {
+      return mock(AppConfigurationService.class);
+    }
   }
 
   @Test
@@ -96,15 +111,28 @@ class DashboardControllerTest {
         .perform(get("/"))
         .andExpect(status().isOk())
         .andExpect(view().name("dashboard"))
-        .andExpect(model().attributeExists("dashboard", "players", "matches", "runs", "playerForm"))
+        .andExpect(
+            model()
+                .attributeExists(
+                    "dashboard",
+                    "players",
+                    "matches",
+                    "runs",
+                    "playerForm",
+                    "configuration",
+                    "configurationForm",
+                    "riotRegions",
+                    "riotPlatforms"))
         .andExpect(content().string(containsString("LOL Match Tracker")))
-        .andExpect(content().string(containsString("Jugadores: 1")));
+        .andExpect(content().string(containsString("Configuracion")))
+        .andExpect(content().string(containsString("Servidor")))
+        .andExpect(content().string(containsString(">1<")));
   }
 
   @Test
   void createPlayerWithInvalidFormReturnsDashboardWithErrors() throws Exception {
     mockMvc
-        .perform(post("/players").param("gameName", " ").param("tagLine", ""))
+        .perform(post("/players").param("platform", "EUW1").param("gameName", " ").param("tagLine", ""))
         .andExpect(status().isOk())
         .andExpect(view().name("dashboard"))
         .andExpect(content().string(containsString("Nuevo jugador")));
@@ -113,12 +141,25 @@ class DashboardControllerTest {
   }
 
   @Test
+  void getPlayersRedirectsToDashboard() throws Exception {
+    mockMvc
+        .perform(get("/players"))
+        .andExpect(status().is3xxRedirection())
+        .andExpect(redirectedUrl("/"));
+  }
+
+  @Test
   void createPlayerWithDuplicateShowsFlashError() throws Exception {
     when(playerService.create(any(PlayerForm.class)))
         .thenThrow(new IllegalArgumentException("Player already exists"));
 
     mockMvc
-        .perform(post("/players").param("gameName", "Bazaga").param("tagLine", "ESP").param("active", "true"))
+        .perform(
+            post("/players")
+                .param("platform", "EUW1")
+                .param("gameName", "Bazaga")
+                .param("tagLine", "ESP")
+                .param("active", "true"))
         .andExpect(status().is3xxRedirection())
         .andExpect(redirectedUrl("/"))
         .andExpect(flash().attribute("errorMessage", "Player already exists"));
@@ -137,5 +178,22 @@ class DashboardControllerTest {
                 .attribute(
                     "errorMessage",
                     "Polling ejecutado. Estado: PARTIAL_SUCCESS, jugadores: 2, nuevas partidas: 1, avisos: 1"));
+  }
+
+  @Test
+  void updateConfigurationShowsSuccessFlash() throws Exception {
+    mockMvc
+        .perform(
+            post("/configuration")
+                .param("riotRegion", "AMERICAS")
+                .param("riotApiKey", "riot-key")
+                .param("telegramBotToken", "telegram-token")
+                .param("telegramChatId", "chat-id"))
+        .andExpect(status().is3xxRedirection())
+        .andExpect(redirectedUrl("/"))
+        .andExpect(flash().attribute("successMessage", "Configuracion guardada"));
+
+    verify(appConfigurationService)
+        .update(new AppConfigurationForm("riot-key", "AMERICAS", "telegram-token", "chat-id"));
   }
 }

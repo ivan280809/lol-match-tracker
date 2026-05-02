@@ -35,11 +35,13 @@ public class PlayerService {
   public PlayerView create(PlayerForm form) {
     String gameName = normalize(form.gameName());
     String tagLine = normalize(form.tagLine());
+    RiotPlatform platform = RiotPlatform.fromFormValue(form.platform());
     assertNoDuplicate(null, gameName, tagLine);
 
     PlayerEntity entity = new PlayerEntity();
     entity.setGameName(gameName);
     entity.setTagLine(tagLine);
+    entity.setPlatform(platform);
     entity.setPuuid(resolvePuuid(gameName, tagLine));
     entity.setActive(form.active());
     return PlayerView.fromEntity(playerRepository.save(entity));
@@ -50,9 +52,11 @@ public class PlayerService {
     PlayerEntity entity = getRequiredPlayer(id);
     String gameName = normalize(form.gameName());
     String tagLine = normalize(form.tagLine());
+    RiotPlatform platform = RiotPlatform.fromFormValue(form.platform());
     assertNoDuplicate(id, gameName, tagLine);
     entity.setGameName(gameName);
     entity.setTagLine(tagLine);
+    entity.setPlatform(platform);
     entity.setPuuid(resolvePuuid(gameName, tagLine));
     entity.setActive(form.active());
     return PlayerView.fromEntity(playerRepository.save(entity));

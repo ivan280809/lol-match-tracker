@@ -23,6 +23,10 @@ public class PlayerEntity {
   @Column(name = "tag_line", nullable = false, length = 32)
   private String tagLine;
 
+  @Enumerated(EnumType.STRING)
+  @Column(name = "platform", nullable = false, length = 16, columnDefinition = "varchar(16) default 'EUW1'")
+  private RiotPlatform platform = RiotPlatform.defaultPlatform();
+
   @Column(name = "puuid", length = 128)
   private String puuid;
 
@@ -52,6 +56,9 @@ public class PlayerEntity {
     Instant now = Instant.now();
     createdAt = now;
     updatedAt = now;
+    if (platform == null) {
+      platform = RiotPlatform.defaultPlatform();
+    }
     if (lastSyncStatus == null) {
       lastSyncStatus = "NEW";
     }
@@ -59,6 +66,9 @@ public class PlayerEntity {
 
   @PreUpdate
   void onUpdate() {
+    if (platform == null) {
+      platform = RiotPlatform.defaultPlatform();
+    }
     updatedAt = Instant.now();
   }
 }

@@ -1,14 +1,15 @@
 package com.loltracker.app.integration.riot;
 
 import com.loltracker.app.match.MatchSummary;
+import com.loltracker.app.settings.AppConfigurationService;
+import com.loltracker.app.settings.RuntimeAppConfiguration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -18,21 +19,14 @@ public class RiotClient {
 
   private final WebClient.Builder webClientBuilder;
   private final ObjectMapper objectMapper;
-
-  @Value("${riot.api.base-url}")
-  private String baseUrl;
-
-  @Value("${riot.api.key}")
-  private String apiKey;
+  private final AppConfigurationService appConfigurationService;
 
   public RiotAccount fetchAccount(String gameName, String tagLine) {
+    RuntimeAppConfiguration configuration = riotConfiguration();
     String body;
     try {
       body =
-          webClientBuilder
-              .baseUrl(baseUrl)
-              .defaultHeader("X-Riot-Token", apiKey)
-              .build()
+          riotClient(configuration)
               .get()
               .uri("/riot/account/v1/accounts/by-riot-id/{gameName}/{tagLine}", gameName, tagLine)
               .retrieve()
@@ -53,11 +47,9 @@ public class RiotClient {
   }
 
   public List<String> fetchRecentMatchIds(String puuid) {
+    RuntimeAppConfiguration configuration = riotConfiguration();
     String body =
-        webClientBuilder
-            .baseUrl(baseUrl)
-            .defaultHeader("X-Riot-Token", apiKey)
-            .build()
+        riotClient(configuration)
             .get()
             .uri("/lol/match/v5/matches/by-puuid/{puuid}/ids?start=0&count=10", puuid)
             .retrieve()
@@ -75,11 +67,9 @@ public class RiotClient {
   }
 
   public MatchSummary fetchMatchSummary(String matchId, String puuid) {
+    RuntimeAppConfiguration configuration = riotConfiguration();
     String body =
-        webClientBuilder
-            .baseUrl(baseUrl)
-            .defaultHeader("X-Riot-Token", apiKey)
-            .build()
+        riotClient(configuration)
             .get()
             .uri("/lol/match/v5/matches/{matchId}", matchId)
             .retrieve()
@@ -113,5 +103,20 @@ public class RiotClient {
       }
     }
     return null;
+  }
+
+  private RuntimeAppConfiguration riotConfiguration() {
+    RuntimeAppConfiguration configuration = appConfigurationService.getRuntimeConfiguration();
+    if (configuration.riotApiKey() == null || configuration.riotApiKey().isBlank()) {
+      throw new IllegalStateException("Riot API key is not configured");
+    }
+    return configuration;
+  }
+
+  private WebClient riotClient(RuntimeAppConfiguration configuration) {
+    return webClientBuilder
+        .baseUrl(configuration.riotRegion().baseUrl())
+        .defaultHeader("X-Riot-Token", configuration.riotApiKey())
+        .build();
   }
 }

@@ -74,6 +74,7 @@ class ApplicationFlowIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"gameName\":\"Bazaga\",\"tagLine\":\"ESP\",\"active\":true}"))
         .andExpect(status().isOk())
+        .andExpect(jsonPath("$.platform").value("EUW1"))
         .andExpect(jsonPath("$.gameName").value("Bazaga"))
         .andExpect(jsonPath("$.puuid").value("puuid-1"));
 

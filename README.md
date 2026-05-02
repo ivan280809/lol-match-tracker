@@ -7,7 +7,7 @@ La forma mas simple de levantar la aplicacion completa es con Docker Compose.
 ### Opcion 1: desarrollo local desde el repositorio
 
 1. Copia `.env.example` a `.env`
-2. Rellena las claves de Riot y Telegram
+2. Rellena las claves de Riot, Telegram y `APP_CONFIG_ENCRYPTION_KEY`
 3. Ejecuta:
 
 ```bash
@@ -77,8 +77,15 @@ Si usas `docker-compose.deploy.yml` con una imagen publicada en `GHCR`, el otro 
 - `DB_USER`
 - `DB_PASSWORD`
 - `RIOT_API_KEY`
-- `RIOT_API_BASE_URL`
+- `RIOT_API_REGION`
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
+- `APP_CONFIG_ENCRYPTION_KEY`
 - `APP_POLL_FIXED_DELAY`
 - `APP_POLL_INITIAL_DELAY`
+
+### Configuracion desde la UI
+
+El dashboard permite guardar Riot API key, region Riot, Telegram bot token y Telegram chat id.
+Los secretos se almacenan cifrados en PostgreSQL. Mantén estable `APP_CONFIG_ENCRYPTION_KEY`,
+porque si cambia no se podran descifrar los valores ya guardados.

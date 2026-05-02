@@ -62,6 +62,7 @@ class PlayerApiControllerTest {
         .perform(get("/api/players"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].id").value(7))
+        .andExpect(jsonPath("$[0].platform").value("EUW1"))
         .andExpect(jsonPath("$[0].gameName").value("Bazaga"))
         .andExpect(jsonPath("$[0].puuid").value("puuid-1"));
   }

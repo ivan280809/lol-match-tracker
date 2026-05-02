@@ -54,6 +54,7 @@ class PlayerServiceTest {
     assertEquals(7L, created.id());
     assertEquals("Bazaga", created.gameName());
     assertEquals("ESP", created.tagLine());
+    assertEquals(RiotPlatform.EUW1, created.platform());
     assertEquals("puuid-1", created.puuid());
     assertTrue(created.active());
   }
@@ -76,6 +77,25 @@ class PlayerServiceTest {
 
     assertEquals("Player already exists", exception.getMessage());
     verify(playerRepository, never()).save(any());
+  }
+
+  @Test
+  void createStoresSelectedPlatform() {
+    when(playerRepository.findByGameNameIgnoreCaseAndTagLineIgnoreCase("Bazaga", "ESP"))
+        .thenReturn(Optional.empty());
+    when(riotClient.fetchAccount("Bazaga", "ESP"))
+        .thenReturn(new RiotAccount("puuid-1", "Bazaga", "ESP"));
+    when(playerRepository.save(any(PlayerEntity.class)))
+        .thenAnswer(
+            invocation -> {
+              PlayerEntity entity = invocation.getArgument(0);
+              entity.setId(7L);
+              return entity;
+            });
+
+    PlayerView created = playerService.create(new PlayerForm(RiotPlatform.NA1, "Bazaga", "ESP", true));
+
+    assertEquals(RiotPlatform.NA1, created.platform());
   }
 
   @Test
