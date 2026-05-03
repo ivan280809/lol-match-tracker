@@ -196,4 +196,17 @@ class DashboardControllerTest {
     verify(appConfigurationService)
         .update(new AppConfigurationForm("riot-key", "AMERICAS", "telegram-token", "chat-id"));
   }
+
+  @Test
+  void unexpectedDashboardExceptionsRedirectWithGenericToast() throws Exception {
+    org.mockito.Mockito.doThrow(new IllegalStateException("database exploded"))
+        .when(playerService)
+        .setActive(7L, false);
+
+    mockMvc
+        .perform(post("/players/7/toggle").param("active", "false"))
+        .andExpect(status().is3xxRedirection())
+        .andExpect(redirectedUrl("/"))
+        .andExpect(flash().attribute("errorMessage", "Un error ha ocurrido"));
+  }
 }

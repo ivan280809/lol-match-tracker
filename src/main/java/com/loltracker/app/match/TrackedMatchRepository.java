@@ -1,5 +1,6 @@
 package com.loltracker.app.match;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,6 +12,15 @@ public interface TrackedMatchRepository extends JpaRepository<TrackedMatchEntity
   Optional<TrackedMatchEntity> findByPlayerIdAndMatchId(Long playerId, String matchId);
 
   List<TrackedMatchEntity> findAllByPlayerIdAndNotificationSentFalseOrderByGameEndAtAsc(Long playerId);
+
+  List<TrackedMatchEntity> findTop10ByPlayerIdOrderByGameEndAtDesc(Long playerId);
+
+  List<TrackedMatchEntity> findTop20ByPlayerIdAndChampionNameIgnoreCaseOrderByGameEndAtDesc(
+      Long playerId, String championName);
+
+  List<TrackedMatchEntity>
+      findAllByPlayerIdAndGameEndAtGreaterThanEqualAndGameEndAtLessThanOrderByGameEndAtDesc(
+          Long playerId, Instant startInclusive, Instant endExclusive);
 
   List<TrackedMatchEntity> findTop20ByOrderByGameEndAtDesc();
 }

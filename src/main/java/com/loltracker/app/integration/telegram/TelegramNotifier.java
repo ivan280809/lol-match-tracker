@@ -28,7 +28,7 @@ public class TelegramNotifier {
         .post()
         .uri("https://api.telegram.org/bot{token}/sendMessage", botToken)
         .contentType(MediaType.APPLICATION_JSON)
-        .bodyValue(Map.of("chat_id", chatId, "text", message))
+        .bodyValue(Map.of("chat_id", chatId, "text", message, "parse_mode", "HTML"))
         .retrieve()
         .bodyToMono(String.class)
         .block();

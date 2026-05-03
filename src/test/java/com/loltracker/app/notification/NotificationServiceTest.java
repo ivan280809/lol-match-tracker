@@ -16,17 +16,23 @@ class NotificationServiceTest {
 
   @Mock private TelegramNotifier telegramNotifier;
   @Mock private NotificationMessageFactory notificationMessageFactory;
+  @Mock private NotificationStatsService notificationStatsService;
 
   @InjectMocks private NotificationService notificationService;
 
   @Test
   void notifyNewMatchBuildsMessageAndSendsIt() {
     TrackedMatchEntity trackedMatch = new TrackedMatchEntity();
-    when(notificationMessageFactory.build(trackedMatch)).thenReturn("telegram-message");
+    NotificationStatsSnapshot stats =
+        new NotificationStatsSnapshot(
+            "W", 1, "victoria", 1, 0, 1, 0, 1800, "Gold IV 10 LP", "Gold IV 10 LP", 0);
+    when(notificationStatsService.buildFor(trackedMatch)).thenReturn(stats);
+    when(notificationMessageFactory.build(trackedMatch, stats)).thenReturn("telegram-message");
 
     notificationService.notifyNewMatch(trackedMatch);
 
-    verify(notificationMessageFactory).build(trackedMatch);
+    verify(notificationStatsService).buildFor(trackedMatch);
+    verify(notificationMessageFactory).build(trackedMatch, stats);
     verify(telegramNotifier).send("telegram-message");
   }
 }

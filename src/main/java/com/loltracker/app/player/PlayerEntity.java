@@ -45,6 +45,24 @@ public class PlayerEntity {
   @Column(name = "last_error", length = 500)
   private String lastError;
 
+  @Column(name = "rank_queue_type", length = 32)
+  private String rankQueueType;
+
+  @Column(name = "rank_tier", length = 24)
+  private String rankTier;
+
+  @Column(name = "rank_division", length = 8)
+  private String rankDivision;
+
+  @Column(name = "rank_league_points")
+  private Integer rankLeaguePoints;
+
+  @Column(name = "rank_score")
+  private Integer rankScore;
+
+  @Column(name = "rank_updated_at")
+  private Instant rankUpdatedAt;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 

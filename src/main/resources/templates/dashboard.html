@@ -151,9 +151,13 @@
     }
 
     .messages {
+      position: fixed;
+      z-index: 20;
+      top: 18px;
+      right: 18px;
+      width: min(420px, calc(100% - 36px));
       display: grid;
       gap: 8px;
-      margin-bottom: 16px;
     }
 
     .message {
@@ -161,6 +165,7 @@
       padding: 12px 14px;
       font-weight: 800;
       border: 1px solid;
+      box-shadow: var(--shadow);
     }
 
     .success {
@@ -727,6 +732,12 @@
       .quick-player-actions button,
       .settings-form .form-actions button {
         width: 100%;
+      }
+
+      .messages {
+        top: 10px;
+        right: 10px;
+        width: calc(100% - 20px);
       }
     }
   </style>

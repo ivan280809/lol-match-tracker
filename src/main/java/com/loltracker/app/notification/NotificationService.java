@@ -11,9 +11,11 @@ public class NotificationService {
 
   private final TelegramNotifier telegramNotifier;
   private final NotificationMessageFactory notificationMessageFactory;
+  private final NotificationStatsService notificationStatsService;
 
   public void notifyNewMatch(TrackedMatchEntity trackedMatch) {
-    telegramNotifier.send(notificationMessageFactory.build(trackedMatch));
+    NotificationStatsSnapshot stats = notificationStatsService.buildFor(trackedMatch);
+    telegramNotifier.send(notificationMessageFactory.build(trackedMatch, stats));
   }
 }
 

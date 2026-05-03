@@ -1,6 +1,7 @@
 package com.loltracker.app.integration.riot;
 
 import com.loltracker.app.match.MatchSummary;
+import com.loltracker.app.player.RiotPlatform;
 import com.loltracker.app.settings.AppConfigurationService;
 import com.loltracker.app.settings.RuntimeAppConfiguration;
 import java.time.Instant;
@@ -105,6 +106,51 @@ public class RiotClient {
     return null;
   }
 
+  public List<RiotRankEntry> fetchRankEntries(RiotPlatform platform, String puuid) {
+    RuntimeAppConfiguration configuration = riotConfiguration();
+    String summonerBody =
+        platformClient(configuration, platform)
+            .get()
+            .uri("/lol/summoner/v4/summoners/by-puuid/{puuid}", puuid)
+            .retrieve()
+            .bodyToMono(String.class)
+            .block();
+
+    String summonerId;
+    try {
+      JsonNode node = objectMapper.readTree(summonerBody);
+      summonerId = node.path("id").asText();
+    } catch (Exception e) {
+      throw new IllegalStateException("Failed to parse Riot summoner response", e);
+    }
+
+    String leagueBody =
+        platformClient(configuration, platform)
+            .get()
+            .uri("/lol/league/v4/entries/by-summoner/{summonerId}", summonerId)
+            .retrieve()
+            .bodyToMono(String.class)
+            .block();
+
+    try {
+      JsonNode node = objectMapper.readTree(leagueBody);
+      List<RiotRankEntry> entries = new ArrayList<>();
+      node.forEach(
+          item ->
+              entries.add(
+                  new RiotRankEntry(
+                      item.path("queueType").asText(),
+                      item.path("tier").asText(),
+                      item.path("rank").asText(),
+                      item.path("leaguePoints").asInt(0),
+                      item.path("wins").asInt(0),
+                      item.path("losses").asInt(0))));
+      return entries;
+    } catch (Exception e) {
+      throw new IllegalStateException("Failed to parse Riot league response", e);
+    }
+  }
+
   private RuntimeAppConfiguration riotConfiguration() {
     RuntimeAppConfiguration configuration = appConfigurationService.getRuntimeConfiguration();
     if (configuration.riotApiKey() == null || configuration.riotApiKey().isBlank()) {
@@ -116,6 +162,13 @@ public class RiotClient {
   private WebClient riotClient(RuntimeAppConfiguration configuration) {
     return webClientBuilder
         .baseUrl(configuration.riotRegion().baseUrl())
+        .defaultHeader("X-Riot-Token", configuration.riotApiKey())
+        .build();
+  }
+
+  private WebClient platformClient(RuntimeAppConfiguration configuration, RiotPlatform platform) {
+    return webClientBuilder
+        .baseUrl(platform.baseUrl())
         .defaultHeader("X-Riot-Token", configuration.riotApiKey())
         .build();
   }
