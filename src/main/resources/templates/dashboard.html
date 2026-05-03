@@ -3,195 +3,151 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E">
   <title>LOL Match Tracker</title>
   <style>
     :root {
-      --bg: #f4f6f8;
-      --panel: #ffffff;
-      --panel-soft: #f8fafc;
-      --line: #d9e0e8;
-      --line-strong: #c4ceda;
-      --text: #17202a;
-      --muted: #627184;
-      --accent: #0f6b57;
-      --accent-soft: #e3f4ee;
-      --warn: #9a6700;
-      --warn-soft: #fff3cd;
-      --danger: #a33a3a;
-      --danger-soft: #f8dddd;
-      --info: #285a9f;
-      --shadow: 0 12px 30px rgba(35, 48, 66, 0.08);
+      --void: #080a0f;
+      --rift: #101824;
+      --panel: #141d29;
+      --panel-strong: #182536;
+      --panel-soft: #202d3e;
+      --gold: #c8a65d;
+      --gold-bright: #f0d28a;
+      --blue: #38a4c8;
+      --blue-soft: #123343;
+      --green: #49b57d;
+      --green-soft: #123429;
+      --red: #d05a5a;
+      --red-soft: #3a1d24;
+      --amber: #d9a441;
+      --amber-soft: #3f2d14;
+      --text: #f1efe6;
+      --muted: #9ba9b9;
+      --quiet: #6d7b8b;
+      --line: rgba(216, 190, 124, 0.18);
+      --line-blue: rgba(56, 164, 200, 0.22);
+      --shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
     }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      background: var(--bg);
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(56, 164, 200, 0.18), transparent 34rem),
+        radial-gradient(circle at 88% 4%, rgba(200, 166, 93, 0.14), transparent 30rem),
+        linear-gradient(180deg, #080a0f 0%, #101824 48%, #0b1018 100%);
       color: var(--text);
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: "Segoe UI", Arial, Helvetica, sans-serif;
       font-size: 15px;
       line-height: 1.45;
     }
 
-    .page {
-      width: min(1220px, calc(100% - 32px));
-      margin: 22px auto 36px;
+    button,
+    input,
+    select {
+      font: inherit;
     }
 
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
+    .page {
+      width: min(1380px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 24px 0 40px;
+    }
+
+    .command {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: stretch;
+      min-height: 180px;
       margin-bottom: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(20, 29, 41, 0.96), rgba(10, 15, 23, 0.96)),
+        repeating-linear-gradient(135deg, rgba(240, 210, 138, 0.04) 0 1px, transparent 1px 18px);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .command-main {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 20px;
+      min-width: 0;
     }
 
     .eyebrow {
-      margin: 0 0 4px;
-      color: var(--muted);
-      font-size: 0.78rem;
-      font-weight: 700;
-      letter-spacing: 0;
+      margin: 0 0 8px;
+      color: var(--gold-bright);
+      font-size: 0.75rem;
+      font-weight: 800;
       text-transform: uppercase;
+      letter-spacing: 0;
     }
 
-    h1, h2 {
+    h1,
+    h2,
+    h3,
+    p {
       margin: 0;
       letter-spacing: 0;
     }
 
-    h1 { font-size: 1.7rem; }
-    h2 { font-size: 1.04rem; }
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.7rem);
+      line-height: 0.95;
+      max-width: 760px;
+    }
 
-    .actions {
+    h2 {
+      font-size: 1rem;
+      text-transform: uppercase;
+      color: var(--gold-bright);
+    }
+
+    h3 {
+      font-size: 1.02rem;
+    }
+
+    .subtitle {
+      max-width: 760px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .command-status {
       display: flex;
-      align-items: center;
       gap: 10px;
       flex-wrap: wrap;
     }
 
-    .metrics {
+    .command-action {
+      width: min(320px, 34vw);
+      min-width: 260px;
+      padding: 20px;
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 16px;
+      align-content: center;
+      gap: 14px;
+      border-left: 1px solid var(--line);
+      background: rgba(8, 10, 15, 0.34);
     }
 
-    .metric, .card {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      box-shadow: var(--shadow);
-    }
-
-    .metric {
-      min-height: 86px;
-      padding: 16px;
-    }
-
-    .metric-label {
-      margin: 0 0 8px;
+    .action-title {
       color: var(--muted);
-      font-size: 0.82rem;
+      font-size: 0.85rem;
       font-weight: 700;
     }
 
-    .metric-value {
-      font-size: 1.45rem;
-      font-weight: 800;
-    }
-
-    .card {
-      padding: 18px;
-      overflow: hidden;
-    }
-
-    .section-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 14px;
-    }
-
-    .layout {
-      display: grid;
-      grid-template-columns: minmax(320px, 0.95fr) minmax(360px, 1.2fr);
-      gap: 16px;
-      align-items: start;
-      margin-bottom: 16px;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
-      align-items: start;
-    }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    label {
-      display: grid;
-      gap: 6px;
-      color: var(--muted);
-      font-size: 0.82rem;
-      font-weight: 700;
-    }
-
-    input[type="text"],
-    input[type="password"],
-    select {
-      width: 100%;
-      min-height: 40px;
-      border: 1px solid var(--line-strong);
-      border-radius: 6px;
-      padding: 9px 10px;
-      background: #fff;
-      color: var(--text);
-      font: inherit;
-    }
-
-    input:focus,
-    select:focus {
-      border-color: var(--info);
-      outline: 3px solid rgba(40, 90, 159, 0.16);
-    }
-
-    .check-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 12px;
-      color: var(--text);
-      font-weight: 700;
-    }
-
-    button {
-      min-height: 40px;
-      border: 0;
-      border-radius: 6px;
-      padding: 9px 13px;
-      background: var(--accent);
-      color: white;
-      font: inherit;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    button:hover { filter: brightness(0.95); }
-
-    .button-secondary { background: var(--info); }
-
-    .button-muted {
-      background: var(--panel-soft);
-      color: var(--text);
-      border: 1px solid var(--line-strong);
+    .action-copy {
+      color: var(--quiet);
+      font-size: 0.86rem;
     }
 
     .messages {
@@ -202,149 +158,574 @@
 
     .message {
       border-radius: 8px;
-      padding: 11px 13px;
-      font-weight: 700;
+      padding: 12px 14px;
+      font-weight: 800;
+      border: 1px solid;
     }
 
     .success {
-      background: var(--accent-soft);
-      color: var(--accent);
-      border: 1px solid #b5decc;
+      color: #c9f5dc;
+      background: var(--green-soft);
+      border-color: rgba(73, 181, 125, 0.38);
     }
 
     .error {
-      background: var(--danger-soft);
-      color: var(--danger);
-      border: 1px solid #e5b1b1;
+      color: #ffd0d0;
+      background: var(--red-soft);
+      border-color: rgba(208, 90, 90, 0.42);
     }
 
-    .status-list {
+    .metrics {
       display: grid;
-      gap: 8px;
-      margin: 14px 0;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
     }
 
-    .status-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      min-height: 34px;
+    .metric,
+    .panel,
+    .player-card,
+    .match-row {
       border: 1px solid var(--line);
-      border-radius: 6px;
-      padding: 7px 9px;
-      background: var(--panel-soft);
+      border-radius: 8px;
+      background: rgba(20, 29, 41, 0.92);
+      box-shadow: var(--shadow);
     }
 
-    .status-name {
+    .metric {
+      min-height: 112px;
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric:before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 4px;
+      background: var(--gold);
+    }
+
+    .metric-label {
       color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .metric-value {
+      margin-top: 10px;
+      font-size: clamp(1.45rem, 3vw, 2.05rem);
+      font-weight: 900;
+      line-height: 1;
+      word-break: break-word;
+    }
+
+    .metric-note {
+      margin-top: 9px;
+      color: var(--quiet);
+      font-size: 0.8rem;
       font-weight: 700;
     }
 
-    .status-value {
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    .panel {
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .panel-kicker {
+      color: var(--quiet);
+      font-size: 0.78rem;
       font-weight: 800;
-      text-align: right;
+      text-transform: uppercase;
     }
 
-    .ok { color: var(--accent); }
-    .warn { color: var(--warn); }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.92rem;
+    .roster-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
     }
 
-    th, td {
-      text-align: left;
-      padding: 10px 8px;
-      border-bottom: 1px solid var(--line);
-      vertical-align: top;
+    .player-card {
+      min-height: 170px;
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+      background:
+        linear-gradient(145deg, rgba(24, 37, 54, 0.98), rgba(13, 19, 29, 0.98));
     }
 
-    th {
+    .player-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .summoner {
+      min-width: 0;
+    }
+
+    .summoner-name {
+      display: block;
+      overflow-wrap: anywhere;
+      font-size: 1.18rem;
+      font-weight: 900;
+    }
+
+    .summoner-meta {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 700;
+    }
+
+    .player-body {
+      display: grid;
+      gap: 8px;
+    }
+
+    .detail-row,
+    .status-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      min-height: 32px;
+      padding: 7px 9px;
+      border: 1px solid rgba(155, 169, 185, 0.14);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .detail-label,
+    .status-name {
       color: var(--muted);
       font-size: 0.78rem;
+      font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0;
-      background: var(--panel-soft);
     }
 
-    tr:last-child td { border-bottom: 0; }
+    .detail-value,
+    .status-value {
+      min-width: 0;
+      color: var(--text);
+      text-align: right;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
 
-    .table-wrap {
-      width: 100%;
-      overflow-x: auto;
-      border: 1px solid var(--line);
+    .player-error {
+      color: #ffd4d4;
+      background: rgba(208, 90, 90, 0.12);
+      border-color: rgba(208, 90, 90, 0.34);
+    }
+
+    .match-list,
+    .run-list,
+    .status-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .config-status {
+      margin-bottom: 20px;
+    }
+
+    .match-row {
+      display: grid;
+      grid-template-columns: 84px minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      padding: 13px;
+      background: rgba(18, 27, 39, 0.94);
+    }
+
+    .match-result {
+      min-height: 64px;
+      display: grid;
+      place-items: center;
       border-radius: 8px;
+      border: 1px solid var(--line-blue);
+      color: var(--blue);
+      background: var(--blue-soft);
+      font-size: 0.72rem;
+      font-weight: 900;
+      text-align: center;
+      text-transform: uppercase;
     }
 
-    .inline-form { margin: 0; }
+    .match-result.victory {
+      color: #d5ffe8;
+      background: var(--green-soft);
+      border-color: rgba(73, 181, 125, 0.42);
+    }
+
+    .match-result.defeat {
+      color: #ffd2d2;
+      background: var(--red-soft);
+      border-color: rgba(208, 90, 90, 0.42);
+    }
+
+    .match-main {
+      min-width: 0;
+    }
+
+    .match-title {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .champion {
+      font-size: 1.06rem;
+      font-weight: 900;
+    }
+
+    .mode {
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 800;
+    }
+
+    .match-player {
+      margin-top: 4px;
+      color: var(--quiet);
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .match-meta {
+      min-width: 140px;
+      text-align: right;
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 700;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      align-items: start;
+    }
+
+    .quick-player-form,
+    .settings-form {
+      display: grid;
+      gap: 18px;
+    }
+
+    .quick-player-grid {
+      grid-template-areas:
+        "platform name"
+        "tag tag";
+    }
+
+    .field-platform { grid-area: platform; }
+    .field-name { grid-area: name; }
+    .field-tag {
+      grid-area: tag;
+      grid-column: 1 / -1;
+    }
+
+    .quick-player-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-top: 2px;
+    }
+
+    .settings-grid {
+      gap: 18px 16px;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    select {
+      width: 100%;
+      min-height: 46px;
+      border: 1px solid rgba(155, 169, 185, 0.32);
+      border-radius: 6px;
+      padding: 10px 12px;
+      background: rgba(8, 10, 15, 0.64);
+      color: var(--text);
+    }
+
+    input::placeholder {
+      color: #778596;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--blue);
+      outline: 3px solid rgba(56, 164, 200, 0.18);
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      color: var(--text);
+      text-transform: none;
+    }
+
+    button {
+      min-height: 42px;
+      border: 1px solid rgba(240, 210, 138, 0.35);
+      border-radius: 6px;
+      padding: 10px 14px;
+      background: linear-gradient(180deg, #d8b86b, #9f7c35);
+      color: #11151c;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    button:hover {
+      filter: brightness(1.05);
+    }
+
+    .button-primary {
+      width: 100%;
+      min-height: 48px;
+      font-size: 0.96rem;
+    }
+
+    .button-muted {
+      min-height: 36px;
+      border-color: rgba(155, 169, 185, 0.26);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+    }
 
     .tag {
       display: inline-flex;
       align-items: center;
-      min-height: 26px;
+      justify-content: center;
+      min-height: 28px;
       border-radius: 999px;
-      padding: 3px 9px;
-      background: var(--panel-soft);
+      padding: 4px 10px;
+      border: 1px solid rgba(155, 169, 185, 0.22);
+      background: rgba(255, 255, 255, 0.05);
       color: var(--text);
-      font-weight: 800;
+      font-size: 0.76rem;
+      font-weight: 900;
       white-space: nowrap;
+      text-transform: uppercase;
+    }
+
+    .status-row .tag {
+      min-width: 118px;
     }
 
     .tag-success {
-      background: var(--accent-soft);
-      color: var(--accent);
+      color: #c9f5dc;
+      background: var(--green-soft);
+      border-color: rgba(73, 181, 125, 0.38);
     }
 
     .tag-warn {
-      background: var(--warn-soft);
-      color: var(--warn);
+      color: #ffe1a3;
+      background: var(--amber-soft);
+      border-color: rgba(217, 164, 65, 0.42);
     }
 
-    .muted { color: var(--muted); }
+    .tag-danger {
+      color: #ffd0d0;
+      background: var(--red-soft);
+      border-color: rgba(208, 90, 90, 0.42);
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .empty {
+      min-height: 96px;
+      display: grid;
+      place-items: center;
+      border: 1px dashed rgba(155, 169, 185, 0.26);
+      border-radius: 8px;
+      color: var(--quiet);
+      text-align: center;
+      font-weight: 800;
+    }
 
     .form-actions {
       display: flex;
       justify-content: flex-end;
       gap: 10px;
-      margin-top: 14px;
       flex-wrap: wrap;
+    }
+
+    .quick-player-actions .form-actions,
+    .settings-form .form-actions {
+      margin: 0;
+    }
+
+    .quick-player-actions button,
+    .settings-form .form-actions button {
+      min-width: 190px;
     }
 
     .field-error {
       min-height: 18px;
-      color: var(--danger);
-      font-size: 0.78rem;
-      font-weight: 700;
+      color: #ffb7b7;
+      font-size: 0.76rem;
+      font-weight: 800;
+      text-transform: none;
     }
 
     .field-help {
       min-height: 18px;
-      color: var(--muted);
-      font-size: 0.78rem;
-      font-weight: 600;
+      color: var(--quiet);
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: none;
     }
 
-    @media (max-width: 900px) {
-      .topbar,
-      .section-head {
-        align-items: flex-start;
-        flex-direction: column;
-      }
+    .run-item {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid rgba(155, 169, 185, 0.14);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+    }
 
-      .metrics,
-      .layout,
-      .grid,
-      .form-grid {
+    .run-top,
+    .run-stats {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .run-time {
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+
+    .run-stats {
+      color: var(--quiet);
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+
+    .inline-form {
+      margin: 0;
+    }
+
+    @media (max-width: 1100px) {
+      .content-grid,
+      .roster-grid {
         grid-template-columns: 1fr;
       }
 
-      .actions,
-      .actions form,
-      .actions button,
-      .form-actions button {
+      .command {
+        grid-template-columns: 1fr;
+      }
+
+      .command-action {
+        width: 100%;
+        min-width: 0;
+        border-left: 0;
+        border-top: 1px solid var(--line);
+      }
+    }
+
+    @media (max-width: 760px) {
+      .page {
+        width: min(100% - 20px, 1380px);
+        padding-top: 10px;
+      }
+
+      .metrics,
+      .form-grid,
+      .quick-player-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .quick-player-grid {
+        grid-template-areas:
+          "platform"
+          "name"
+          "tag";
+      }
+
+      .command-main,
+      .command-action,
+      .panel {
+        padding: 14px;
+      }
+
+      .panel-head,
+      .player-top,
+      .match-row {
+        align-items: stretch;
+        grid-template-columns: 1fr;
+      }
+
+      .panel-head,
+      .player-top {
+        flex-direction: column;
+      }
+
+      .match-meta {
+        min-width: 0;
+        text-align: left;
+      }
+
+      .form-actions button,
+      .quick-player-actions,
+      .inline-form,
+      .inline-form button {
+        width: 100%;
+      }
+
+      .quick-player-actions {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .quick-player-actions .form-actions,
+      .quick-player-actions button,
+      .settings-form .form-actions button {
         width: 100%;
       }
     }
@@ -352,16 +733,31 @@
 </head>
 <body>
 <main class="page">
-  <header class="topbar">
-    <div>
-      <p class="eyebrow">Panel local</p>
-      <h1>LOL Match Tracker</h1>
+  <header class="command">
+    <div class="command-main">
+      <div>
+        <p class="eyebrow">Panel local</p>
+        <h1>LOL Match Tracker</h1>
+        <p class="subtitle">Seguimiento visual de jugadores, partidas recientes y estado operativo del polling.</p>
+      </div>
+      <div class="command-status">
+        <span class="tag" th:classappend="${configuration.encryptionConfigured} ? ' tag-success' : ' tag-warn'"
+              th:text="${configuration.encryptionConfigured ? 'Cifrado listo' : 'Falta clave maestra'}">Cifrado listo</span>
+        <span class="tag" th:classappend="${configuration.riotApiKeyConfigured} ? ' tag-success' : ' tag-warn'"
+              th:text="${configuration.riotApiKeyConfigured ? 'Riot conectado' : 'Riot pendiente'}">Riot conectado</span>
+        <span class="tag" th:classappend="${configuration.telegramBotTokenConfigured && configuration.telegramChatIdConfigured} ? ' tag-success' : ' tag-warn'"
+              th:text="${configuration.telegramBotTokenConfigured && configuration.telegramChatIdConfigured ? 'Telegram listo' : 'Telegram pendiente'}">Telegram listo</span>
+      </div>
     </div>
-    <div class="actions">
+    <aside class="command-action">
+      <div>
+        <p class="action-title">Sincronizacion manual</p>
+        <p class="action-copy">Lanza una pasada completa para buscar nuevas partidas y enviar avisos pendientes.</p>
+      </div>
       <form th:action="@{/polling/run}" method="post">
-        <button type="submit" class="button-secondary">Ejecutar polling</button>
+        <button type="submit" class="button-primary">Ejecutar polling</button>
       </form>
-    </div>
+    </aside>
   </header>
 
   <div class="messages">
@@ -373,195 +769,227 @@
     <div class="metric">
       <p class="metric-label">Jugadores</p>
       <div class="metric-value" th:text="${dashboard.totalPlayers}">0</div>
+      <p class="metric-note">Roster monitorizado</p>
     </div>
     <div class="metric">
       <p class="metric-label">Partidas guardadas</p>
       <div class="metric-value" th:text="${dashboard.totalMatches}">0</div>
+      <p class="metric-note">Historial reducido</p>
     </div>
     <div class="metric">
       <p class="metric-label">Region Riot</p>
       <div class="metric-value" th:text="${configuration.riotRegion.displayName()}">Europe</div>
+      <p class="metric-note">Ruta regional activa</p>
     </div>
     <div class="metric">
       <p class="metric-label">Telegram</p>
       <div class="metric-value" th:text="${configuration.telegramBotTokenConfigured && configuration.telegramChatIdConfigured ? 'Listo' : 'Pendiente'}">Pendiente</div>
+      <p class="metric-note">Avisos de resultado</p>
     </div>
   </section>
 
-  <div class="layout">
-    <section class="card">
-      <div class="section-head">
-        <h2>Configuracion</h2>
-        <span class="tag" th:classappend="${configuration.encryptionConfigured} ? ' tag-success' : ' tag-warn'"
-              th:text="${configuration.encryptionConfigured ? 'Cifrado listo' : 'Falta clave maestra'}"></span>
-      </div>
+  <div class="content-grid">
+    <div class="stack">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Roster</p>
+            <h2>Jugadores</h2>
+          </div>
+          <span class="tag" th:text="${dashboard.totalPlayers + ' total'}">0 total</span>
+        </div>
 
-      <div class="status-list">
-        <div class="status-row">
-          <span class="status-name">Riot API key</span>
-          <span class="status-value" th:classappend="${configuration.riotApiKeyConfigured} ? ' ok' : ' warn'"
-                th:text="${configuration.riotApiKeyConfigured ? 'Configurada' : 'Pendiente'}"></span>
-        </div>
-        <div class="status-row">
-          <span class="status-name">Telegram token</span>
-          <span class="status-value" th:classappend="${configuration.telegramBotTokenConfigured} ? ' ok' : ' warn'"
-                th:text="${configuration.telegramBotTokenConfigured ? 'Configurado' : 'Pendiente'}"></span>
-        </div>
-        <div class="status-row">
-          <span class="status-name">Telegram chat</span>
-          <span class="status-value" th:classappend="${configuration.telegramChatIdConfigured} ? ' ok' : ' warn'"
-                th:text="${configuration.telegramChatIdConfigured ? 'Configurado' : 'Pendiente'}"></span>
-        </div>
-      </div>
+        <div th:if="${#lists.isEmpty(players)}" class="empty">Sin jugadores guardados</div>
 
-      <form th:action="@{/configuration}" method="post" th:object="${configurationForm}" autocomplete="off">
-        <div class="form-grid">
-          <label for="riotRegion">Region Riot
-            <select id="riotRegion" name="riotRegion">
-              <option th:each="region : ${riotRegions}"
-                      th:value="${region.name()}"
-                      th:text="${region.displayName()}"
-                      th:selected="${region.name() == configurationForm.riotRegion}"></option>
-            </select>
-            <span class="field-error" th:if="${#fields.hasErrors('riotRegion')}" th:errors="*{riotRegion}"></span>
-          </label>
-          <label for="riotApiKey">Riot API key
-            <input id="riotApiKey" type="password" name="riotApiKey" placeholder="Mantener valor actual" autocomplete="off">
-            <span class="field-error" th:if="${#fields.hasErrors('riotApiKey')}" th:errors="*{riotApiKey}"></span>
-          </label>
-          <label for="telegramBotToken">Telegram bot token
-            <input id="telegramBotToken" type="password" name="telegramBotToken" placeholder="Mantener valor actual" autocomplete="off">
-            <span class="field-error" th:if="${#fields.hasErrors('telegramBotToken')}" th:errors="*{telegramBotToken}"></span>
-          </label>
-          <label for="telegramChatId">Telegram chat id
-            <input id="telegramChatId" type="password" name="telegramChatId" placeholder="Mantener valor actual" autocomplete="off">
-            <span class="field-error" th:if="${#fields.hasErrors('telegramChatId')}" th:errors="*{telegramChatId}"></span>
-          </label>
-        </div>
-        <div class="form-actions">
-          <button type="submit">Guardar configuracion</button>
-        </div>
-      </form>
-    </section>
-
-    <section class="card">
-      <div class="section-head">
-        <h2>Nuevo jugador</h2>
-      </div>
-      <form th:action="@{/players}" method="post" th:object="${playerForm}">
-        <div class="form-grid">
-          <label for="platform">Servidor
-            <select id="platform" th:field="*{platform}">
-              <option th:each="platform : ${riotPlatforms}"
-                      th:value="${platform.name()}"
-                      th:text="${platform.shortName() + ' - ' + platform.displayName()}"></option>
-            </select>
-            <span class="field-help">Servidor de League, por ejemplo EUW.</span>
-          </label>
-          <label for="gameName">Nombre
-            <input id="gameName" type="text" th:field="*{gameName}" placeholder="Riot ID">
-            <span class="field-error" th:if="${#fields.hasErrors('gameName')}" th:errors="*{gameName}"></span>
-          </label>
-          <label for="tagLine">Tag de Riot ID
-            <input id="tagLine" type="text" th:field="*{tagLine}" placeholder="Ej: ESP, 1234">
-            <span class="field-help">No es el servidor. Es la parte despues de #.</span>
-            <span class="field-error" th:if="${#fields.hasErrors('tagLine')}" th:errors="*{tagLine}"></span>
-          </label>
-        </div>
-        <label class="check-row">
-          <input type="checkbox" th:field="*{active}">
-          Activo
-        </label>
-        <div class="form-actions">
-          <button type="submit">Guardar jugador</button>
-        </div>
-      </form>
-    </section>
-  </div>
-
-  <section class="card" style="margin-bottom: 16px;">
-    <div class="section-head">
-      <h2>Jugadores</h2>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-        <tr><th>Jugador</th><th>Servidor</th><th>Estado</th><th>Ultima sync</th><th>Error</th><th>Accion</th></tr>
-        </thead>
-        <tbody>
-        <tr th:if="${#lists.isEmpty(players)}">
-          <td colspan="6" class="muted">Sin jugadores guardados</td>
-        </tr>
-        <tr th:each="player : ${players}">
-          <td><strong th:text="${player.gameName + '#' + player.tagLine}"></strong></td>
-          <td th:text="${player.platform.shortName()}"></td>
-          <td>
-            <span class="tag" th:classappend="${player.active} ? ' tag-success' : ' tag-warn'"
-                  th:text="${player.active ? player.lastSyncStatus : 'INACTIVE'}"></span>
-          </td>
-          <td th:text="${player.lastSuccessfulSyncAt}"></td>
-          <td th:text="${player.lastError}"></td>
-          <td>
+        <div class="roster-grid" th:if="${!#lists.isEmpty(players)}">
+          <article class="player-card" th:each="player : ${players}">
+            <div class="player-top">
+              <div class="summoner">
+                <strong class="summoner-name" th:text="${player.gameName + '#' + player.tagLine}">Player#TAG</strong>
+                <p class="summoner-meta" th:text="${player.platform.shortName() + ' - ' + player.platform.displayName()}">EUW - Europe West</p>
+              </div>
+              <span class="tag" th:classappend="${player.active} ? ' tag-success' : ' tag-warn'"
+                    th:text="${player.active ? player.lastSyncStatus : 'INACTIVE'}">SUCCESS</span>
+            </div>
+            <div class="player-body">
+              <div class="detail-row">
+                <span class="detail-label">Ultima sync</span>
+                <span class="detail-value" th:text="${player.lastSuccessfulSyncAt != null ? player.lastSuccessfulSyncAt : 'Nunca'}">Nunca</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Ultimo intento</span>
+                <span class="detail-value" th:text="${player.lastPolledAt != null ? player.lastPolledAt : 'Pendiente'}">Pendiente</span>
+              </div>
+              <div class="detail-row player-error" th:if="${player.lastError != null && !player.lastError.isBlank()}">
+                <span class="detail-label">Error</span>
+                <span class="detail-value" th:text="${player.lastError}">Error</span>
+              </div>
+            </div>
             <form class="inline-form" th:action="@{'/players/' + ${player.id} + '/toggle'}" method="post">
               <input type="hidden" name="active" th:value="${!player.active}">
-              <button type="submit" class="button-muted" th:text="${player.active ? 'Desactivar' : 'Activar'}"></button>
+              <button type="submit" class="button-muted" th:text="${player.active ? 'Desactivar' : 'Activar'}">Desactivar</button>
             </form>
-          </td>
-        </tr>
-        </tbody>
-      </table>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Match feed</p>
+            <h2>Partidas recientes</h2>
+          </div>
+        </div>
+
+        <div th:if="${#lists.isEmpty(matches)}" class="empty">Sin partidas guardadas</div>
+
+        <div class="match-list" th:if="${!#lists.isEmpty(matches)}">
+          <article class="match-row" th:each="match : ${matches}">
+            <div class="match-result"
+                 th:classappend="${match.result == 'VICTORY'} ? ' victory' : (${match.result == 'DEFEAT'} ? ' defeat' : '')"
+                 th:text="${match.result}">VICTORY</div>
+            <div class="match-main">
+              <div class="match-title">
+                <strong class="champion" th:text="${match.championName}">Champion</strong>
+                <span class="mode" th:text="${match.gameMode}">CLASSIC</span>
+              </div>
+              <p class="match-player" th:text="${match.playerName}">Player#TAG</p>
+            </div>
+            <div class="match-meta">
+              <div th:text="${match.gameEndAt}">2026-05-03T00:00:00Z</div>
+              <div th:text="${match.notificationSent ? 'Aviso enviado' : 'Aviso pendiente'}">Aviso enviado</div>
+            </div>
+          </article>
+        </div>
+      </section>
     </div>
-  </section>
 
-  <div class="grid">
-    <section class="card">
-      <div class="section-head">
-        <h2>Ultimas ejecuciones</h2>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Inicio</th><th>Estado</th><th>Jugadores</th><th>Nuevas</th><th>Avisos</th></tr></thead>
-          <tbody>
-          <tr th:if="${#lists.isEmpty(runs)}">
-            <td colspan="5" class="muted">Sin ejecuciones registradas</td>
-          </tr>
-          <tr th:each="run : ${runs}">
-            <td th:text="${run.startedAt}"></td>
-            <td><span class="tag" th:text="${run.status}"></span></td>
-            <td th:text="${run.playersProcessed}"></td>
-            <td th:text="${run.newMatchesFound}"></td>
-            <td th:text="${run.notificationsSent}"></td>
-          </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <aside class="stack">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Alta rapida</p>
+            <h2>Nuevo jugador</h2>
+          </div>
+        </div>
 
-    <section class="card">
-      <div class="section-head">
-        <h2>Partidas recientes</h2>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Jugador</th><th>Campeon</th><th>Resultado</th><th>Modo</th><th>Fin</th></tr></thead>
-          <tbody>
-          <tr th:if="${#lists.isEmpty(matches)}">
-            <td colspan="5" class="muted">Sin partidas guardadas</td>
-          </tr>
-          <tr th:each="match : ${matches}">
-            <td th:text="${match.playerName}"></td>
-            <td th:text="${match.championName}"></td>
-            <td>
-              <span class="tag" th:classappend="${match.result == 'VICTORY'} ? ' tag-success' : ' tag-warn'"
-                    th:text="${match.result}"></span>
-            </td>
-            <td th:text="${match.gameMode}"></td>
-            <td th:text="${match.gameEndAt}"></td>
-          </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+        <form class="quick-player-form" th:action="@{/players}" method="post" th:object="${playerForm}">
+          <div class="form-grid quick-player-grid">
+            <label class="field-platform" for="platform">Servidor
+              <select id="platform" th:field="*{platform}">
+                <option th:each="platform : ${riotPlatforms}"
+                        th:value="${platform.name()}"
+                        th:text="${platform.shortName() + ' - ' + platform.displayName()}"></option>
+              </select>
+              <span class="field-help">Servidor de League, por ejemplo EUW.</span>
+            </label>
+            <label class="field-name" for="gameName">Nombre
+              <input id="gameName" type="text" th:field="*{gameName}" placeholder="Riot ID">
+              <span class="field-error" th:if="${#fields.hasErrors('gameName')}" th:errors="*{gameName}"></span>
+            </label>
+            <label class="field-tag" for="tagLine">Tag de Riot ID
+              <input id="tagLine" type="text" th:field="*{tagLine}" placeholder="Ej: ESP, 1234">
+              <span class="field-help">No es el servidor. Es la parte despues de #.</span>
+              <span class="field-error" th:if="${#fields.hasErrors('tagLine')}" th:errors="*{tagLine}"></span>
+            </label>
+          </div>
+          <div class="quick-player-actions">
+            <label class="check-row">
+              <input type="checkbox" th:field="*{active}">
+              Activo
+            </label>
+            <div class="form-actions">
+              <button type="submit">Guardar jugador</button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Runtime</p>
+            <h2>Configuracion</h2>
+          </div>
+          <span class="tag" th:classappend="${configuration.encryptionConfigured} ? ' tag-success' : ' tag-warn'"
+                th:text="${configuration.encryptionConfigured ? 'Cifrado listo' : 'Falta clave'}">Cifrado listo</span>
+        </div>
+
+        <div class="status-list config-status">
+          <div class="status-row">
+            <span class="status-name">Riot API key</span>
+            <span class="status-value tag" th:classappend="${configuration.riotApiKeyConfigured} ? ' tag-success' : ' tag-warn'"
+                  th:text="${configuration.riotApiKeyConfigured ? 'Configurada' : 'Pendiente'}">Configurada</span>
+          </div>
+          <div class="status-row">
+            <span class="status-name">Telegram token</span>
+            <span class="status-value tag" th:classappend="${configuration.telegramBotTokenConfigured} ? ' tag-success' : ' tag-warn'"
+                  th:text="${configuration.telegramBotTokenConfigured ? 'Configurado' : 'Pendiente'}">Configurado</span>
+          </div>
+          <div class="status-row">
+            <span class="status-name">Telegram chat</span>
+            <span class="status-value tag" th:classappend="${configuration.telegramChatIdConfigured} ? ' tag-success' : ' tag-warn'"
+                  th:text="${configuration.telegramChatIdConfigured ? 'Configurado' : 'Pendiente'}">Configurado</span>
+          </div>
+        </div>
+
+        <form class="settings-form" th:action="@{/configuration}" method="post" th:object="${configurationForm}" autocomplete="off">
+          <div class="form-grid settings-grid">
+            <label for="riotRegion">Region Riot
+              <select id="riotRegion" name="riotRegion">
+                <option th:each="region : ${riotRegions}"
+                        th:value="${region.name()}"
+                        th:text="${region.displayName()}"
+                        th:selected="${region.name() == configurationForm.riotRegion}"></option>
+              </select>
+              <span class="field-error" th:if="${#fields.hasErrors('riotRegion')}" th:errors="*{riotRegion}"></span>
+            </label>
+            <label for="riotApiKey">Riot API key
+              <input id="riotApiKey" type="password" name="riotApiKey" placeholder="Mantener valor actual" autocomplete="off">
+              <span class="field-error" th:if="${#fields.hasErrors('riotApiKey')}" th:errors="*{riotApiKey}"></span>
+            </label>
+            <label for="telegramBotToken">Telegram token
+              <input id="telegramBotToken" type="password" name="telegramBotToken" placeholder="Mantener valor actual" autocomplete="off">
+              <span class="field-error" th:if="${#fields.hasErrors('telegramBotToken')}" th:errors="*{telegramBotToken}"></span>
+            </label>
+            <label for="telegramChatId">Telegram chat id
+              <input id="telegramChatId" type="password" name="telegramChatId" placeholder="Mantener valor actual" autocomplete="off">
+              <span class="field-error" th:if="${#fields.hasErrors('telegramChatId')}" th:errors="*{telegramChatId}"></span>
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="submit">Guardar configuracion</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="panel-kicker">Operaciones</p>
+            <h2>Ultimas ejecuciones</h2>
+          </div>
+        </div>
+
+        <div th:if="${#lists.isEmpty(runs)}" class="empty">Sin ejecuciones registradas</div>
+
+        <div class="run-list" th:if="${!#lists.isEmpty(runs)}">
+          <article class="run-item" th:each="run : ${runs}">
+            <div class="run-top">
+              <span class="run-time" th:text="${run.startedAt}">Inicio</span>
+              <span class="tag" th:classappend="${run.status == 'SUCCESS'} ? ' tag-success' : (${run.status == 'FAILED'} ? ' tag-danger' : ' tag-warn')"
+                    th:text="${run.status}">SUCCESS</span>
+            </div>
+            <div class="run-stats">
+              <span th:text="${run.playersProcessed + ' jugadores'}">0 jugadores</span>
+              <span th:text="${run.newMatchesFound + ' nuevas'}">0 nuevas</span>
+              <span th:text="${run.notificationsSent + ' avisos'}">0 avisos</span>
+            </div>
+            <p class="muted" th:if="${run.errorSummary != null && !run.errorSummary.isBlank()}" th:text="${run.errorSummary}">Error</p>
+          </article>
+        </div>
+      </section>
+    </aside>
   </div>
 </main>
 </body>
