@@ -124,6 +124,7 @@ class DashboardControllerTest {
                     "riotRegions",
                     "riotPlatforms"))
         .andExpect(content().string(containsString("LOL Match Tracker")))
+        .andExpect(content().string(containsString("Version V1")))
         .andExpect(content().string(containsString("Configuracion")))
         .andExpect(content().string(containsString("Servidor")))
         .andExpect(content().string(containsString(">1<")));

@@ -752,6 +752,7 @@
         <p class="subtitle">Seguimiento visual de jugadores, partidas recientes y estado operativo del polling.</p>
       </div>
       <div class="command-status">
+        <span class="tag">Version V1</span>
         <span class="tag" th:classappend="${configuration.encryptionConfigured} ? ' tag-success' : ' tag-warn'"
               th:text="${configuration.encryptionConfigured ? 'Cifrado listo' : 'Falta clave maestra'}">Cifrado listo</span>
         <span class="tag" th:classappend="${configuration.riotApiKeyConfigured} ? ' tag-success' : ' tag-warn'"
