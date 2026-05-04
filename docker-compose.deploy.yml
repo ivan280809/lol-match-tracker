@@ -16,7 +16,7 @@ services:
       APP_POLL_FIXED_DELAY: ${APP_POLL_FIXED_DELAY:-PT5M}
       APP_POLL_INITIAL_DELAY: ${APP_POLL_INITIAL_DELAY:-PT30S}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8085:8080"
     depends_on:
       postgres:
         condition: service_healthy
