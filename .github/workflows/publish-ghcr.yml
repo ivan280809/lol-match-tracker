@@ -17,6 +17,7 @@ env:
   DEPLOY_DIR: /opt/lol-match-tracker
   DEPLOY_ENV_FILE: /opt/lol-match-tracker/lol-tracker.env
   DEPLOY_COMPOSE_FILE: /opt/lol-match-tracker/docker-compose.deploy.yml
+  DEPLOY_SWAG_COMPOSE_FILE: /opt/lol-match-tracker/docker-compose.swag.yml
 
 jobs:
   test-and-publish:
@@ -92,6 +93,7 @@ jobs:
           test -r "$DEPLOY_ENV_FILE"
           test -w "$DEPLOY_DIR"
           test ! -e "$DEPLOY_COMPOSE_FILE" || test -w "$DEPLOY_COMPOSE_FILE"
+          test -r "$DEPLOY_SWAG_COMPOSE_FILE"
 
       - name: Copy Compose file to deployment directory
         run: cp docker-compose.deploy.yml "$DEPLOY_COMPOSE_FILE"
@@ -104,13 +106,13 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Pull deployment images
-        run: docker compose --env-file "$DEPLOY_ENV_FILE" --file "$DEPLOY_COMPOSE_FILE" --project-name "$COMPOSE_PROJECT_NAME" pull
+        run: docker compose --env-file "$DEPLOY_ENV_FILE" --file "$DEPLOY_COMPOSE_FILE" --file "$DEPLOY_SWAG_COMPOSE_FILE" --project-name "$COMPOSE_PROJECT_NAME" pull
 
       - name: Restart application stack
-        run: docker compose --env-file "$DEPLOY_ENV_FILE" --file "$DEPLOY_COMPOSE_FILE" --project-name "$COMPOSE_PROJECT_NAME" up -d --remove-orphans
+        run: docker compose --env-file "$DEPLOY_ENV_FILE" --file "$DEPLOY_COMPOSE_FILE" --file "$DEPLOY_SWAG_COMPOSE_FILE" --project-name "$COMPOSE_PROJECT_NAME" up -d --remove-orphans
 
       - name: Show deployment status
-        run: docker compose --env-file "$DEPLOY_ENV_FILE" --file "$DEPLOY_COMPOSE_FILE" --project-name "$COMPOSE_PROJECT_NAME" ps
+        run: docker compose --env-file "$DEPLOY_ENV_FILE" --file "$DEPLOY_COMPOSE_FILE" --file "$DEPLOY_SWAG_COMPOSE_FILE" --project-name "$COMPOSE_PROJECT_NAME" ps
 
       - name: Wait for application health
         run: |
@@ -121,5 +123,5 @@ jobs:
             fi
             sleep 2
           done
-          docker compose --env-file "$DEPLOY_ENV_FILE" --file "$DEPLOY_COMPOSE_FILE" --project-name "$COMPOSE_PROJECT_NAME" logs --tail=120 lol-match-tracker
+          docker compose --env-file "$DEPLOY_ENV_FILE" --file "$DEPLOY_COMPOSE_FILE" --file "$DEPLOY_SWAG_COMPOSE_FILE" --project-name "$COMPOSE_PROJECT_NAME" logs --tail=120 lol-match-tracker
           exit 1

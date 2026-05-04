@@ -47,7 +47,7 @@ El workflow `.github/workflows/publish-ghcr.yml` hace tres cosas al recibir un p
 2. Construye y publica la imagen en `GHCR` con dos tags: `latest` y el SHA completo del commit.
 3. Ejecuta un job de despliegue en un runner self-hosted con labels `self-hosted` y `minipc`.
 
-El job de despliegue usa un project name estable de Docker Compose: `lol-match-tracker`. Tambien copia `docker-compose.deploy.yml` a `/opt/lol-match-tracker/docker-compose.deploy.yml`, carga secretos desde `/opt/lol-match-tracker/lol-tracker.env`, hace `docker compose pull`, reinicia con `docker compose up -d --remove-orphans` y comprueba `/actuator/health`.
+El job de despliegue usa un project name estable de Docker Compose: `lol-match-tracker`. Tambien copia `docker-compose.deploy.yml` a `/opt/lol-match-tracker/docker-compose.deploy.yml`, carga secretos desde `/opt/lol-match-tracker/lol-tracker.env`, combina ese Compose con el override local `/opt/lol-match-tracker/docker-compose.swag.yml`, hace `docker compose pull`, reinicia con `docker compose up -d --remove-orphans` y comprueba `/actuator/health`.
 
 ### Preparar el mini PC
 
@@ -76,6 +76,36 @@ chmod 600 /opt/lol-match-tracker/lol-tracker.env
 ```
 
 Edita `/opt/lol-match-tracker/lol-tracker.env` y rellena las variables reales. No subas este fichero a GitHub.
+
+Si el mini PC publica la aplicacion detras de SWAG, crea tambien un override local fuera del repo:
+
+```bash
+nano /opt/lol-match-tracker/docker-compose.swag.yml
+```
+
+Ejemplo:
+
+```yaml
+services:
+  lol-match-tracker:
+    networks:
+      - default
+      - swag
+
+networks:
+  swag:
+    external: true
+    name: plex-stack_default
+```
+
+Ese archivo es especifico del servidor y no debe subirse al repo. El workflow lo usa junto al Compose versionado con:
+
+```bash
+docker compose --env-file /opt/lol-match-tracker/lol-tracker.env \
+  --file /opt/lol-match-tracker/docker-compose.deploy.yml \
+  --file /opt/lol-match-tracker/docker-compose.swag.yml \
+  --project-name lol-match-tracker up -d --remove-orphans
+```
 
 ### Registrar el self-hosted runner
 

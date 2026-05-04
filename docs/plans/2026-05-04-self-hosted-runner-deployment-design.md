@@ -15,6 +15,7 @@ Deploy the Dockerized monolith to a Linux mini PC automatically after a successf
 - Run the deploy job on a self-hosted GitHub Actions runner installed on the mini PC.
 - Target a runner with labels `self-hosted` and `minipc`.
 - Use `docker-compose.deploy.yml` and a stable Compose project name: `lol-match-tracker`.
+- Use the local server-specific override `/opt/lol-match-tracker/docker-compose.swag.yml` during deploy, without versioning SWAG networks in this repository.
 - Keep the real env file on the mini PC at `/opt/lol-match-tracker/lol-tracker.env`.
 - Keep Riot, Telegram, database, and encryption secrets out of the repository and out of GitHub Actions secrets.
 
@@ -23,7 +24,7 @@ Deploy the Dockerized monolith to a Linux mini PC automatically after a successf
 Use a two-job GitHub Actions workflow:
 
 1. `test-and-publish` runs on GitHub-hosted Ubuntu, executes Maven tests, builds the Docker image, and pushes both `latest` and a commit-SHA tag to `GHCR`.
-2. `deploy-minipc` runs on the mini PC self-hosted runner, copies the Compose file into `/opt/lol-match-tracker`, pulls the commit-specific image, restarts the stack, and checks `/actuator/health`.
+2. `deploy-minipc` runs on the mini PC self-hosted runner, copies the Compose file into `/opt/lol-match-tracker`, combines it with the local SWAG override, pulls the commit-specific image, restarts the stack, and checks `/actuator/health`.
 
 The deployment job exports `APP_IMAGE` with the commit-specific tag from the publish job. This keeps `latest` useful for manual operations while making automated deployments deterministic.
 
@@ -38,6 +39,7 @@ The deployment job exports `APP_IMAGE` with the commit-specific tag from the pub
 - The runner user must be able to run Docker commands without `sudo`.
 - `/opt/lol-match-tracker` must exist and be writable by the runner user.
 - `/opt/lol-match-tracker/lol-tracker.env` must exist before the first deploy.
+- `/opt/lol-match-tracker/docker-compose.swag.yml` must exist before deploy if the server uses SWAG.
 - The application listens on container port `8080`, but the mini PC host publishes it only on `127.0.0.1:8085`.
 - If the GHCR package is private, the workflow logs in with `GITHUB_TOKEN` before pulling.
 - Manual pulls from the mini PC may still require either a public package or `docker login ghcr.io`.
