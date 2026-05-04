@@ -70,7 +70,7 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
 
   deploy-minipc:
-    runs-on: [self-hosted, linux, minipc]
+    runs-on: [self-hosted, minipc]
     needs: test-and-publish
     if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
     concurrency:

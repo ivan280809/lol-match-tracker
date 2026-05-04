@@ -13,7 +13,7 @@ Deploy the Dockerized monolith to a Linux mini PC automatically after a successf
 - Publish the application image to `GHCR`.
 - Deploy only after the image is published successfully.
 - Run the deploy job on a self-hosted GitHub Actions runner installed on the mini PC.
-- Target a runner with labels `self-hosted`, `linux`, and `minipc`.
+- Target a runner with labels `self-hosted` and `minipc`.
 - Use `docker-compose.deploy.yml` and a stable Compose project name: `lol-match-tracker`.
 - Keep the real env file on the mini PC at `/opt/lol-match-tracker/lol-tracker.env`.
 - Keep Riot, Telegram, database, and encryption secrets out of the repository and out of GitHub Actions secrets.

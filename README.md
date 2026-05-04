@@ -45,7 +45,7 @@ El workflow `.github/workflows/publish-ghcr.yml` hace tres cosas al recibir un p
 
 1. Ejecuta los tests con Maven.
 2. Construye y publica la imagen en `GHCR` con dos tags: `latest` y el SHA completo del commit.
-3. Ejecuta un job de despliegue en un runner self-hosted con labels `self-hosted`, `linux` y `minipc`.
+3. Ejecuta un job de despliegue en un runner self-hosted con labels `self-hosted` y `minipc`.
 
 El job de despliegue usa un project name estable de Docker Compose: `lol-match-tracker`. Tambien copia `docker-compose.deploy.yml` a `/opt/lol-match-tracker/docker-compose.deploy.yml`, carga secretos desde `/opt/lol-match-tracker/lol-tracker.env`, hace `docker compose pull`, reinicia con `docker compose up -d --remove-orphans` y comprueba `/actuator/health`.
 
@@ -86,7 +86,7 @@ En GitHub:
 3. Elige Linux y copia los comandos oficiales que te da GitHub.
 4. Al ejecutar `config.sh`, anade el label custom `minipc`.
 
-GitHub anade normalmente los labels `self-hosted` y `linux` de forma automatica. El workflow requiere tambien `minipc`.
+GitHub anade normalmente los labels del sistema, como `self-hosted`, `Linux` y `X64`. El workflow requiere el label custom `minipc`.
 
 Despues, instala el runner como servicio:
 
