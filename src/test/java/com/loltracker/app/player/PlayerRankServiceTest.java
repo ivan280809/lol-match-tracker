@@ -51,7 +51,8 @@ class PlayerRankServiceTest {
     PlayerEntity silver = player("Silver", "EUW");
     silver.setRankScore(1178);
 
-    when(playerRepository.findAllByActiveTrueOrderByGameNameAsc()).thenReturn(List.of(gold, silver));
+    when(playerRepository.findAllByActiveTrueAndArchivedAtIsNullOrderByGameNameAsc())
+        .thenReturn(List.of(gold, silver));
 
     PlayerRankSnapshot average = service.rosterAverageRank().orElseThrow();
 
@@ -62,7 +63,8 @@ class PlayerRankServiceTest {
   @Test
   void rosterAverageRankIsEmptyWhenNoRankSnapshotsExist() {
     PlayerRankService service = new PlayerRankService(riotClient, playerRepository);
-    when(playerRepository.findAllByActiveTrueOrderByGameNameAsc()).thenReturn(List.of(player("Unranked", "EUW")));
+    when(playerRepository.findAllByActiveTrueAndArchivedAtIsNullOrderByGameNameAsc())
+        .thenReturn(List.of(player("Unranked", "EUW")));
 
     assertTrue(service.rosterAverageRank().isEmpty());
   }

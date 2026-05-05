@@ -3,6 +3,7 @@ package com.loltracker.app.match;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TrackedMatchRepository extends JpaRepository<TrackedMatchEntity, Long> {
@@ -18,9 +19,13 @@ public interface TrackedMatchRepository extends JpaRepository<TrackedMatchEntity
   List<TrackedMatchEntity> findTop20ByPlayerIdAndChampionNameIgnoreCaseOrderByGameEndAtDesc(
       Long playerId, String championName);
 
+  List<TrackedMatchEntity> findByPlayerIdOrderByGameEndAtDesc(Long playerId, Pageable pageable);
+
   List<TrackedMatchEntity>
       findAllByPlayerIdAndGameEndAtGreaterThanEqualAndGameEndAtLessThanOrderByGameEndAtDesc(
           Long playerId, Instant startInclusive, Instant endExclusive);
 
   List<TrackedMatchEntity> findTop20ByOrderByGameEndAtDesc();
+
+  List<TrackedMatchEntity> findByOrderByGameEndAtDesc(Pageable pageable);
 }

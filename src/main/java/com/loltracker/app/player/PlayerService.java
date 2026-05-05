@@ -23,7 +23,7 @@ public class PlayerService {
 
   @Transactional(readOnly = true)
   public List<PlayerEntity> getActivePlayers() {
-    return playerRepository.findAllByActiveTrueOrderByGameNameAsc();
+    return playerRepository.findAllByActiveTrueAndArchivedAtIsNullOrderByGameNameAsc();
   }
 
   @Transactional(readOnly = true)
@@ -31,33 +31,47 @@ public class PlayerService {
     return PlayerView.fromEntity(getRequiredPlayer(id));
   }
 
-  @Transactional
+  @Transactional(readOnly = true)
+  public PlayerEntity getPlayerEntity(Long id) {
+    return getRequiredPlayer(id);
+  }
+
   public PlayerView create(PlayerForm form) {
     String gameName = normalize(form.gameName());
     String tagLine = normalize(form.tagLine());
     RiotPlatform platform = RiotPlatform.fromFormValue(form.platform());
     assertNoDuplicate(null, gameName, tagLine);
+    String puuid = resolvePuuidIfConfigured(gameName, tagLine);
 
     PlayerEntity entity = new PlayerEntity();
     entity.setGameName(gameName);
     entity.setTagLine(tagLine);
     entity.setPlatform(platform);
-    entity.setPuuid(resolvePuuid(gameName, tagLine));
+    entity.setPuuid(puuid);
     entity.setActive(form.active());
     return PlayerView.fromEntity(playerRepository.save(entity));
   }
 
-  @Transactional
   public PlayerView update(Long id, PlayerForm form) {
     PlayerEntity entity = getRequiredPlayer(id);
     String gameName = normalize(form.gameName());
     String tagLine = normalize(form.tagLine());
     RiotPlatform platform = RiotPlatform.fromFormValue(form.platform());
     assertNoDuplicate(id, gameName, tagLine);
+    boolean identityChanged =
+        !gameName.equalsIgnoreCase(entity.getGameName())
+            || !tagLine.equalsIgnoreCase(entity.getTagLine());
+    boolean platformChanged = platform != RiotPlatform.fromFormValue(entity.getPlatform());
+    if (identityChanged || platformChanged || isBlank(entity.getPuuid())) {
+      if (riotClient.isConfigured()) {
+        entity.setPuuid(resolvePuuid(gameName, tagLine));
+      } else if (identityChanged) {
+        entity.setPuuid(null);
+      }
+    }
     entity.setGameName(gameName);
     entity.setTagLine(tagLine);
     entity.setPlatform(platform);
-    entity.setPuuid(resolvePuuid(gameName, tagLine));
     entity.setActive(form.active());
     return PlayerView.fromEntity(playerRepository.save(entity));
   }
@@ -70,24 +84,44 @@ public class PlayerService {
   }
 
   @Transactional
+  public void archive(Long id) {
+    PlayerEntity entity = getRequiredPlayer(id);
+    if (entity.getArchivedAt() == null) {
+      entity.setArchivedAt(Instant.now());
+    }
+    entity.setActive(false);
+    playerRepository.save(entity);
+  }
+
+  @Transactional
+  public void restore(Long id) {
+    PlayerEntity entity = getRequiredPlayer(id);
+    entity.setArchivedAt(null);
+    entity.setActive(true);
+    playerRepository.save(entity);
+  }
+
+  @Transactional
   public void updateSyncSuccess(PlayerEntity player, String puuid) {
-    player.setPuuid(puuid);
-    player.setLastPolledAt(Instant.now());
-    player.setLastSuccessfulSyncAt(Instant.now());
-    player.setLastSyncStatus("SUCCESS");
-    player.setLastError(null);
-    playerRepository.save(player);
+    PlayerEntity entity = getRequiredPlayer(player.getId());
+    Instant now = Instant.now();
+    entity.setPuuid(puuid);
+    entity.setLastPolledAt(now);
+    entity.setLastSuccessfulSyncAt(now);
+    entity.setLastSyncStatus("SUCCESS");
+    entity.setLastError(null);
+    playerRepository.save(entity);
   }
 
   @Transactional
   public void updateSyncFailure(PlayerEntity player, String error) {
-    player.setLastPolledAt(Instant.now());
-    player.setLastSyncStatus("ERROR");
-    player.setLastError(error == null ? "Unknown error" : error.substring(0, Math.min(500, error.length())));
-    playerRepository.save(player);
+    PlayerEntity entity = getRequiredPlayer(player.getId());
+    entity.setLastPolledAt(Instant.now());
+    entity.setLastSyncStatus("ERROR");
+    entity.setLastError(error == null ? "Unknown error" : error.substring(0, Math.min(500, error.length())));
+    playerRepository.save(entity);
   }
 
-  @Transactional
   public String ensurePuuid(PlayerEntity player) {
     if (player.getPuuid() != null && !player.getPuuid().isBlank()) {
       return player.getPuuid();
@@ -113,6 +147,13 @@ public class PlayerService {
     return account.puuid();
   }
 
+  private String resolvePuuidIfConfigured(String gameName, String tagLine) {
+    if (!riotClient.isConfigured()) {
+      return null;
+    }
+    return resolvePuuid(gameName, tagLine);
+  }
+
   private void assertNoDuplicate(Long playerId, String gameName, String tagLine) {
     playerRepository
         .findByGameNameIgnoreCaseAndTagLineIgnoreCase(gameName, tagLine)
@@ -126,5 +167,9 @@ public class PlayerService {
 
   private String normalize(String value) {
     return value.trim();
+  }
+
+  private boolean isBlank(String value) {
+    return value == null || value.isBlank();
   }
 }

@@ -4,6 +4,7 @@ import com.loltracker.app.integration.riot.RiotClient;
 import com.loltracker.app.match.MatchSummary;
 import com.loltracker.app.match.TrackedMatchEntity;
 import com.loltracker.app.match.TrackedMatchService;
+import com.loltracker.app.notification.NotificationDispatchResult;
 import com.loltracker.app.notification.NotificationService;
 import com.loltracker.app.ops.PollRunEntity;
 import com.loltracker.app.ops.PollRunService;
@@ -11,6 +12,7 @@ import com.loltracker.app.player.PlayerEntity;
 import com.loltracker.app.player.PlayerService;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,38 +45,37 @@ public class PollingService {
       return new PollSummary(0, 0, 0, 0, "SKIPPED");
     }
 
-    PollRunEntity run = pollRunService.startRun();
+    PollRunEntity run = null;
     int processed = 0;
     int newMatches = 0;
     int notifications = 0;
     List<String> playerErrors = new ArrayList<>();
 
     try {
+      run = pollRunService.startRun();
       List<PlayerEntity> players = playerService.getActivePlayers();
       for (PlayerEntity player : players) {
         processed++;
         try {
           String puuid = playerService.ensurePuuid(player);
-          notifications += retryPendingNotifications(player);
+          enqueueLegacyPendingNotifications(player);
+          notifications += dispatchPendingNotifications(player);
           List<String> matchIds = riotClient.fetchRecentMatchIds(puuid);
           for (String matchId : matchIds) {
             TrackedMatchEntity existingMatch =
                 trackedMatchService.findExisting(player, matchId).orElse(null);
             if (existingMatch != null) {
               if (!existingMatch.isNotificationSent()) {
-                notificationService.notifyNewMatch(existingMatch);
-                trackedMatchService.markNotificationSent(existingMatch);
-                notifications++;
+                notificationService.enqueueMatchNotification(existingMatch);
               }
               continue;
             }
             MatchSummary summary = riotClient.fetchMatchSummary(matchId, puuid);
             TrackedMatchEntity trackedMatch = trackedMatchService.create(player, summary);
             newMatches++;
-            notificationService.notifyNewMatch(trackedMatch);
-            trackedMatchService.markNotificationSent(trackedMatch);
-            notifications++;
+            notificationService.enqueueMatchNotification(trackedMatch);
           }
+          notifications += dispatchPendingNotifications(player);
           playerService.updateSyncSuccess(player, puuid);
         } catch (Exception e) {
           log.warn("Player sync failed for {}#{}", player.getGameName(), player.getTagLine(), e);
@@ -89,23 +90,32 @@ public class PollingService {
           newMatches,
           notifications,
           playerErrors.size(),
-          playerErrors.isEmpty() ? "SUCCESS" : "PARTIAL_SUCCESS");
+            playerErrors.isEmpty() ? "SUCCESS" : "PARTIAL_SUCCESS");
     } catch (Exception e) {
-      pollRunService.failRun(run, processed, newMatches, notifications, e.getMessage());
+      if (run != null) {
+        pollRunService.failRun(run, processed, newMatches, notifications, e.getMessage());
+      }
       throw e;
     } finally {
       running.set(false);
     }
   }
 
-  private int retryPendingNotifications(PlayerEntity player) {
-    int notificationsSent = 0;
-    for (TrackedMatchEntity pendingMatch : trackedMatchService.getPendingNotifications(player)) {
-      notificationService.notifyNewMatch(pendingMatch);
-      trackedMatchService.markNotificationSent(pendingMatch);
-      notificationsSent++;
+  private void enqueueLegacyPendingNotifications(PlayerEntity player) {
+    Optional.ofNullable(trackedMatchService.getPendingNotifications(player)).orElseGet(List::of).stream()
+        .forEach(notificationService::enqueueMatchNotification);
+  }
+
+  private int dispatchPendingNotifications(PlayerEntity player) {
+    NotificationDispatchResult result = notificationService.dispatchPendingForPlayer(player);
+    if (result.failed() > 0) {
+      log.warn(
+          "{} notification deliveries failed for {}#{}; matches remain queued",
+          result.failed(),
+          player.getGameName(),
+          player.getTagLine());
     }
-    return notificationsSent;
+    return result.sent();
   }
 
   private String buildPlayerError(PlayerEntity player, Exception e) {

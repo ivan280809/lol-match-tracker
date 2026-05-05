@@ -77,6 +77,10 @@ class AppConfigurationServiceTest {
     assertTrue(view.telegramBotTokenConfigured());
     assertTrue(view.telegramChatIdConfigured());
     assertTrue(view.encryptionConfigured());
+    assertEquals("DB", view.riotApiKeySource());
+    assertEquals("DB", view.riotRegionSource());
+    assertEquals("ENV", view.telegramBotTokenSource());
+    assertEquals("ENV", view.telegramChatIdSource());
     verify(secretCryptoService, never()).decrypt(anyString());
   }
 }

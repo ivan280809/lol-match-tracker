@@ -47,8 +47,18 @@
 
     button,
     input,
-    select {
+    select,
+    a {
       font: inherit;
+    }
+
+    a {
+      color: var(--gold-bright);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
     }
 
     .page {
@@ -60,10 +70,10 @@
     .command {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
-      gap: 18px;
+      gap: 12px;
       align-items: stretch;
-      min-height: 180px;
-      margin-bottom: 16px;
+      min-height: 96px;
+      margin-bottom: 12px;
       border: 1px solid var(--line);
       border-radius: 8px;
       background:
@@ -74,11 +84,11 @@
     }
 
     .command-main {
-      padding: 24px;
+      padding: 18px;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      gap: 20px;
+      justify-content: center;
+      gap: 12px;
       min-width: 0;
     }
 
@@ -100,8 +110,8 @@
     }
 
     h1 {
-      font-size: clamp(2rem, 5vw, 3.7rem);
-      line-height: 0.95;
+      font-size: clamp(1.7rem, 3vw, 2.4rem);
+      line-height: 1;
       max-width: 760px;
     }
 
@@ -117,9 +127,9 @@
 
     .subtitle {
       max-width: 760px;
-      margin-top: 12px;
+      margin-top: 6px;
       color: var(--muted);
-      font-size: 1rem;
+      font-size: 0.9rem;
     }
 
     .command-status {
@@ -129,9 +139,9 @@
     }
 
     .command-action {
-      width: min(320px, 34vw);
-      min-width: 260px;
-      padding: 20px;
+      width: min(300px, 30vw);
+      min-width: 240px;
+      padding: 16px;
       display: grid;
       align-content: center;
       gap: 14px;
@@ -183,8 +193,8 @@
     .metrics {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 16px;
+      gap: 8px;
+      margin-bottom: 12px;
     }
 
     .metric,
@@ -198,8 +208,8 @@
     }
 
     .metric {
-      min-height: 112px;
-      padding: 16px;
+      min-height: 72px;
+      padding: 12px 14px;
       position: relative;
       overflow: hidden;
     }
@@ -220,15 +230,15 @@
     }
 
     .metric-value {
-      margin-top: 10px;
-      font-size: clamp(1.45rem, 3vw, 2.05rem);
+      margin-top: 6px;
+      font-size: clamp(1.15rem, 2vw, 1.55rem);
       font-weight: 900;
       line-height: 1;
       word-break: break-word;
     }
 
     .metric-note {
-      margin-top: 9px;
+      margin-top: 4px;
       color: var(--quiet);
       font-size: 0.8rem;
       font-weight: 700;
@@ -236,7 +246,7 @@
 
     .content-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
+      grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.55fr);
       gap: 16px;
       align-items: start;
     }
@@ -309,6 +319,27 @@
     .player-body {
       display: grid;
       gap: 8px;
+    }
+
+    .rank-strip {
+      display: grid;
+      gap: 4px;
+      min-height: 58px;
+      padding: 10px;
+      border: 1px solid rgba(240, 210, 138, 0.2);
+      border-radius: 6px;
+      background: rgba(200, 166, 93, 0.08);
+    }
+
+    .rank-main {
+      color: var(--gold-bright);
+      font-weight: 900;
+    }
+
+    .rank-meta {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
     }
 
     .detail-row,
@@ -437,6 +468,130 @@
       align-items: start;
     }
 
+    .filter-form {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+      margin-bottom: 14px;
+      padding: 12px;
+      border: 1px solid rgba(155, 169, 185, 0.14);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .filters-panel {
+      margin-bottom: 14px;
+      border: 1px solid rgba(155, 169, 185, 0.14);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .filters-panel summary {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 900;
+      list-style: none;
+    }
+
+    .filters-panel summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .filters-panel summary:after {
+      content: "Abrir";
+      color: var(--muted);
+      font-size: 0.74rem;
+      text-transform: uppercase;
+    }
+
+    .filters-panel[open] summary:after {
+      content: "Cerrar";
+    }
+
+    .active-filter-chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .side-tabs {
+      padding: 0;
+    }
+
+    .tab-input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .tab-labels {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      border-bottom: 1px solid var(--line);
+    }
+
+    .tab-label {
+      min-height: 48px;
+      display: grid;
+      place-items: center;
+      padding: 10px 8px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      border-right: 1px solid rgba(155, 169, 185, 0.12);
+    }
+
+    .tab-label:last-child {
+      border-right: 0;
+    }
+
+    #tab-player:checked ~ .tab-labels label[for="tab-player"],
+    #tab-health:checked ~ .tab-labels label[for="tab-health"],
+    #tab-config:checked ~ .tab-labels label[for="tab-config"] {
+      color: var(--gold-bright);
+      background: rgba(200, 166, 93, 0.08);
+    }
+
+    .tab-panel {
+      display: none;
+      padding: 18px;
+    }
+
+    #tab-player:checked ~ .tab-content .tab-player-panel,
+    #tab-health:checked ~ .tab-content .tab-health-panel,
+    #tab-config:checked ~ .tab-content .tab-config-panel {
+      display: grid;
+      gap: 16px;
+    }
+
+    .filter-actions,
+    .card-actions,
+    .health-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .filter-actions {
+      justify-content: flex-end;
+    }
+
     .quick-player-form,
     .settings-form {
       display: grid;
@@ -519,6 +674,19 @@
       cursor: pointer;
     }
 
+    .link-button {
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(155, 169, 185, 0.26);
+      border-radius: 6px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      font-weight: 900;
+    }
+
     button:hover {
       filter: brightness(1.05);
     }
@@ -554,6 +722,13 @@
 
     .status-row .tag {
       min-width: 118px;
+    }
+
+    .source {
+      color: var(--quiet);
+      font-size: 0.72rem;
+      font-weight: 900;
+      text-transform: uppercase;
     }
 
     .tag-success {
@@ -682,7 +857,8 @@
 
       .metrics,
       .form-grid,
-      .quick-player-grid {
+      .quick-player-grid,
+      .filter-grid {
         grid-template-columns: 1fr;
       }
 
@@ -749,24 +925,25 @@
       <div>
         <p class="eyebrow">Panel local</p>
         <h1>LOL Match Tracker</h1>
-        <p class="subtitle">Seguimiento visual de jugadores, partidas recientes y estado operativo del polling.</p>
+        <p class="subtitle">Roster, sincronizacion y salud operativa.</p>
       </div>
       <div class="command-status">
-        <span class="tag">Version V2 - Deploy automatico OK</span>
         <span class="tag" th:classappend="${configuration.encryptionConfigured} ? ' tag-success' : ' tag-warn'"
               th:text="${configuration.encryptionConfigured ? 'Cifrado listo' : 'Falta clave maestra'}">Cifrado listo</span>
         <span class="tag" th:classappend="${configuration.riotApiKeyConfigured} ? ' tag-success' : ' tag-warn'"
               th:text="${configuration.riotApiKeyConfigured ? 'Riot conectado' : 'Riot pendiente'}">Riot conectado</span>
         <span class="tag" th:classappend="${configuration.telegramBotTokenConfigured && configuration.telegramChatIdConfigured} ? ' tag-success' : ' tag-warn'"
               th:text="${configuration.telegramBotTokenConfigured && configuration.telegramChatIdConfigured ? 'Telegram listo' : 'Telegram pendiente'}">Telegram listo</span>
+        <a class="tag" th:href="@{/audit}">Auditoria</a>
       </div>
     </div>
     <aside class="command-action">
       <div>
         <p class="action-title">Sincronizacion manual</p>
-        <p class="action-copy">Lanza una pasada completa para buscar nuevas partidas y enviar avisos pendientes.</p>
+        <p class="action-copy">Busca partidas y envia avisos pendientes.</p>
       </div>
       <form th:action="@{/polling/run}" method="post">
+        <input type="hidden" name="returnTo" th:value="${currentPathAndQuery}">
         <button type="submit" class="button-primary">Ejecutar polling</button>
       </form>
     </aside>
@@ -795,8 +972,8 @@
     </div>
     <div class="metric">
       <p class="metric-label">Telegram</p>
-      <div class="metric-value" th:text="${configuration.telegramBotTokenConfigured && configuration.telegramChatIdConfigured ? 'Listo' : 'Pendiente'}">Pendiente</div>
-      <p class="metric-note">Avisos de resultado</p>
+      <div class="metric-value" th:text="${dashboard.pendingNotifications}">0</div>
+      <p class="metric-note" th:text="${dashboard.failedNotifications > 0 ? dashboard.failedNotifications + ' fallidos' : 'Avisos pendientes'}">Avisos pendientes</p>
     </div>
   </section>
 
@@ -808,22 +985,105 @@
             <p class="panel-kicker">Roster</p>
             <h2>Jugadores</h2>
           </div>
-          <span class="tag" th:text="${dashboard.totalPlayers + ' total'}">0 total</span>
+          <span class="tag" th:text="${#lists.size(players) + ' visibles / ' + dashboard.totalPlayers + ' total'}">0 visibles</span>
         </div>
 
-        <div th:if="${#lists.isEmpty(players)}" class="empty">Sin jugadores guardados</div>
+        <details class="filters-panel" th:open="${filters.hasActiveFilters()}">
+          <summary>
+            <span>Filtros y ordenacion</span>
+            <span class="active-filter-chips">
+              <span class="tag" th:text="${filters.statusLabel()}">Activos</span>
+              <span class="tag" th:if="${filters.platform != null}" th:text="${filters.platform.shortName()}">EUW</span>
+              <span class="tag" th:if="${filters.withError}">Con error</span>
+              <span class="tag" th:if="${filters.syncStatus != null && !filters.syncStatus.isBlank()}" th:text="${'Sync: ' + filters.syncStatusLabel()}">Sync</span>
+              <span class="tag" th:if="${filters.query != null && !filters.query.isBlank()}" th:text="${filters.query}">texto</span>
+              <span class="tag" th:if="${filters.champion != null && !filters.champion.isBlank()}" th:text="${filters.champion}">champion</span>
+              <span class="tag" th:if="${filters.fromDate != null}" th:text="${'Desde ' + filters.fromDate}">Desde</span>
+              <span class="tag" th:if="${filters.toDate != null}" th:text="${'Hasta ' + filters.toDate}">Hasta</span>
+              <span class="tag" th:text="${'Orden: ' + filters.sortLabel()}">Orden: Nombre</span>
+            </span>
+          </summary>
+          <form class="filter-form" th:action="@{/}" method="get" autocomplete="off">
+            <input type="hidden" name="tab" th:value="${activeTab}">
+            <div class="filter-grid">
+              <label for="filterStatus">Estado
+                <select id="filterStatus" name="status" data-autosubmit>
+                  <option value="active" th:selected="${filters.status == 'active'}">Activos</option>
+                  <option value="inactive" th:selected="${filters.status == 'inactive'}">Inactivos</option>
+                  <option value="archived" th:selected="${filters.status == 'archived'}">Archivados</option>
+                  <option value="all" th:selected="${filters.status == 'all'}">Todos</option>
+                </select>
+              </label>
+              <label for="filterPlatform">Servidor
+                <select id="filterPlatform" name="platform" data-autosubmit>
+                  <option value="">Todos</option>
+                  <option th:each="platform : ${riotPlatforms}"
+                          th:value="${platform.name()}"
+                          th:text="${platform.shortName()}"
+                          th:selected="${filters.platform != null && platform == filters.platform}"></option>
+                </select>
+              </label>
+              <label for="filterSync">Ultima sync
+                <select id="filterSync" name="syncStatus" data-autosubmit>
+                  <option value="">Cualquiera</option>
+                  <option th:each="syncStatus : ${syncStatuses}"
+                          th:value="${syncStatus}"
+                          th:text="${syncStatus}"
+                          th:selected="${syncStatus == filters.syncStatus}"></option>
+                </select>
+              </label>
+              <label for="filterSort">Orden
+                <select id="filterSort" name="sort" data-autosubmit>
+                  <option value="name" th:selected="${filters.sort == 'name'}">Nombre</option>
+                  <option value="last-error" th:selected="${filters.sort == 'last-error'}">Ultimo error</option>
+                  <option value="last-sync" th:selected="${filters.sort == 'last-sync'}">Ultima sync</option>
+                  <option value="rank" th:selected="${filters.sort == 'rank'}">Rank</option>
+                  <option value="activity" th:selected="${filters.sort == 'activity'}">Actividad</option>
+                </select>
+              </label>
+              <label for="filterQuery">Texto
+                <input id="filterQuery" type="text" name="query" th:value="${filters.query}" placeholder="Nombre, tag, error, match">
+              </label>
+              <label for="filterChampion">Campeon
+                <input id="filterChampion" type="text" name="champion" th:value="${filters.champion}" placeholder="Lux, Ahri...">
+              </label>
+              <label for="filterFrom">Desde
+                <input id="filterFrom" type="date" name="fromDate" th:value="${filters.fromDate}">
+              </label>
+              <label for="filterTo">Hasta
+                <input id="filterTo" type="date" name="toDate" th:value="${filters.toDate}">
+              </label>
+            </div>
+            <div class="filter-actions">
+              <label class="check-row">
+                <input type="checkbox" name="withError" value="true" th:checked="${filters.withError}" data-autosubmit>
+                Con error
+              </label>
+              <a class="link-button" th:href="@{/}">Limpiar</a>
+              <button type="submit">Filtrar</button>
+            </div>
+          </form>
+        </details>
+
+        <div th:if="${#lists.isEmpty(players)}" class="empty">Añade tu primer jugador desde el panel lateral</div>
 
         <div class="roster-grid" th:if="${!#lists.isEmpty(players)}">
           <article class="player-card" th:each="player : ${players}">
             <div class="player-top">
               <div class="summoner">
-                <strong class="summoner-name" th:text="${player.gameName + '#' + player.tagLine}">Player#TAG</strong>
+                <a class="summoner-name" th:href="@{'/players/' + ${player.id}}" th:text="${player.displayName()}">Player#TAG</a>
                 <p class="summoner-meta" th:text="${player.platform.shortName() + ' - ' + player.platform.displayName()}">EUW - Europe West</p>
               </div>
-              <span class="tag" th:classappend="${player.active} ? ' tag-success' : ' tag-warn'"
-                    th:text="${player.active ? player.lastSyncStatus : 'INACTIVE'}">SUCCESS</span>
+              <span class="tag"
+                    th:classappend="${player.archived()} ? ' tag-danger' : (${player.active} ? ' tag-success' : ' tag-warn')"
+                    th:text="${player.operationalStatus()}">SUCCESS</span>
             </div>
             <div class="player-body">
+              <div class="rank-strip">
+                <span class="rank-main" th:text="${player.rankDisplay()}">Sin rank</span>
+                <span class="rank-meta"
+                      th:text="${player.rankUpdatedAt != null ? player.rankQueueLabel() + ' - ' + player.rankUpdatedAt : player.rankQueueLabel()}">Sin cola</span>
+              </div>
               <div class="detail-row">
                 <span class="detail-label">Ultima sync</span>
                 <span class="detail-value" th:text="${player.lastSuccessfulSyncAt != null ? player.lastSuccessfulSyncAt : 'Nunca'}">Nunca</span>
@@ -837,15 +1097,28 @@
                 <span class="detail-value" th:text="${player.lastError}">Error</span>
               </div>
             </div>
-            <form class="inline-form" th:action="@{'/players/' + ${player.id} + '/toggle'}" method="post">
-              <input type="hidden" name="active" th:value="${!player.active}">
-              <button type="submit" class="button-muted" th:text="${player.active ? 'Desactivar' : 'Activar'}">Desactivar</button>
-            </form>
+            <div class="card-actions">
+              <a class="link-button" th:href="@{'/players/' + ${player.id}}">Detalle</a>
+              <a class="link-button" th:href="@{'/players/' + ${player.id} + '/edit'}">Editar</a>
+              <form class="inline-form" th:if="${!player.archived()}" th:action="@{'/players/' + ${player.id} + '/toggle'}" method="post">
+                <input type="hidden" name="active" th:value="${!player.active}">
+                <input type="hidden" name="returnTo" th:value="${currentPathAndQuery}">
+                <button type="submit" class="button-muted" th:text="${player.active ? 'Desactivar' : 'Activar'}">Desactivar</button>
+              </form>
+              <form class="inline-form" th:if="${!player.archived()}" th:action="@{'/players/' + ${player.id} + '/archive'}" method="post">
+                <input type="hidden" name="returnTo" th:value="${currentPathAndQuery}">
+                <button type="submit" class="button-muted">Archivar</button>
+              </form>
+              <form class="inline-form" th:if="${player.archived()}" th:action="@{'/players/' + ${player.id} + '/restore'}" method="post">
+                <input type="hidden" name="returnTo" th:value="${currentPathAndQuery}">
+                <button type="submit" class="button-muted">Restaurar</button>
+              </form>
+            </div>
           </article>
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel" th:if="${!#lists.isEmpty(matches)}">
         <div class="panel-head">
           <div>
             <p class="panel-kicker">Match feed</p>
@@ -853,9 +1126,7 @@
           </div>
         </div>
 
-        <div th:if="${#lists.isEmpty(matches)}" class="empty">Sin partidas guardadas</div>
-
-        <div class="match-list" th:if="${!#lists.isEmpty(matches)}">
+        <div class="match-list">
           <article class="match-row" th:each="match : ${matches}">
             <div class="match-result"
                  th:classappend="${match.result == 'VICTORY'} ? ' victory' : (${match.result == 'DEFEAT'} ? ' defeat' : '')"
@@ -877,102 +1148,174 @@
     </div>
 
     <aside class="stack">
-      <section class="panel">
-        <div class="panel-head">
-          <div>
-            <p class="panel-kicker">Alta rapida</p>
-            <h2>Nuevo jugador</h2>
-          </div>
+      <section class="panel side-tabs">
+        <input class="tab-input" type="radio" id="tab-player" name="side-tab" th:checked="${activeTab == 'player'}">
+        <input class="tab-input" type="radio" id="tab-health" name="side-tab" th:checked="${activeTab == 'health'}">
+        <input class="tab-input" type="radio" id="tab-config" name="side-tab" th:checked="${activeTab == 'config'}">
+
+        <div class="tab-labels">
+          <label class="tab-label" for="tab-player">Jugador</label>
+          <label class="tab-label" for="tab-health">Salud</label>
+          <label class="tab-label" for="tab-config">Config</label>
         </div>
 
-        <form class="quick-player-form" th:action="@{/players}" method="post" th:object="${playerForm}">
-          <div class="form-grid quick-player-grid">
-            <label class="field-platform" for="platform">Servidor
-              <select id="platform" th:field="*{platform}">
-                <option th:each="platform : ${riotPlatforms}"
-                        th:value="${platform.name()}"
-                        th:text="${platform.shortName() + ' - ' + platform.displayName()}"></option>
-              </select>
-              <span class="field-help">Servidor de League, por ejemplo EUW.</span>
-            </label>
-            <label class="field-name" for="gameName">Nombre
-              <input id="gameName" type="text" th:field="*{gameName}" placeholder="Riot ID">
-              <span class="field-error" th:if="${#fields.hasErrors('gameName')}" th:errors="*{gameName}"></span>
-            </label>
-            <label class="field-tag" for="tagLine">Tag de Riot ID
-              <input id="tagLine" type="text" th:field="*{tagLine}" placeholder="Ej: ESP, 1234">
-              <span class="field-help">No es el servidor. Es la parte despues de #.</span>
-              <span class="field-error" th:if="${#fields.hasErrors('tagLine')}" th:errors="*{tagLine}"></span>
-            </label>
+        <div class="tab-content">
+          <div class="tab-panel tab-player-panel">
+            <div>
+              <p class="panel-kicker">Alta rapida</p>
+              <h2>Nuevo jugador</h2>
+            </div>
+
+            <form class="quick-player-form" th:action="@{/players}" method="post" th:object="${playerForm}">
+              <div class="form-grid quick-player-grid">
+                <label class="field-platform" for="platform">Servidor
+                  <select id="platform" th:field="*{platform}">
+                    <option th:each="platform : ${riotPlatforms}"
+                            th:value="${platform.name()}"
+                            th:text="${platform.shortName() + ' - ' + platform.displayName()}"></option>
+                  </select>
+                  <span class="field-help">Servidor de League.</span>
+                </label>
+                <label class="field-name" for="gameName">Nombre
+                  <input id="gameName" type="text" th:field="*{gameName}" placeholder="Riot ID">
+                  <span class="field-error" th:if="${#fields.hasErrors('gameName')}" th:errors="*{gameName}"></span>
+                </label>
+                <label class="field-tag" for="tagLine">Tag
+                  <input id="tagLine" type="text" th:field="*{tagLine}" placeholder="Ej: ESP, 1234">
+                  <span class="field-error" th:if="${#fields.hasErrors('tagLine')}" th:errors="*{tagLine}"></span>
+                </label>
+              </div>
+              <div class="quick-player-actions">
+                <label class="check-row">
+                  <input type="checkbox" th:field="*{active}">
+                  Activo
+                </label>
+                <div class="form-actions">
+                  <input type="hidden" name="returnTo" value="/?tab=player">
+                  <button type="submit" class="button-muted" th:formaction="@{/players/validate-account}">Validar cuenta</button>
+                  <button type="submit">Guardar</button>
+                </div>
+              </div>
+            </form>
           </div>
-          <div class="quick-player-actions">
-            <label class="check-row">
-              <input type="checkbox" th:field="*{active}">
-              Activo
-            </label>
-            <div class="form-actions">
-              <button type="submit">Guardar jugador</button>
+
+          <div class="tab-panel tab-health-panel">
+            <div class="panel-head">
+              <div>
+                <p class="panel-kicker">Salud</p>
+                <h2>Integraciones</h2>
+              </div>
+              <a class="tag" th:href="@{/audit}">Auditoria</a>
+            </div>
+
+            <div class="status-list config-status">
+              <div class="status-row">
+                <span class="status-name">DB</span>
+                <span class="status-value tag" th:classappend="${health.databaseOk} ? ' tag-success' : ' tag-danger'"
+                      th:text="${health.databaseOk ? 'OK' : 'ERROR'}">OK</span>
+              </div>
+              <div class="status-row">
+                <span class="status-name">Riot</span>
+                <span class="status-value">
+                  <span class="tag" th:classappend="${health.riotConfigured} ? ' tag-success' : ' tag-warn'"
+                        th:text="${health.riotConfigured ? 'OK' : 'Pendiente'}">Pendiente</span>
+                  <span class="source" th:text="${health.lastRiotOkAt != null ? 'Ultimo OK ' + health.lastRiotOkAt : 'Sin OK'}">Sin OK</span>
+                </span>
+              </div>
+              <div class="status-row">
+                <span class="status-name">Telegram</span>
+                <span class="status-value">
+                  <span class="tag" th:classappend="${health.telegramConfigured} ? ' tag-success' : ' tag-warn'"
+                        th:text="${health.telegramConfigured ? 'OK' : 'Pendiente'}">Pendiente</span>
+                  <span class="source" th:text="${health.lastTelegramOkAt != null ? 'Ultimo OK ' + health.lastTelegramOkAt : 'Sin OK'}">Sin OK</span>
+                </span>
+              </div>
+              <div class="status-row">
+                <span class="status-name">Outbox</span>
+                <span class="status-value tag" th:classappend="${health.failedNotifications > 0} ? ' tag-danger' : (${health.pendingNotifications > 0} ? ' tag-warn' : ' tag-success')"
+                      th:text="${health.pendingNotifications + ' pendientes / ' + health.failedNotifications + ' fallidos'}">0 pendientes</span>
+              </div>
+            </div>
+
+            <div class="health-actions">
+              <form class="inline-form" th:action="@{/integrations/riot/validate}" method="post">
+                <input type="hidden" name="platform" value="EUW1">
+                <input type="hidden" name="returnTo" value="/?tab=health">
+                <button type="submit" class="button-muted">Validar Riot</button>
+              </form>
+              <form class="inline-form" th:action="@{/integrations/telegram/test}" method="post">
+                <input type="hidden" name="returnTo" value="/?tab=health">
+                <button type="submit" class="button-muted">Probar Telegram</button>
+              </form>
             </div>
           </div>
-        </form>
-      </section>
 
-      <section class="panel">
-        <div class="panel-head">
-          <div>
-            <p class="panel-kicker">Runtime</p>
-            <h2>Configuracion</h2>
+          <div class="tab-panel tab-config-panel">
+            <div class="panel-head">
+              <div>
+                <p class="panel-kicker">Runtime</p>
+                <h2>Configuracion</h2>
+              </div>
+              <span class="tag" th:classappend="${configuration.encryptionConfigured} ? ' tag-success' : ' tag-warn'"
+                    th:text="${configuration.encryptionConfigured ? 'Cifrado listo' : 'Falta clave'}">Cifrado listo</span>
+            </div>
+
+            <div class="status-list config-status">
+              <div class="status-row">
+                <span class="status-name">Riot key</span>
+                <span class="status-value">
+                  <span class="tag" th:classappend="${configuration.riotApiKeyConfigured} ? ' tag-success' : ' tag-warn'"
+                        th:text="${configuration.riotApiKeyConfigured ? 'OK' : 'Pendiente'}">Pendiente</span>
+                  <span class="source" th:text="${configuration.riotApiKeySource}">DB</span>
+                </span>
+              </div>
+              <div class="status-row">
+                <span class="status-name">Region</span>
+                <span class="status-value">
+                  <span th:text="${configuration.riotRegion.displayName()}">Europe</span>
+                  <span class="source" th:text="${configuration.riotRegionSource}">ENV</span>
+                </span>
+              </div>
+              <div class="status-row">
+                <span class="status-name">Telegram</span>
+                <span class="status-value">
+                  <span class="tag" th:classappend="${configuration.telegramBotTokenConfigured && configuration.telegramChatIdConfigured} ? ' tag-success' : ' tag-warn'"
+                        th:text="${configuration.telegramBotTokenConfigured && configuration.telegramChatIdConfigured ? 'OK' : 'Pendiente'}">Pendiente</span>
+                  <span class="source" th:text="${configuration.telegramBotTokenSource + ' / ' + configuration.telegramChatIdSource}">DB</span>
+                </span>
+              </div>
+            </div>
+
+            <form class="settings-form" th:action="@{/configuration}" method="post" th:object="${configurationForm}" autocomplete="off">
+              <div class="form-grid settings-grid">
+                <label for="riotRegion">Region Riot
+                  <select id="riotRegion" name="riotRegion">
+                    <option th:each="region : ${riotRegions}"
+                            th:value="${region.name()}"
+                            th:text="${region.displayName()}"
+                            th:selected="${region.name() == configurationForm.riotRegion}"></option>
+                  </select>
+                  <span class="field-error" th:if="${#fields.hasErrors('riotRegion')}" th:errors="*{riotRegion}"></span>
+                </label>
+                <label for="riotApiKey">Riot API key
+                  <input id="riotApiKey" type="password" name="riotApiKey" placeholder="Mantener valor actual" autocomplete="off">
+                  <span class="field-error" th:if="${#fields.hasErrors('riotApiKey')}" th:errors="*{riotApiKey}"></span>
+                </label>
+                <label for="telegramBotToken">Telegram token
+                  <input id="telegramBotToken" type="password" name="telegramBotToken" placeholder="Mantener valor actual" autocomplete="off">
+                  <span class="field-error" th:if="${#fields.hasErrors('telegramBotToken')}" th:errors="*{telegramBotToken}"></span>
+                </label>
+                <label for="telegramChatId">Telegram chat id
+                  <input id="telegramChatId" type="password" name="telegramChatId" placeholder="Mantener valor actual" autocomplete="off">
+                  <span class="field-error" th:if="${#fields.hasErrors('telegramChatId')}" th:errors="*{telegramChatId}"></span>
+                </label>
+              </div>
+              <div class="form-actions">
+                <button type="submit">Guardar configuracion</button>
+              </div>
+            </form>
           </div>
-          <span class="tag" th:classappend="${configuration.encryptionConfigured} ? ' tag-success' : ' tag-warn'"
-                th:text="${configuration.encryptionConfigured ? 'Cifrado listo' : 'Falta clave'}">Cifrado listo</span>
         </div>
-
-        <div class="status-list config-status">
-          <div class="status-row">
-            <span class="status-name">Riot API key</span>
-            <span class="status-value tag" th:classappend="${configuration.riotApiKeyConfigured} ? ' tag-success' : ' tag-warn'"
-                  th:text="${configuration.riotApiKeyConfigured ? 'Configurada' : 'Pendiente'}">Configurada</span>
-          </div>
-          <div class="status-row">
-            <span class="status-name">Telegram token</span>
-            <span class="status-value tag" th:classappend="${configuration.telegramBotTokenConfigured} ? ' tag-success' : ' tag-warn'"
-                  th:text="${configuration.telegramBotTokenConfigured ? 'Configurado' : 'Pendiente'}">Configurado</span>
-          </div>
-          <div class="status-row">
-            <span class="status-name">Telegram chat</span>
-            <span class="status-value tag" th:classappend="${configuration.telegramChatIdConfigured} ? ' tag-success' : ' tag-warn'"
-                  th:text="${configuration.telegramChatIdConfigured ? 'Configurado' : 'Pendiente'}">Configurado</span>
-          </div>
-        </div>
-
-        <form class="settings-form" th:action="@{/configuration}" method="post" th:object="${configurationForm}" autocomplete="off">
-          <div class="form-grid settings-grid">
-            <label for="riotRegion">Region Riot
-              <select id="riotRegion" name="riotRegion">
-                <option th:each="region : ${riotRegions}"
-                        th:value="${region.name()}"
-                        th:text="${region.displayName()}"
-                        th:selected="${region.name() == configurationForm.riotRegion}"></option>
-              </select>
-              <span class="field-error" th:if="${#fields.hasErrors('riotRegion')}" th:errors="*{riotRegion}"></span>
-            </label>
-            <label for="riotApiKey">Riot API key
-              <input id="riotApiKey" type="password" name="riotApiKey" placeholder="Mantener valor actual" autocomplete="off">
-              <span class="field-error" th:if="${#fields.hasErrors('riotApiKey')}" th:errors="*{riotApiKey}"></span>
-            </label>
-            <label for="telegramBotToken">Telegram token
-              <input id="telegramBotToken" type="password" name="telegramBotToken" placeholder="Mantener valor actual" autocomplete="off">
-              <span class="field-error" th:if="${#fields.hasErrors('telegramBotToken')}" th:errors="*{telegramBotToken}"></span>
-            </label>
-            <label for="telegramChatId">Telegram chat id
-              <input id="telegramChatId" type="password" name="telegramChatId" placeholder="Mantener valor actual" autocomplete="off">
-              <span class="field-error" th:if="${#fields.hasErrors('telegramChatId')}" th:errors="*{telegramChatId}"></span>
-            </label>
-          </div>
-          <div class="form-actions">
-            <button type="submit">Guardar configuracion</button>
-          </div>
-        </form>
       </section>
 
       <section class="panel">
@@ -989,7 +1332,7 @@
           <article class="run-item" th:each="run : ${runs}">
             <div class="run-top">
               <span class="run-time" th:text="${run.startedAt}">Inicio</span>
-              <span class="tag" th:classappend="${run.status == 'SUCCESS'} ? ' tag-success' : (${run.status == 'FAILED'} ? ' tag-danger' : ' tag-warn')"
+              <span class="tag" th:classappend="${run.status == 'SUCCESS'} ? ' tag-success' : (${run.status == 'ERROR'} ? ' tag-danger' : ' tag-warn')"
                     th:text="${run.status}">SUCCESS</span>
             </div>
             <div class="run-stats">
@@ -1004,5 +1347,10 @@
     </aside>
   </div>
 </main>
+<script>
+  document.querySelectorAll("[data-autosubmit]").forEach((control) => {
+    control.addEventListener("change", () => control.form?.requestSubmit());
+  });
+</script>
 </body>
 </html>

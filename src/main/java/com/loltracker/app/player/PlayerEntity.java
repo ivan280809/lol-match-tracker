@@ -33,6 +33,9 @@ public class PlayerEntity {
   @Column(name = "active", nullable = false)
   private boolean active = true;
 
+  @Column(name = "archived_at")
+  private Instant archivedAt;
+
   @Column(name = "last_polled_at")
   private Instant lastPolledAt;
 

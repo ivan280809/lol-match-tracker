@@ -4,13 +4,19 @@ import com.loltracker.app.match.MatchSummary;
 import com.loltracker.app.player.RiotPlatform;
 import com.loltracker.app.settings.AppConfigurationService;
 import com.loltracker.app.settings.RuntimeAppConfiguration;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -22,20 +28,35 @@ public class RiotClient {
   private final ObjectMapper objectMapper;
   private final AppConfigurationService appConfigurationService;
 
+  @Value("${app.http.timeout:PT10S}")
+  private Duration httpTimeout;
+
+  @Value("${app.http.retry.max-attempts:3}")
+  private int httpMaxAttempts;
+
+  @Value("${app.http.retry.backoff:PT1S}")
+  private Duration httpRetryBackoff;
+
+  public boolean isConfigured() {
+    return appConfigurationService.getView().riotApiKeyConfigured();
+  }
+
   public RiotAccount fetchAccount(String gameName, String tagLine) {
     RuntimeAppConfiguration configuration = riotConfiguration();
     String body;
     try {
       body =
-          riotClient(configuration)
-              .get()
-              .uri("/riot/account/v1/accounts/by-riot-id/{gameName}/{tagLine}", gameName, tagLine)
-              .retrieve()
-              .bodyToMono(String.class)
-              .block();
-    } catch (WebClientResponseException.NotFound e) {
-      throw new IllegalArgumentException(
-          "Riot account not found for %s#%s".formatted(gameName, tagLine), e);
+          blockWithRetry(
+              riotClient(configuration)
+                  .get()
+                  .uri(
+                      "/riot/account/v1/accounts/by-riot-id/{gameName}/{tagLine}",
+                      gameName,
+                      tagLine)
+                  .retrieve()
+                  .bodyToMono(String.class));
+    } catch (RuntimeException e) {
+      throw classifyFailure(e, "No se pudo validar la cuenta Riot %s#%s".formatted(gameName, tagLine));
     }
 
     try {
@@ -49,13 +70,18 @@ public class RiotClient {
 
   public List<String> fetchRecentMatchIds(String puuid) {
     RuntimeAppConfiguration configuration = riotConfiguration();
-    String body =
-        riotClient(configuration)
-            .get()
-            .uri("/lol/match/v5/matches/by-puuid/{puuid}/ids?start=0&count=10", puuid)
-            .retrieve()
-            .bodyToMono(String.class)
-            .block();
+    String body;
+    try {
+      body =
+          blockWithRetry(
+              riotClient(configuration)
+                  .get()
+                  .uri("/lol/match/v5/matches/by-puuid/{puuid}/ids?start=0&count=10", puuid)
+                  .retrieve()
+                  .bodyToMono(String.class));
+    } catch (RuntimeException e) {
+      throw classifyFailure(e, "No se pudo consultar el historial reciente de Riot");
+    }
 
     try {
       JsonNode node = objectMapper.readTree(body);
@@ -69,13 +95,18 @@ public class RiotClient {
 
   public MatchSummary fetchMatchSummary(String matchId, String puuid) {
     RuntimeAppConfiguration configuration = riotConfiguration();
-    String body =
-        riotClient(configuration)
-            .get()
-            .uri("/lol/match/v5/matches/{matchId}", matchId)
-            .retrieve()
-            .bodyToMono(String.class)
-            .block();
+    String body;
+    try {
+      body =
+          blockWithRetry(
+              riotClient(configuration)
+                  .get()
+                  .uri("/lol/match/v5/matches/{matchId}", matchId)
+                  .retrieve()
+                  .bodyToMono(String.class));
+    } catch (RuntimeException e) {
+      throw classifyFailure(e, "No se pudo consultar el detalle de partida Riot");
+    }
 
     try {
       JsonNode root = objectMapper.readTree(body);
@@ -108,13 +139,18 @@ public class RiotClient {
 
   public List<RiotRankEntry> fetchRankEntries(RiotPlatform platform, String puuid) {
     RuntimeAppConfiguration configuration = riotConfiguration();
-    String summonerBody =
-        platformClient(configuration, platform)
-            .get()
-            .uri("/lol/summoner/v4/summoners/by-puuid/{puuid}", puuid)
-            .retrieve()
-            .bodyToMono(String.class)
-            .block();
+    String summonerBody;
+    try {
+      summonerBody =
+          blockWithRetry(
+              platformClient(configuration, platform)
+                  .get()
+                  .uri("/lol/summoner/v4/summoners/by-puuid/{puuid}", puuid)
+                  .retrieve()
+                  .bodyToMono(String.class));
+    } catch (RuntimeException e) {
+      throw classifyFailure(e, "No se pudo consultar el invocador de Riot");
+    }
 
     String summonerId;
     try {
@@ -124,13 +160,18 @@ public class RiotClient {
       throw new IllegalStateException("Failed to parse Riot summoner response", e);
     }
 
-    String leagueBody =
-        platformClient(configuration, platform)
-            .get()
-            .uri("/lol/league/v4/entries/by-summoner/{summonerId}", summonerId)
-            .retrieve()
-            .bodyToMono(String.class)
-            .block();
+    String leagueBody;
+    try {
+      leagueBody =
+          blockWithRetry(
+              platformClient(configuration, platform)
+                  .get()
+                  .uri("/lol/league/v4/entries/by-summoner/{summonerId}", summonerId)
+                  .retrieve()
+                  .bodyToMono(String.class));
+    } catch (RuntimeException e) {
+      throw classifyFailure(e, "No se pudo consultar el rank de Riot");
+    }
 
     try {
       JsonNode node = objectMapper.readTree(leagueBody);
@@ -151,10 +192,31 @@ public class RiotClient {
     }
   }
 
+  public String validateApiKey(RiotPlatform platform) {
+    RuntimeAppConfiguration configuration = riotConfiguration();
+    try {
+      String body =
+          blockWithRetry(
+              platformClient(configuration, RiotPlatform.fromFormValue(platform))
+                  .get()
+                  .uri("/lol/status/v4/platform-data")
+                  .retrieve()
+                  .bodyToMono(String.class));
+      JsonNode node = objectMapper.readTree(body);
+      String name = node.path("name").asText(RiotPlatform.fromFormValue(platform).displayName());
+      return "Riot OK en " + name;
+    } catch (RuntimeException e) {
+      throw classifyFailure(e, "No se pudo validar la Riot API key");
+    } catch (Exception e) {
+      throw new RiotApiException(
+          RiotErrorCategory.UNKNOWN, "Riot respondio, pero no se pudo interpretar la respuesta", e);
+    }
+  }
+
   private RuntimeAppConfiguration riotConfiguration() {
     RuntimeAppConfiguration configuration = appConfigurationService.getRuntimeConfiguration();
     if (configuration.riotApiKey() == null || configuration.riotApiKey().isBlank()) {
-      throw new IllegalStateException("Riot API key is not configured");
+      throw new RiotApiException(RiotErrorCategory.NOT_CONFIGURED, "Riot API key no configurada");
     }
     return configuration;
   }
@@ -172,4 +234,52 @@ public class RiotClient {
         .defaultHeader("X-Riot-Token", configuration.riotApiKey())
         .build();
   }
+
+  private String blockWithRetry(Mono<String> response) {
+    return response
+        .timeout(httpTimeout)
+        .retryWhen(
+            Retry.backoff(Math.max(0, httpMaxAttempts - 1), httpRetryBackoff)
+                .filter(this::isTransientFailure)
+                .onRetryExhaustedThrow((spec, signal) -> signal.failure()))
+        .block();
+  }
+
+  private boolean isTransientFailure(Throwable failure) {
+    if (failure instanceof TimeoutException || failure instanceof WebClientRequestException) {
+      return true;
+    }
+    if (failure instanceof WebClientResponseException exception) {
+      return exception.getStatusCode().is5xxServerError();
+    }
+    return false;
+  }
+
+  private RiotApiException classifyFailure(RuntimeException failure, String fallbackMessage) {
+    if (failure instanceof RiotApiException riotApiException) {
+      return riotApiException;
+    }
+    if (failure instanceof WebClientResponseException exception) {
+      int status = exception.getStatusCode().value();
+      if (status == 401 || status == 403) {
+        return new RiotApiException(
+            RiotErrorCategory.UNAUTHORIZED, "Riot API key no autorizada o caducada", failure);
+      }
+      if (status == 404) {
+        return new RiotApiException(RiotErrorCategory.NOT_FOUND, "Cuenta Riot no encontrada", failure);
+      }
+      if (status == 429) {
+        return new RiotApiException(RiotErrorCategory.RATE_LIMIT, "Riot rate limit alcanzado", failure);
+      }
+      if (exception.getStatusCode().is5xxServerError()) {
+        return new RiotApiException(
+            RiotErrorCategory.UNAVAILABLE, "Riot no esta disponible temporalmente", failure);
+      }
+    }
+    if (failure.getCause() instanceof TimeoutException) {
+      return new RiotApiException(RiotErrorCategory.TIMEOUT, "Timeout llamando a Riot", failure);
+    }
+    return new RiotApiException(RiotErrorCategory.UNKNOWN, fallbackMessage, failure);
+  }
+
 }

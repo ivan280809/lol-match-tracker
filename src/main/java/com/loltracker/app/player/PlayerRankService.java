@@ -42,7 +42,7 @@ public class PlayerRankService {
   @Transactional(readOnly = true)
   public Optional<PlayerRankSnapshot> rosterAverageRank() {
     List<Integer> scores =
-        playerRepository.findAllByActiveTrueOrderByGameNameAsc().stream()
+        playerRepository.findAllByActiveTrueAndArchivedAtIsNullOrderByGameNameAsc().stream()
             .map(PlayerEntity::getRankScore)
             .filter(score -> score != null && score >= 0)
             .toList();

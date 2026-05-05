@@ -39,6 +39,7 @@ class PlayerServiceTest {
   void createPersistsNormalizedPlayer() {
     when(playerRepository.findByGameNameIgnoreCaseAndTagLineIgnoreCase("Bazaga", "ESP"))
         .thenReturn(Optional.empty());
+    when(riotClient.isConfigured()).thenReturn(true);
     when(riotClient.fetchAccount("Bazaga", "ESP"))
         .thenReturn(new RiotAccount("puuid-1", "Bazaga", "ESP"));
     when(playerRepository.save(any(PlayerEntity.class)))
@@ -57,6 +58,25 @@ class PlayerServiceTest {
     assertEquals(RiotPlatform.EUW1, created.platform());
     assertEquals("puuid-1", created.puuid());
     assertTrue(created.active());
+  }
+
+  @Test
+  void createPersistsWithoutPuuidWhenRiotIsNotConfigured() {
+    when(playerRepository.findByGameNameIgnoreCaseAndTagLineIgnoreCase("Bazaga", "ESP"))
+        .thenReturn(Optional.empty());
+    when(riotClient.isConfigured()).thenReturn(false);
+    when(playerRepository.save(any(PlayerEntity.class)))
+        .thenAnswer(
+            invocation -> {
+              PlayerEntity entity = invocation.getArgument(0);
+              entity.setId(7L);
+              return entity;
+            });
+
+    PlayerView created = playerService.create(new PlayerForm("Bazaga", "ESP", true));
+
+    assertNull(created.puuid());
+    verify(riotClient, never()).fetchAccount(anyString(), anyString());
   }
 
   @Test
@@ -83,6 +103,7 @@ class PlayerServiceTest {
   void createStoresSelectedPlatform() {
     when(playerRepository.findByGameNameIgnoreCaseAndTagLineIgnoreCase("Bazaga", "ESP"))
         .thenReturn(Optional.empty());
+    when(riotClient.isConfigured()).thenReturn(true);
     when(riotClient.fetchAccount("Bazaga", "ESP"))
         .thenReturn(new RiotAccount("puuid-1", "Bazaga", "ESP"));
     when(playerRepository.save(any(PlayerEntity.class)))
@@ -96,6 +117,77 @@ class PlayerServiceTest {
     PlayerView created = playerService.create(new PlayerForm(RiotPlatform.NA1, "Bazaga", "ESP", true));
 
     assertEquals(RiotPlatform.NA1, created.platform());
+  }
+
+  @Test
+  void updateResolvesPuuidWhenIdentityChangesAndRiotConfigured() {
+    PlayerEntity player = new PlayerEntity();
+    player.setId(7L);
+    player.setGameName("Old");
+    player.setTagLine("EUW");
+    player.setPlatform(RiotPlatform.EUW1);
+    player.setPuuid("old-puuid");
+    when(playerRepository.findById(7L)).thenReturn(Optional.of(player));
+    when(playerRepository.findByGameNameIgnoreCaseAndTagLineIgnoreCase("Bazaga", "ESP"))
+        .thenReturn(Optional.empty());
+    when(riotClient.isConfigured()).thenReturn(true);
+    when(riotClient.fetchAccount("Bazaga", "ESP"))
+        .thenReturn(new RiotAccount("new-puuid", "Bazaga", "ESP"));
+    when(playerRepository.save(player)).thenReturn(player);
+
+    PlayerView updated = playerService.update(7L, new PlayerForm(RiotPlatform.EUW1, "Bazaga", "ESP", true));
+
+    assertEquals("new-puuid", updated.puuid());
+    verify(riotClient).fetchAccount("Bazaga", "ESP");
+  }
+
+  @Test
+  void updateClearsPuuidWhenIdentityChangesAndRiotIsNotConfigured() {
+    PlayerEntity player = new PlayerEntity();
+    player.setId(7L);
+    player.setGameName("Old");
+    player.setTagLine("EUW");
+    player.setPlatform(RiotPlatform.EUW1);
+    player.setPuuid("old-puuid");
+    when(playerRepository.findById(7L)).thenReturn(Optional.of(player));
+    when(playerRepository.findByGameNameIgnoreCaseAndTagLineIgnoreCase("Bazaga", "ESP"))
+        .thenReturn(Optional.empty());
+    when(riotClient.isConfigured()).thenReturn(false);
+    when(playerRepository.save(player)).thenReturn(player);
+
+    PlayerView updated = playerService.update(7L, new PlayerForm(RiotPlatform.EUW1, "Bazaga", "ESP", true));
+
+    assertNull(updated.puuid());
+    verify(riotClient, never()).fetchAccount(anyString(), anyString());
+  }
+
+  @Test
+  void archiveMarksPlayerInactiveAndArchived() {
+    PlayerEntity player = new PlayerEntity();
+    player.setId(7L);
+    player.setActive(true);
+    when(playerRepository.findById(7L)).thenReturn(Optional.of(player));
+
+    playerService.archive(7L);
+
+    assertFalse(player.isActive());
+    assertNotNull(player.getArchivedAt());
+    verify(playerRepository).save(player);
+  }
+
+  @Test
+  void restoreClearsArchiveAndActivatesPlayer() {
+    PlayerEntity player = new PlayerEntity();
+    player.setId(7L);
+    player.setActive(false);
+    player.setArchivedAt(java.time.Instant.parse("2026-05-05T12:00:00Z"));
+    when(playerRepository.findById(7L)).thenReturn(Optional.of(player));
+
+    playerService.restore(7L);
+
+    assertTrue(player.isActive());
+    assertNull(player.getArchivedAt());
+    verify(playerRepository).save(player);
   }
 
   @Test

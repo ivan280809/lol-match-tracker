@@ -9,6 +9,7 @@ import com.loltracker.app.integration.riot.RiotClient;
 import com.loltracker.app.match.MatchSummary;
 import com.loltracker.app.match.TrackedMatchEntity;
 import com.loltracker.app.match.TrackedMatchService;
+import com.loltracker.app.notification.NotificationDispatchResult;
 import com.loltracker.app.notification.NotificationService;
 import com.loltracker.app.ops.PollRunEntity;
 import com.loltracker.app.ops.PollRunService;
@@ -52,7 +53,9 @@ class PollingServiceTest {
     when(playerService.getActivePlayers()).thenReturn(List.of(player));
     when(pollRunService.startRun()).thenReturn(new PollRunEntity());
     when(playerService.ensurePuuid(player)).thenReturn("puuid-1");
-    when(trackedMatchService.getPendingNotifications(player)).thenReturn(List.of());
+    when(notificationService.dispatchPendingForPlayer(player))
+        .thenReturn(NotificationDispatchResult.empty())
+        .thenReturn(new NotificationDispatchResult(1, 0));
     when(riotClient.fetchRecentMatchIds("puuid-1")).thenReturn(List.of("EUW1_123"));
     when(trackedMatchService.findExisting(player, "EUW1_123")).thenReturn(Optional.empty());
     when(riotClient.fetchMatchSummary("EUW1_123", "puuid-1")).thenReturn(summary);
@@ -65,8 +68,7 @@ class PollingServiceTest {
     assertEquals(1, result.notificationsSent());
     assertEquals(0, result.playerFailures());
     assertEquals("SUCCESS", result.status());
-    verify(notificationService).notifyNewMatch(trackedMatch);
-    verify(trackedMatchService).markNotificationSent(trackedMatch);
+    verify(notificationService).enqueueMatchNotification(trackedMatch);
     verify(playerService).updateSyncSuccess(player, "puuid-1");
   }
 
@@ -80,7 +82,7 @@ class PollingServiceTest {
     when(playerService.getActivePlayers()).thenReturn(List.of(player));
     when(pollRunService.startRun()).thenReturn(new PollRunEntity());
     when(playerService.ensurePuuid(player)).thenReturn("puuid-legacy");
-    when(trackedMatchService.getPendingNotifications(player)).thenReturn(List.of());
+    when(notificationService.dispatchPendingForPlayer(player)).thenReturn(NotificationDispatchResult.empty());
     when(riotClient.fetchRecentMatchIds("puuid-legacy")).thenReturn(List.of());
 
     PollSummary result = pollingService.runPoll();
@@ -92,34 +94,23 @@ class PollingServiceTest {
     assertEquals("SUCCESS", result.status());
     verify(playerService).ensurePuuid(player);
     verify(playerService).updateSyncSuccess(player, "puuid-legacy");
-    verifyNoMoreInteractions(notificationService);
+    verify(notificationService, times(2)).dispatchPendingForPlayer(player);
   }
 
   @Test
-  void runPollRetriesPendingNotificationsBeforeCheckingNewMatches() {
+  void runPollDispatchesPendingNotificationsBeforeCheckingNewMatches() {
     PlayerEntity player = new PlayerEntity();
     player.setId(12L);
     player.setGameName("Bazaga");
     player.setTagLine("ESP");
 
-    TrackedMatchEntity pendingMatch = new TrackedMatchEntity();
-    pendingMatch.setMatchId("EUW1_777");
-    pendingMatch.setPlayer(player);
-    pendingMatch.setNotificationSent(false);
-
     when(playerService.getActivePlayers()).thenReturn(List.of(player));
     when(pollRunService.startRun()).thenReturn(new PollRunEntity());
     when(playerService.ensurePuuid(player)).thenReturn("puuid-1");
-    when(trackedMatchService.getPendingNotifications(player)).thenReturn(List.of(pendingMatch));
-    when(riotClient.fetchRecentMatchIds("puuid-1")).thenReturn(List.of("EUW1_777"));
-    when(trackedMatchService.findExisting(player, "EUW1_777")).thenReturn(Optional.of(pendingMatch));
-    doAnswer(
-            invocation -> {
-              pendingMatch.setNotificationSent(true);
-              return null;
-            })
-        .when(trackedMatchService)
-        .markNotificationSent(pendingMatch);
+    when(notificationService.dispatchPendingForPlayer(player))
+        .thenReturn(new NotificationDispatchResult(1, 0))
+        .thenReturn(NotificationDispatchResult.empty());
+    when(riotClient.fetchRecentMatchIds("puuid-1")).thenReturn(List.of());
 
     PollSummary result = pollingService.runPoll();
 
@@ -127,9 +118,37 @@ class PollingServiceTest {
     assertEquals(1, result.notificationsSent());
     assertEquals(0, result.playerFailures());
     assertEquals("SUCCESS", result.status());
-    verify(notificationService).notifyNewMatch(pendingMatch);
-    verify(trackedMatchService).markNotificationSent(pendingMatch);
+    verify(notificationService, times(2)).dispatchPendingForPlayer(player);
     verify(riotClient, never()).fetchMatchSummary(anyString(), anyString());
+  }
+
+  @Test
+  void runPollEnqueuesLegacyPendingNotificationsBeforeDispatch() {
+    PlayerEntity player = new PlayerEntity();
+    player.setId(13L);
+    player.setGameName("Bazaga");
+    player.setTagLine("ESP");
+
+    TrackedMatchEntity legacyPendingMatch = new TrackedMatchEntity();
+    legacyPendingMatch.setId(80L);
+    legacyPendingMatch.setMatchId("EUW1_OLD");
+    legacyPendingMatch.setPlayer(player);
+    legacyPendingMatch.setNotificationSent(false);
+
+    when(playerService.getActivePlayers()).thenReturn(List.of(player));
+    when(pollRunService.startRun()).thenReturn(new PollRunEntity());
+    when(playerService.ensurePuuid(player)).thenReturn("puuid-1");
+    when(trackedMatchService.getPendingNotifications(player)).thenReturn(List.of(legacyPendingMatch));
+    when(notificationService.dispatchPendingForPlayer(player))
+        .thenReturn(new NotificationDispatchResult(1, 0))
+        .thenReturn(NotificationDispatchResult.empty());
+    when(riotClient.fetchRecentMatchIds("puuid-1")).thenReturn(List.of());
+
+    PollSummary result = pollingService.runPoll();
+
+    assertEquals(1, result.notificationsSent());
+    assertEquals("SUCCESS", result.status());
+    verify(notificationService).enqueueMatchNotification(legacyPendingMatch);
   }
 
   @Test
@@ -148,11 +167,11 @@ class PollingServiceTest {
     when(pollRunService.startRun()).thenReturn(new PollRunEntity());
 
     when(playerService.ensurePuuid(okPlayer)).thenReturn("puuid-ok");
-    when(trackedMatchService.getPendingNotifications(okPlayer)).thenReturn(List.of());
+    when(notificationService.dispatchPendingForPlayer(okPlayer)).thenReturn(NotificationDispatchResult.empty());
     when(riotClient.fetchRecentMatchIds("puuid-ok")).thenReturn(List.of());
 
     when(playerService.ensurePuuid(failedPlayer)).thenReturn("puuid-failed");
-    when(trackedMatchService.getPendingNotifications(failedPlayer)).thenReturn(List.of());
+    when(notificationService.dispatchPendingForPlayer(failedPlayer)).thenReturn(NotificationDispatchResult.empty());
     when(riotClient.fetchRecentMatchIds("puuid-failed"))
         .thenThrow(new IllegalStateException("Telegram timeout"));
 
@@ -167,6 +186,31 @@ class PollingServiceTest {
     verify(playerService).updateSyncFailure(failedPlayer, "Telegram timeout");
     verify(pollRunService)
         .completeRun(any(), eq(2), eq(0), eq(0), argThat(errors -> errors.size() == 1));
+  }
+
+  @Test
+  void runPollDoesNotFailPlayerWhenNotificationDeliveryFails() {
+    PlayerEntity player = new PlayerEntity();
+    player.setId(30L);
+    player.setGameName("Bazaga");
+    player.setTagLine("ESP");
+
+    when(playerService.getActivePlayers()).thenReturn(List.of(player));
+    when(pollRunService.startRun()).thenReturn(new PollRunEntity());
+    when(playerService.ensurePuuid(player)).thenReturn("puuid-1");
+    when(notificationService.dispatchPendingForPlayer(player))
+        .thenReturn(new NotificationDispatchResult(0, 1))
+        .thenReturn(NotificationDispatchResult.empty());
+    when(riotClient.fetchRecentMatchIds("puuid-1")).thenReturn(List.of());
+
+    PollSummary result = pollingService.runPoll();
+
+    assertEquals(1, result.playersProcessed());
+    assertEquals(0, result.notificationsSent());
+    assertEquals(0, result.playerFailures());
+    assertEquals("SUCCESS", result.status());
+    verify(playerService).updateSyncSuccess(player, "puuid-1");
+    verify(playerService, never()).updateSyncFailure(eq(player), anyString());
   }
 
   @Test
@@ -200,5 +244,20 @@ class PollingServiceTest {
     AtomicBoolean running =
         (AtomicBoolean) ReflectionTestUtils.getField(pollingService, "running");
     assertFalse(running.get());
+  }
+
+  @Test
+  void runPollReleasesRunningFlagWhenStartRunFails() {
+    when(pollRunService.startRun()).thenThrow(new IllegalStateException("Database unavailable"));
+
+    IllegalStateException exception =
+        assertThrows(IllegalStateException.class, () -> pollingService.runPoll());
+
+    assertEquals("Database unavailable", exception.getMessage());
+    AtomicBoolean running =
+        (AtomicBoolean) ReflectionTestUtils.getField(pollingService, "running");
+    assertFalse(running.get());
+    verify(pollRunService, never()).failRun(any(), anyInt(), anyInt(), anyInt(), anyString());
+    verifyNoInteractions(playerService, riotClient, trackedMatchService, notificationService);
   }
 }
