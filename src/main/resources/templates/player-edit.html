@@ -65,6 +65,10 @@
         <input type="checkbox" th:field="*{active}">
         Activo si no esta archivado
       </label>
+      <label class="check-row">
+        <input type="checkbox" th:field="*{backfill}">
+        Importar historial anterior sin avisos en el proximo poll
+      </label>
       <div class="actions">
         <a class="button" th:href="@{'/players/' + ${player.id}}">Cancelar</a>
         <div class="actions">

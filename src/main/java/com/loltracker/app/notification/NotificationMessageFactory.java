@@ -3,13 +3,22 @@ package com.loltracker.app.notification;
 import com.loltracker.app.match.TrackedMatchEntity;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public class NotificationMessageFactory {
 
-  private static final DateTimeFormatter FORMATTER =
-      DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.of("Europe/Madrid"));
+  private final ZoneId appZoneId;
+
+  public NotificationMessageFactory() {
+    this(ZoneId.of("Europe/Madrid"));
+  }
+
+  @Autowired
+  public NotificationMessageFactory(ZoneId appZoneId) {
+    this.appZoneId = appZoneId;
+  }
 
   public String build(TrackedMatchEntity match, NotificationStatsSnapshot stats) {
     String player =
@@ -34,7 +43,7 @@ public class NotificationMessageFactory {
         + formatDuration(match.getDurationSeconds())
         + "</code>\n"
         + "Finalizada: <code>"
-        + FORMATTER.format(match.getGameEndAt())
+        + formatter().format(match.getGameEndAt())
         + "</code>\n\n"
         + "<b>Forma reciente</b>\n"
         + "<code>"
@@ -106,6 +115,10 @@ public class NotificationMessageFactory {
 
   private boolean isVictory(TrackedMatchEntity match) {
     return "VICTORY".equalsIgnoreCase(match.getResult());
+  }
+
+  private DateTimeFormatter formatter() {
+    return DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(appZoneId);
   }
 
   private String escape(String value) {

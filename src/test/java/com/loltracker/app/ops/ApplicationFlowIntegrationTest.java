@@ -90,7 +90,7 @@ class ApplicationFlowIntegrationTest {
     when(riotClient.fetchMatchSummary("EUW1_900", "puuid-1"))
         .thenReturn(
             new MatchSummary(
-                "EUW1_900", "Lux", true, "CLASSIC", 1800, Instant.parse("2026-04-03T18:00:00Z")));
+                "EUW1_900", "Lux", true, "CLASSIC", 1800, Instant.parse("2030-04-03T18:00:00Z")));
 
     mockMvc.perform(post("/api/operations/poll")).andExpect(status().isOk()).andExpect(jsonPath("$.newMatchesFound").value(1));
 

@@ -634,6 +634,7 @@
 
     input[type="text"],
     input[type="password"],
+    input[type="number"],
     select {
       width: 100%;
       min-height: 46px;
@@ -689,6 +690,12 @@
 
     button:hover {
       filter: brightness(1.05);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      filter: none;
     }
 
     .button-primary {
@@ -940,11 +947,17 @@
     <aside class="command-action">
       <div>
         <p class="action-title">Sincronizacion manual</p>
-        <p class="action-copy">Busca partidas y envia avisos pendientes.</p>
+        <p class="action-copy" th:if="${activeRun == null && rateLimitRun == null}">Busca partidas y envia avisos pendientes.</p>
+        <p class="action-copy" th:if="${activeRun != null}"
+           th:text="${'En curso: ' + activeRun.currentPlayer + ' - ' + activeRun.currentStage}">En curso</p>
+        <p class="action-copy" th:if="${rateLimitRun != null}"
+           th:text="${'Riot pausado hasta ' + rateLimitRun.rateLimitPausedUntil}">Riot pausado</p>
       </div>
       <form th:action="@{/polling/run}" method="post">
         <input type="hidden" name="returnTo" th:value="${currentPathAndQuery}">
-        <button type="submit" class="button-primary">Ejecutar polling</button>
+        <button type="submit" class="button-primary" th:disabled="${activeRun != null || rateLimitRun != null}">
+          Ejecutar polling
+        </button>
       </form>
     </aside>
   </header>
@@ -1190,6 +1203,10 @@
                   <input type="checkbox" th:field="*{active}">
                   Activo
                 </label>
+                <label class="check-row">
+                  <input type="checkbox" th:field="*{backfill}">
+                  Importar historial sin avisos
+                </label>
                 <div class="form-actions">
                   <input type="hidden" name="returnTo" value="/?tab=player">
                   <button type="submit" class="button-muted" th:formaction="@{/players/validate-account}">Validar cuenta</button>
@@ -1284,6 +1301,14 @@
                   <span class="source" th:text="${configuration.telegramBotTokenSource + ' / ' + configuration.telegramChatIdSource}">DB</span>
                 </span>
               </div>
+              <div class="status-row">
+                <span class="status-name">Polling</span>
+                <span class="status-value">
+                  <span class="tag" th:classappend="${configuration.pollingEnabled && !configuration.pollingManualOnly} ? ' tag-success' : ' tag-warn'"
+                        th:text="${configuration.pollingEnabled ? (configuration.pollingManualOnly ? 'Solo manual' : 'Automatico') : 'Desactivado'}">Automatico</span>
+                  <span class="source" th:text="${configuration.pollingFixedDelay + ' / ' + configuration.pollingConfigSource}">PT5M</span>
+                </span>
+              </div>
             </div>
 
             <form class="settings-form" th:action="@{/configuration}" method="post" th:object="${configurationForm}" autocomplete="off">
@@ -1308,6 +1333,28 @@
                 <label for="telegramChatId">Telegram chat id
                   <input id="telegramChatId" type="password" name="telegramChatId" placeholder="Mantener valor actual" autocomplete="off">
                   <span class="field-error" th:if="${#fields.hasErrors('telegramChatId')}" th:errors="*{telegramChatId}"></span>
+                </label>
+                <label for="pollingFixedDelay">Delay polling
+                  <input id="pollingFixedDelay" type="text" name="pollingFixedDelay" th:value="${configurationForm.pollingFixedDelay}" placeholder="PT5M">
+                  <span class="field-error" th:if="${#fields.hasErrors('pollingFixedDelay')}" th:errors="*{pollingFixedDelay}"></span>
+                </label>
+                <label for="pollingMatchWindowSize">Ventana matches
+                  <input id="pollingMatchWindowSize" type="number" min="1" max="100" name="pollingMatchWindowSize" th:value="${configurationForm.pollingMatchWindowSize}">
+                  <span class="field-error" th:if="${#fields.hasErrors('pollingMatchWindowSize')}" th:errors="*{pollingMatchWindowSize}"></span>
+                </label>
+                <label for="pollingPaginationLimit">Limite paginas
+                  <input id="pollingPaginationLimit" type="number" min="1" max="20" name="pollingPaginationLimit" th:value="${configurationForm.pollingPaginationLimit}">
+                  <span class="field-error" th:if="${#fields.hasErrors('pollingPaginationLimit')}" th:errors="*{pollingPaginationLimit}"></span>
+                </label>
+              </div>
+              <div class="quick-player-actions">
+                <label class="check-row">
+                  <input type="checkbox" th:field="*{pollingEnabled}">
+                  Polling automatico activo
+                </label>
+                <label class="check-row">
+                  <input type="checkbox" th:field="*{pollingManualOnly}">
+                  Solo manual
                 </label>
               </div>
               <div class="form-actions">
@@ -1339,7 +1386,12 @@
               <span th:text="${run.playersProcessed + ' jugadores'}">0 jugadores</span>
               <span th:text="${run.newMatchesFound + ' nuevas'}">0 nuevas</span>
               <span th:text="${run.notificationsSent + ' avisos'}">0 avisos</span>
+              <span th:text="${run.durationSeconds() + 's'}">0s</span>
             </div>
+            <p class="muted" th:if="${run.currentStage != null && !run.currentStage.isBlank()}"
+               th:text="${(run.currentPlayer != null ? run.currentPlayer + ' - ' : '') + run.currentStage}">Estado</p>
+            <p class="muted" th:if="${run.rateLimitPausedUntil != null}"
+               th:text="${'Rate limit hasta ' + run.rateLimitPausedUntil}">Rate limit</p>
             <p class="muted" th:if="${run.errorSummary != null && !run.errorSummary.isBlank()}" th:text="${run.errorSummary}">Error</p>
           </article>
         </div>

@@ -8,7 +8,12 @@ import lombok.Setter;
 @Entity
 @Table(
     name = "players",
-    uniqueConstraints = @UniqueConstraint(columnNames = {"game_name", "tag_line"}))
+    uniqueConstraints = @UniqueConstraint(columnNames = {"game_name", "tag_line"}),
+    indexes = {
+      @Index(name = "idx_players_puuid", columnList = "puuid"),
+      @Index(name = "idx_players_active_archived", columnList = "active,archived_at"),
+      @Index(name = "idx_players_track_from", columnList = "track_from")
+    })
 @Getter
 @Setter
 public class PlayerEntity {
@@ -38,6 +43,13 @@ public class PlayerEntity {
 
   @Column(name = "last_polled_at")
   private Instant lastPolledAt;
+
+  @Column(name = "track_from")
+  private Instant trackFrom;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "backfill_mode", nullable = false, length = 40)
+  private PlayerBackfillMode backfillMode = PlayerBackfillMode.NONE;
 
   @Column(name = "last_successful_sync_at")
   private Instant lastSuccessfulSyncAt;
@@ -83,12 +95,21 @@ public class PlayerEntity {
     if (lastSyncStatus == null) {
       lastSyncStatus = "NEW";
     }
+    if (backfillMode == null) {
+      backfillMode = PlayerBackfillMode.NONE;
+    }
+    if (trackFrom == null) {
+      trackFrom = now;
+    }
   }
 
   @PreUpdate
   void onUpdate() {
     if (platform == null) {
       platform = RiotPlatform.defaultPlatform();
+    }
+    if (backfillMode == null) {
+      backfillMode = PlayerBackfillMode.NONE;
     }
     updatedAt = Instant.now();
   }

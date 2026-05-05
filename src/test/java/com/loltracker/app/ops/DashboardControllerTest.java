@@ -28,7 +28,9 @@ import com.loltracker.app.settings.RiotRegion;
 import com.loltracker.app.tracking.PollSummary;
 import com.loltracker.app.tracking.PollingService;
 import com.loltracker.lolmatchtracker.LolMatchTrackerApplication;
+import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -353,6 +355,73 @@ class DashboardControllerTest {
   }
 
   @Test
+  void dashboardShowsActivePollingStateAndDisablesManualButton() throws Exception {
+    when(pollRunService.getActiveRun())
+        .thenReturn(
+            Optional.of(
+                new PollRunView(
+                    99L,
+                    Instant.parse("2026-05-06T10:00:00Z"),
+                    null,
+                    "RUNNING",
+                    1,
+                    0,
+                    0,
+                    null,
+                    "Bazaga#ESP",
+                    "Consultando historial Riot",
+                    null,
+                    null)));
+
+    mockMvc
+        .perform(get("/"))
+        .andExpect(status().isOk())
+        .andExpect(content().string(containsString("En curso: Bazaga#ESP - Consultando historial Riot")))
+        .andExpect(content().string(containsString("disabled=\"disabled\"")));
+  }
+
+  @Test
+  void runPollingAlreadyActiveShowsClearErrorFlash() throws Exception {
+    when(pollingService.runPoll()).thenReturn(new PollSummary(0, 0, 0, 0, "SKIPPED"));
+
+    mockMvc
+        .perform(post("/polling/run"))
+        .andExpect(status().is3xxRedirection())
+        .andExpect(redirectedUrl("/"))
+        .andExpect(
+            flash()
+                .attribute(
+                    "errorMessage",
+                    "Polling ejecutado. Estado: SKIPPED, jugadores: 0, nuevas partidas: 0, avisos: 0"));
+  }
+
+  @Test
+  void dashboardShowsRateLimitPauseAndDisablesManualButton() throws Exception {
+    when(pollRunService.getActiveRateLimitPause())
+        .thenReturn(
+            Optional.of(
+                new PollRunView(
+                    100L,
+                    Instant.parse("2026-05-06T10:00:00Z"),
+                    Instant.parse("2026-05-06T10:00:01Z"),
+                    "RATE_LIMITED",
+                    1,
+                    0,
+                    0,
+                    "Riot rate limit activo",
+                    null,
+                    null,
+                    Instant.parse("2026-05-06T10:02:00Z"),
+                    "Riot rate limit activo. Reintentar tras 120s")));
+
+    mockMvc
+        .perform(get("/"))
+        .andExpect(status().isOk())
+        .andExpect(content().string(containsString("Riot pausado hasta 2026-05-06T10:02:00Z")))
+        .andExpect(content().string(containsString("disabled=\"disabled\"")));
+  }
+
+  @Test
   void runPollingPreservesCurrentDashboardQuery() throws Exception {
     when(pollingService.runPoll()).thenReturn(new PollSummary(1, 0, 0, 0, "SUCCESS"));
 
@@ -370,13 +439,20 @@ class DashboardControllerTest {
                 .param("riotRegion", "AMERICAS")
                 .param("riotApiKey", "riot-key")
                 .param("telegramBotToken", "telegram-token")
-                .param("telegramChatId", "chat-id"))
+                .param("telegramChatId", "chat-id")
+                .param("pollingEnabled", "true")
+                .param("pollingManualOnly", "true")
+                .param("pollingFixedDelay", "PT10M")
+                .param("pollingMatchWindowSize", "20")
+                .param("pollingPaginationLimit", "4"))
         .andExpect(status().is3xxRedirection())
         .andExpect(redirectedUrl("/?tab=config"))
         .andExpect(flash().attribute("successMessage", "Configuracion guardada"));
 
     verify(appConfigurationService)
-        .update(new AppConfigurationForm("riot-key", "AMERICAS", "telegram-token", "chat-id"));
+        .update(
+            new AppConfigurationForm(
+                "riot-key", "AMERICAS", "telegram-token", "chat-id", true, true, "PT10M", 20, 4));
   }
 
   @Test

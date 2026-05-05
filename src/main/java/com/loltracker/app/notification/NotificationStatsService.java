@@ -9,20 +9,31 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@RequiredArgsConstructor
 public class NotificationStatsService {
-
-  private static final ZoneId MADRID_ZONE = ZoneId.of("Europe/Madrid");
 
   private final TrackedMatchRepository trackedMatchRepository;
   private final PlayerRankService playerRankService;
+  private final ZoneId appZoneId;
 
-  @Transactional
+  public NotificationStatsService(
+      TrackedMatchRepository trackedMatchRepository, PlayerRankService playerRankService) {
+    this(trackedMatchRepository, playerRankService, ZoneId.of("Europe/Madrid"));
+  }
+
+  @Autowired
+  public NotificationStatsService(
+      TrackedMatchRepository trackedMatchRepository,
+      PlayerRankService playerRankService,
+      ZoneId appZoneId) {
+    this.trackedMatchRepository = trackedMatchRepository;
+    this.playerRankService = playerRankService;
+    this.appZoneId = appZoneId;
+  }
+
   public NotificationStatsSnapshot buildFor(TrackedMatchEntity match) {
     Long playerId = match.getPlayer().getId();
     Optional<PlayerRankSnapshot> playerRank =
@@ -59,9 +70,9 @@ public class NotificationStatsService {
 
   private List<TrackedMatchEntity> findMatchesFromSameLocalDay(
       TrackedMatchEntity match, Long playerId) {
-    LocalDate matchDate = LocalDate.ofInstant(match.getGameEndAt(), MADRID_ZONE);
-    Instant startInclusive = matchDate.atStartOfDay(MADRID_ZONE).toInstant();
-    Instant endExclusive = matchDate.plusDays(1).atStartOfDay(MADRID_ZONE).toInstant();
+    LocalDate matchDate = LocalDate.ofInstant(match.getGameEndAt(), appZoneId);
+    Instant startInclusive = matchDate.atStartOfDay(appZoneId).toInstant();
+    Instant endExclusive = matchDate.plusDays(1).atStartOfDay(appZoneId).toInstant();
     return trackedMatchRepository
         .findAllByPlayerIdAndGameEndAtGreaterThanEqualAndGameEndAtLessThanOrderByGameEndAtDesc(
             playerId, startInclusive, endExclusive);

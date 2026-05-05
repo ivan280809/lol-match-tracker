@@ -1,5 +1,6 @@
 package com.loltracker.app.settings;
 
+import java.time.Duration;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +28,21 @@ public class AppConfigurationService {
   @Value("${telegram.chat.id:}")
   private String fallbackTelegramChatId;
 
+  @Value("${app.poll.enabled:true}")
+  private boolean fallbackPollingEnabled;
+
+  @Value("${app.poll.manual-only:false}")
+  private boolean fallbackPollingManualOnly;
+
+  @Value("${app.poll.fixed-delay:PT5M}")
+  private Duration fallbackPollingFixedDelay;
+
+  @Value("${app.poll.match-window-size:10}")
+  private int fallbackPollingMatchWindowSize;
+
+  @Value("${app.poll.pagination-limit:3}")
+  private int fallbackPollingPaginationLimit;
+
   @Transactional(readOnly = true)
   public AppConfigurationView getView() {
     Optional<AppConfigurationEntity> entity = appConfigurationRepository.findById(CONFIGURATION_ID);
@@ -36,6 +52,11 @@ public class AppConfigurationService {
         entity.map(AppConfigurationEntity::getTelegramBotTokenEncrypted).orElse(null);
     String telegramChatIdEncrypted =
         entity.map(AppConfigurationEntity::getTelegramChatIdEncrypted).orElse(null);
+    Boolean pollingEnabled = entity.map(AppConfigurationEntity::getPollingEnabled).orElse(null);
+    Boolean pollingManualOnly = entity.map(AppConfigurationEntity::getPollingManualOnly).orElse(null);
+    String pollingFixedDelay = entity.map(AppConfigurationEntity::getPollingFixedDelay).orElse(null);
+    Integer pollingMatchWindowSize = entity.map(AppConfigurationEntity::getPollingMatchWindowSize).orElse(null);
+    Integer pollingPaginationLimit = entity.map(AppConfigurationEntity::getPollingPaginationLimit).orElse(null);
     return new AppConfigurationView(
         hasConfiguredSecret(riotApiKeyEncrypted, fallbackRiotApiKey),
         resolveRegion(persistedRegion),
@@ -45,7 +66,13 @@ public class AppConfigurationService {
         secretSource(riotApiKeyEncrypted, fallbackRiotApiKey),
         regionSource(persistedRegion),
         secretSource(telegramBotTokenEncrypted, fallbackTelegramBotToken),
-        secretSource(telegramChatIdEncrypted, fallbackTelegramChatId));
+        secretSource(telegramChatIdEncrypted, fallbackTelegramChatId),
+        pollingEnabled == null ? fallbackPollingEnabled : pollingEnabled,
+        pollingManualOnly == null ? fallbackPollingManualOnly : pollingManualOnly,
+        resolveDurationString(pollingFixedDelay, fallbackPollingFixedDelay),
+        resolveInt(pollingMatchWindowSize, fallbackPollingMatchWindowSize, 1, 100),
+        resolveInt(pollingPaginationLimit, fallbackPollingPaginationLimit, 1, 20),
+        pollingConfigSource(pollingEnabled, pollingManualOnly, pollingFixedDelay, pollingMatchWindowSize, pollingPaginationLimit));
   }
 
   @Transactional(readOnly = true)
@@ -56,7 +83,17 @@ public class AppConfigurationService {
             .map(AppConfigurationEntity::getRiotRegion)
             .map(this::resolveRegion)
             .orElse(resolveRegion(null));
-    return new AppConfigurationForm("", region.name(), "", "");
+    Optional<AppConfigurationEntity> entity = appConfigurationRepository.findById(CONFIGURATION_ID);
+    return new AppConfigurationForm(
+        "",
+        region.name(),
+        "",
+        "",
+        entity.map(AppConfigurationEntity::getPollingEnabled).orElse(fallbackPollingEnabled),
+        entity.map(AppConfigurationEntity::getPollingManualOnly).orElse(fallbackPollingManualOnly),
+        resolveDurationString(entity.map(AppConfigurationEntity::getPollingFixedDelay).orElse(null), fallbackPollingFixedDelay),
+        resolveInt(entity.map(AppConfigurationEntity::getPollingMatchWindowSize).orElse(null), fallbackPollingMatchWindowSize, 1, 100),
+        resolveInt(entity.map(AppConfigurationEntity::getPollingPaginationLimit).orElse(null), fallbackPollingPaginationLimit, 1, 20));
   }
 
   @Transactional(readOnly = true)
@@ -70,7 +107,12 @@ public class AppConfigurationService {
             fallbackTelegramBotToken),
         resolveSecret(
             entity.map(AppConfigurationEntity::getTelegramChatIdEncrypted).orElse(null),
-            fallbackTelegramChatId));
+            fallbackTelegramChatId),
+        entity.map(AppConfigurationEntity::getPollingEnabled).orElse(fallbackPollingEnabled),
+        entity.map(AppConfigurationEntity::getPollingManualOnly).orElse(fallbackPollingManualOnly),
+        resolveDuration(entity.map(AppConfigurationEntity::getPollingFixedDelay).orElse(null), fallbackPollingFixedDelay),
+        resolveInt(entity.map(AppConfigurationEntity::getPollingMatchWindowSize).orElse(null), fallbackPollingMatchWindowSize, 1, 100),
+        resolveInt(entity.map(AppConfigurationEntity::getPollingPaginationLimit).orElse(null), fallbackPollingPaginationLimit, 1, 20));
   }
 
   @Transactional
@@ -81,6 +123,11 @@ public class AppConfigurationService {
     updateSecret(form.riotApiKey(), entity::setRiotApiKeyEncrypted);
     updateSecret(form.telegramBotToken(), entity::setTelegramBotTokenEncrypted);
     updateSecret(form.telegramChatId(), entity::setTelegramChatIdEncrypted);
+    entity.setPollingEnabled(Boolean.TRUE.equals(form.pollingEnabled()));
+    entity.setPollingManualOnly(Boolean.TRUE.equals(form.pollingManualOnly()));
+    entity.setPollingFixedDelay(resolveDuration(form.pollingFixedDelay(), fallbackPollingFixedDelay).toString());
+    entity.setPollingMatchWindowSize(resolveInt(form.pollingMatchWindowSize(), fallbackPollingMatchWindowSize, 1, 100));
+    entity.setPollingPaginationLimit(resolveInt(form.pollingPaginationLimit(), fallbackPollingPaginationLimit, 1, 20));
     appConfigurationRepository.save(entity);
   }
 
@@ -88,6 +135,11 @@ public class AppConfigurationService {
     AppConfigurationEntity entity = new AppConfigurationEntity();
     entity.setId(CONFIGURATION_ID);
     entity.setRiotRegion(resolveRegion(null).name());
+    entity.setPollingEnabled(fallbackPollingEnabled);
+    entity.setPollingManualOnly(fallbackPollingManualOnly);
+    entity.setPollingFixedDelay(resolveDuration(null, fallbackPollingFixedDelay).toString());
+    entity.setPollingMatchWindowSize(clamp(fallbackPollingMatchWindowSize, 1, 100));
+    entity.setPollingPaginationLimit(clamp(fallbackPollingPaginationLimit, 1, 20));
     return entity;
   }
 
@@ -141,5 +193,37 @@ public class AppConfigurationService {
 
   private boolean hasText(String value) {
     return value != null && !value.isBlank();
+  }
+
+  private String pollingConfigSource(
+      Boolean enabled, Boolean manualOnly, String fixedDelay, Integer windowSize, Integer paginationLimit) {
+    if (enabled != null || manualOnly != null || hasText(fixedDelay) || windowSize != null || paginationLimit != null) {
+      return "DB";
+    }
+    return "ENV";
+  }
+
+  private Duration resolveDuration(String value, Duration fallback) {
+    Duration safeFallback = fallback == null ? Duration.ofMinutes(5) : fallback;
+    if (!hasText(value)) {
+      return safeFallback;
+    }
+    try {
+      return Duration.parse(value.trim());
+    } catch (RuntimeException e) {
+      return safeFallback;
+    }
+  }
+
+  private String resolveDurationString(String value, Duration fallback) {
+    return resolveDuration(value, fallback).toString();
+  }
+
+  private int resolveInt(Integer value, int fallback, int min, int max) {
+    return clamp(value == null ? fallback : value, min, max);
+  }
+
+  private int clamp(int value, int min, int max) {
+    return Math.max(min, Math.min(max, value));
   }
 }

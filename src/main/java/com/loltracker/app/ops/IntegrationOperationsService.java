@@ -1,11 +1,13 @@
 package com.loltracker.app.ops;
 
 import com.loltracker.app.integration.riot.RiotAccount;
+import com.loltracker.app.integration.riot.RiotAccountPort;
 import com.loltracker.app.integration.riot.RiotApiException;
-import com.loltracker.app.integration.riot.RiotClient;
+import com.loltracker.app.integration.riot.RiotOperationsPort;
 import com.loltracker.app.integration.telegram.TelegramDeliveryReceipt;
-import com.loltracker.app.integration.telegram.TelegramNotifier;
+import com.loltracker.app.integration.telegram.TelegramNotificationPort;
 import com.loltracker.app.player.RiotPlatform;
+import java.time.Clock;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -14,13 +16,15 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class IntegrationOperationsService {
 
-  private final RiotClient riotClient;
-  private final TelegramNotifier telegramNotifier;
+  private final RiotAccountPort riotAccountPort;
+  private final RiotOperationsPort riotOperationsPort;
+  private final TelegramNotificationPort telegramNotifier;
   private final ExternalCallLogService externalCallLogService;
+  private final Clock clock;
 
   public IntegrationActionResult validateRiotKey(RiotPlatform platform) {
     try {
-      String summary = riotClient.validateApiKey(RiotPlatform.fromFormValue(platform));
+      String summary = riotOperationsPort.validateApiKey(RiotPlatform.fromFormValue(platform));
       externalCallLogService.recordOk("RIOT", "VALIDATE_KEY", summary);
       return new IntegrationActionResult(true, "OK", summary);
     } catch (RuntimeException e) {
@@ -34,7 +38,7 @@ public class IntegrationOperationsService {
       String gameName, String tagLine, RiotPlatform platform) {
     String displayName = safeDisplay(gameName, tagLine);
     try {
-      RiotAccount account = riotClient.fetchAccount(gameName.trim(), tagLine.trim());
+      RiotAccount account = riotAccountPort.fetchAccount(gameName.trim(), tagLine.trim());
       String summary =
           "Cuenta Riot OK: "
               + account.gameName()
@@ -54,7 +58,7 @@ public class IntegrationOperationsService {
   public IntegrationActionResult testTelegram() {
     try {
       TelegramDeliveryReceipt receipt =
-          telegramNotifier.send("LOL Match Tracker test - " + Instant.now());
+          telegramNotifier.send("LOL Match Tracker test - " + now());
       String suffix = receipt == null || receipt.messageId() == null ? "" : " (mensaje " + receipt.messageId() + ")";
       String summary = "Telegram OK" + suffix;
       externalCallLogService.recordOk("TELEGRAM", "TEST_SEND", summary);
@@ -82,5 +86,9 @@ public class IntegrationOperationsService {
       return "la cuenta Riot";
     }
     return name + "#" + tag;
+  }
+
+  private Instant now() {
+    return clock == null ? Instant.now() : clock.instant();
   }
 }

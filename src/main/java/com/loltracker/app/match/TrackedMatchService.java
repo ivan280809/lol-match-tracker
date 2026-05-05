@@ -1,6 +1,7 @@
 package com.loltracker.app.match;
 
 import com.loltracker.app.player.PlayerEntity;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -21,6 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class TrackedMatchService {
 
   private final TrackedMatchRepository trackedMatchRepository;
+  private final PlayerMatchService playerMatchService;
+  private final Clock clock;
 
   @Transactional(readOnly = true)
   public boolean exists(PlayerEntity player, String matchId) {
@@ -39,22 +42,46 @@ public class TrackedMatchService {
 
   @Transactional
   public TrackedMatchEntity create(PlayerEntity player, MatchSummary summary) {
+    return create(player, summary, false);
+  }
+
+  @Transactional
+  public TrackedMatchEntity create(PlayerEntity player, MatchSummary summary, boolean notificationSuppressed) {
+    if (playerMatchService != null) {
+      playerMatchService.record(player, summary, notificationSuppressed);
+    }
     TrackedMatchEntity entity = new TrackedMatchEntity();
     entity.setPlayer(player);
     entity.setMatchId(summary.matchId());
+    entity.setChampionId(summary.championId());
     entity.setChampionName(summary.championName());
     entity.setResult(summary.win() ? "VICTORY" : "DEFEAT");
     entity.setGameMode(summary.gameMode());
+    entity.setQueueId(summary.queueId());
+    entity.setLane(summary.lane());
+    entity.setRole(summary.role());
+    entity.setKills(summary.kills());
+    entity.setDeaths(summary.deaths());
+    entity.setAssists(summary.assists());
+    entity.setCreepScore(summary.creepScore());
+    entity.setGoldEarned(summary.goldEarned());
+    entity.setDamageDealtToChampions(summary.damageDealtToChampions());
+    entity.setVisionScore(summary.visionScore());
     entity.setDurationSeconds(summary.durationSeconds());
     entity.setGameEndAt(summary.gameEndAt());
-    entity.setNotificationSent(false);
+    entity.setPlatform(summary.platform());
+    entity.setRegion(summary.region());
+    entity.setNotificationSent(notificationSuppressed);
+    if (notificationSuppressed) {
+      entity.setNotificationSentAt(now());
+    }
     return trackedMatchRepository.save(entity);
   }
 
   @Transactional
   public void markNotificationSent(TrackedMatchEntity entity) {
     entity.setNotificationSent(true);
-    entity.setNotificationSentAt(Instant.now());
+    entity.setNotificationSentAt(now());
     trackedMatchRepository.save(entity);
   }
 
@@ -175,5 +202,9 @@ public class TrackedMatchService {
 
   private String normalize(String value) {
     return value == null ? "" : value.trim().toLowerCase();
+  }
+
+  private Instant now() {
+    return clock == null ? Instant.now() : clock.instant();
   }
 }

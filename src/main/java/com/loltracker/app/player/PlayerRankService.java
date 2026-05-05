@@ -1,37 +1,48 @@
 package com.loltracker.app.player;
 
-import com.loltracker.app.integration.riot.RiotClient;
 import com.loltracker.app.integration.riot.RiotRankEntry;
-import java.time.Instant;
+import com.loltracker.app.integration.riot.RiotRankPort;
+import java.time.Clock;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class PlayerRankService {
 
   private static final String SOLO_QUEUE = "RANKED_SOLO_5x5";
   private static final String FLEX_QUEUE = "RANKED_FLEX_SR";
 
-  private final RiotClient riotClient;
+  private final RiotRankPort riotRankPort;
   private final PlayerRepository playerRepository;
+  private final Clock clock;
 
-  @Transactional
+  public PlayerRankService(
+      com.loltracker.app.integration.riot.RiotClient riotClient, PlayerRepository playerRepository) {
+    this(riotClient, playerRepository, Clock.systemUTC());
+  }
+
+  @Autowired
+  public PlayerRankService(
+      RiotRankPort riotRankPort, PlayerRepository playerRepository, Clock clock) {
+    this.riotRankPort = riotRankPort;
+    this.playerRepository = playerRepository;
+    this.clock = clock;
+  }
+
   public Optional<PlayerRankSnapshot> refreshRank(PlayerEntity player, String puuid) {
     if (puuid == null || puuid.isBlank()) {
       return storedRank(player);
     }
     try {
       Optional<PlayerRankSnapshot> snapshot =
-          selectBestRank(riotClient.fetchRankEntries(RiotPlatform.fromFormValue(player.getPlatform()), puuid));
-      applySnapshot(player, snapshot.orElse(null));
-      playerRepository.save(player);
+          selectBestRank(riotRankPort.fetchRankEntries(RiotPlatform.fromFormValue(player.getPlatform()), puuid));
+      saveSnapshot(player, snapshot.orElse(null));
       return snapshot;
     } catch (RuntimeException e) {
       log.warn("Rank refresh failed for {}#{}", player.getGameName(), player.getTagLine(), e);
@@ -69,6 +80,14 @@ public class PlayerRankService {
             player.getRankScore()));
   }
 
+  @Transactional
+  void saveSnapshot(PlayerEntity player, PlayerRankSnapshot snapshot) {
+    PlayerEntity target =
+        player.getId() == null ? player : playerRepository.findById(player.getId()).orElse(player);
+    applySnapshot(target, snapshot);
+    playerRepository.save(target);
+  }
+
   private Optional<PlayerRankSnapshot> selectBestRank(List<RiotRankEntry> entries) {
     return entries.stream()
         .filter(entry -> SOLO_QUEUE.equals(entry.queueType()) || FLEX_QUEUE.equals(entry.queueType()))
@@ -94,7 +113,7 @@ public class PlayerRankService {
       player.setRankDivision(null);
       player.setRankLeaguePoints(null);
       player.setRankScore(null);
-      player.setRankUpdatedAt(Instant.now());
+      player.setRankUpdatedAt(now());
       return;
     }
     player.setRankQueueType(snapshot.queueType());
@@ -102,7 +121,7 @@ public class PlayerRankService {
     player.setRankDivision(snapshot.division());
     player.setRankLeaguePoints(snapshot.leaguePoints());
     player.setRankScore(snapshot.score());
-    player.setRankUpdatedAt(Instant.now());
+    player.setRankUpdatedAt(now());
   }
 
   private PlayerRankSnapshot fromScore(int score) {
@@ -171,5 +190,9 @@ public class PlayerRankService {
 
   private String safeUpper(String value) {
     return value == null ? "" : value.trim().toUpperCase();
+  }
+
+  private java.time.Instant now() {
+    return clock == null ? java.time.Instant.now() : clock.instant();
   }
 }

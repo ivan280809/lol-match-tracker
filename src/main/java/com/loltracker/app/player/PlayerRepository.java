@@ -9,5 +9,7 @@ public interface PlayerRepository extends JpaRepository<PlayerEntity, Long> {
   List<PlayerEntity> findAllByActiveTrueAndArchivedAtIsNullOrderByGameNameAsc();
 
   Optional<PlayerEntity> findByGameNameIgnoreCaseAndTagLineIgnoreCase(String gameName, String tagLine);
+
+  Optional<PlayerEntity> findByPuuid(String puuid);
 }
 

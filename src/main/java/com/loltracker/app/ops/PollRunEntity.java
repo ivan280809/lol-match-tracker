@@ -21,8 +21,23 @@ public class PollRunEntity {
   @Column(name = "finished_at")
   private Instant finishedAt;
 
-  @Column(name = "status", nullable = false, length = 16)
+  @Column(name = "status", nullable = false, length = 32)
   private String status;
+
+  @Column(name = "owner", length = 128)
+  private String owner;
+
+  @Column(name = "current_player", length = 160)
+  private String currentPlayer;
+
+  @Column(name = "current_stage", length = 120)
+  private String currentStage;
+
+  @Column(name = "rate_limit_paused_until")
+  private Instant rateLimitPausedUntil;
+
+  @Column(name = "rate_limit_message", length = 500)
+  private String rateLimitMessage;
 
   @Column(name = "players_processed", nullable = false)
   private int playersProcessed;

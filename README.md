@@ -195,9 +195,19 @@ Si usas `docker-compose.deploy.yml` con una imagen publicada en `GHCR`, el otro 
 - `APP_CONFIG_ENCRYPTION_KEY`
 - `APP_POLL_FIXED_DELAY`
 - `APP_POLL_INITIAL_DELAY`
+- `APP_POLL_SCHEDULER_TICK`
+- `APP_POLL_ENABLED`
+- `APP_POLL_MANUAL_ONLY`
+- `APP_POLL_MATCH_WINDOW_SIZE`
+- `APP_POLL_PAGINATION_LIMIT`
+- `APP_HTTP_TIMEOUT`
+- `APP_HTTP_CONNECT_TIMEOUT`
+- `APP_HTTP_RETRY_MAX_ATTEMPTS`
+- `APP_HTTP_RETRY_BACKOFF`
+- `APP_TIME_ZONE`
 
 ### Configuracion desde la UI
 
-El dashboard permite guardar Riot API key, region Riot, Telegram bot token y Telegram chat id.
+El dashboard permite guardar Riot API key, region Riot, Telegram bot token, Telegram chat id y configuracion operativa de polling.
 Los secretos se almacenan cifrados en PostgreSQL. Manten estable `APP_CONFIG_ENCRYPTION_KEY`,
 porque si cambia no se podran descifrar los valores ya guardados.

@@ -1,9 +1,10 @@
 package com.loltracker.app.notification;
 
 import com.loltracker.app.integration.telegram.TelegramDeliveryReceipt;
-import com.loltracker.app.integration.telegram.TelegramNotifier;
+import com.loltracker.app.integration.telegram.TelegramNotificationPort;
 import com.loltracker.app.match.TrackedMatchEntity;
 import com.loltracker.app.player.PlayerEntity;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -20,11 +21,12 @@ public class NotificationService {
   private static final List<NotificationDeliveryStatus> RETRYABLE_STATUSES =
       List.of(NotificationDeliveryStatus.PENDING, NotificationDeliveryStatus.FAILED);
 
-  private final TelegramNotifier telegramNotifier;
+  private final TelegramNotificationPort telegramNotifier;
   private final NotificationMessageFactory notificationMessageFactory;
   private final NotificationStatsService notificationStatsService;
   private final NotificationOutboxRepository notificationOutboxRepository;
   private final NotificationDeliveryRecorder notificationDeliveryRecorder;
+  private final Clock clock;
 
   @Transactional
   public NotificationOutboxEntity enqueueMatchNotification(TrackedMatchEntity trackedMatch) {
@@ -37,7 +39,7 @@ public class NotificationService {
     List<NotificationOutboxEntity> outboxItems =
         notificationOutboxRepository
             .findTop50ByTrackedMatchPlayerIdAndStatusInAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
-                player.getId(), RETRYABLE_STATUSES, Instant.now());
+                player.getId(), RETRYABLE_STATUSES, now());
     NotificationDispatchResult result = NotificationDispatchResult.empty();
     for (NotificationOutboxEntity outbox : outboxItems) {
       result = result.plus(dispatch(outbox));
@@ -75,7 +77,7 @@ public class NotificationService {
     NotificationOutboxEntity entity = new NotificationOutboxEntity();
     entity.setTrackedMatch(trackedMatch);
     entity.setStatus(NotificationDeliveryStatus.PENDING);
-    entity.setNextAttemptAt(Instant.now().minusMillis(1));
+    entity.setNextAttemptAt(now().minusMillis(1));
     try {
       return notificationOutboxRepository.save(entity);
     } catch (DataIntegrityViolationException e) {
@@ -102,6 +104,10 @@ public class NotificationService {
       notificationDeliveryRecorder.recordFailure(outbox, e);
       return new NotificationDispatchResult(0, 1);
     }
+  }
+
+  private Instant now() {
+    return clock == null ? Instant.now() : clock.instant();
   }
 }
 

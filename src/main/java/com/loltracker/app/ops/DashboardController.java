@@ -83,7 +83,7 @@ public class DashboardController {
     }
 
     try {
-      playerService.create(playerForm);
+      playerService.create(normalizePlayerForm(playerForm));
       redirectAttributes.addFlashAttribute("successMessage", "Jugador creado");
     } catch (RuntimeException e) {
       redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
@@ -127,7 +127,7 @@ public class DashboardController {
     }
 
     try {
-      playerService.update(id, playerForm);
+      playerService.update(id, normalizePlayerForm(playerForm));
       redirectAttributes.addFlashAttribute("successMessage", "Jugador actualizado");
       return "redirect:/players/" + id;
     } catch (RuntimeException e) {
@@ -149,7 +149,7 @@ public class DashboardController {
     }
 
     try {
-      appConfigurationService.update(configurationForm);
+      appConfigurationService.update(normalizeConfigurationForm(configurationForm));
       redirectAttributes.addFlashAttribute("successMessage", "Configuracion guardada");
     } catch (IllegalArgumentException | IllegalStateException e) {
       redirectAttributes.addFlashAttribute("errorMessage", e.getMessage());
@@ -218,7 +218,7 @@ public class DashboardController {
             + summary.newMatchesFound()
             + ", avisos: "
             + summary.notificationsSent();
-    if (summary.playerFailures() > 0) {
+    if (summary.playerFailures() > 0 || "SKIPPED".equals(summary.status()) || "RATE_LIMITED".equals(summary.status())) {
       redirectAttributes.addFlashAttribute("errorMessage", message);
     } else {
       redirectAttributes.addFlashAttribute("successMessage", message);
@@ -265,6 +265,10 @@ public class DashboardController {
     model.addAttribute("players", rosterQueryService.getRoster(filter));
     model.addAttribute("matches", trackedMatchService.getRecentMatches());
     model.addAttribute("runs", pollRunService.getRecentRuns());
+    java.util.Optional<PollRunView> activeRun = pollRunService.getActiveRun();
+    java.util.Optional<PollRunView> rateLimitRun = pollRunService.getActiveRateLimitPause();
+    model.addAttribute("activeRun", activeRun == null ? null : activeRun.orElse(null));
+    model.addAttribute("rateLimitRun", rateLimitRun == null ? null : rateLimitRun.orElse(null));
     model.addAttribute("configuration", appConfigurationService.getView());
     model.addAttribute("health", opsHealthService.currentHealth());
     model.addAttribute("filters", filter);
@@ -289,6 +293,30 @@ public class DashboardController {
 
   private PlayerForm formFrom(PlayerView player) {
     return new PlayerForm(player.platform(), player.gameName(), player.tagLine(), player.active());
+  }
+
+  private PlayerForm normalizePlayerForm(PlayerForm form) {
+    return new PlayerForm(
+        form.platform(),
+        form.gameName(),
+        form.tagLine(),
+        form.active(),
+        Boolean.TRUE.equals(form.backfill()));
+  }
+
+  private AppConfigurationForm normalizeConfigurationForm(AppConfigurationForm form) {
+    return new AppConfigurationForm(
+        form.riotApiKey(),
+        form.riotRegion(),
+        form.telegramBotToken(),
+        form.telegramChatId(),
+        form.pollingEnabled() == null || Boolean.TRUE.equals(form.pollingEnabled()),
+        Boolean.TRUE.equals(form.pollingManualOnly()),
+        form.pollingFixedDelay() == null || form.pollingFixedDelay().isBlank()
+            ? "PT5M"
+            : form.pollingFixedDelay(),
+        form.pollingMatchWindowSize() == null ? 10 : form.pollingMatchWindowSize(),
+        form.pollingPaginationLimit() == null ? 3 : form.pollingPaginationLimit());
   }
 
   private void addIntegrationFlash(

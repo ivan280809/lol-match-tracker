@@ -11,6 +11,8 @@ public record PlayerView(
     boolean active,
     Instant archivedAt,
     Instant lastPolledAt,
+    Instant trackFrom,
+    PlayerBackfillMode backfillMode,
     Instant lastSuccessfulSyncAt,
     String lastSyncStatus,
     String lastError,
@@ -40,6 +42,8 @@ public record PlayerView(
         active,
         null,
         lastPolledAt,
+        null,
+        PlayerBackfillMode.NONE,
         lastSuccessfulSyncAt,
         lastSyncStatus,
         lastError,
@@ -71,6 +75,8 @@ public record PlayerView(
         active,
         null,
         lastPolledAt,
+        null,
+        PlayerBackfillMode.NONE,
         lastSuccessfulSyncAt,
         lastSyncStatus,
         lastError,
@@ -80,6 +86,46 @@ public record PlayerView(
         null,
         null,
         null);
+  }
+
+  public PlayerView(
+      Long id,
+      RiotPlatform platform,
+      String gameName,
+      String tagLine,
+      String puuid,
+      boolean active,
+      Instant archivedAt,
+      Instant lastPolledAt,
+      Instant lastSuccessfulSyncAt,
+      String lastSyncStatus,
+      String lastError,
+      String rankQueueType,
+      String rankTier,
+      String rankDivision,
+      Integer rankLeaguePoints,
+      Integer rankScore,
+      Instant rankUpdatedAt) {
+    this(
+        id,
+        platform,
+        gameName,
+        tagLine,
+        puuid,
+        active,
+        archivedAt,
+        lastPolledAt,
+        null,
+        PlayerBackfillMode.NONE,
+        lastSuccessfulSyncAt,
+        lastSyncStatus,
+        lastError,
+        rankQueueType,
+        rankTier,
+        rankDivision,
+        rankLeaguePoints,
+        rankScore,
+        rankUpdatedAt);
   }
 
   public static PlayerView fromEntity(PlayerEntity player) {
@@ -92,6 +138,8 @@ public record PlayerView(
         player.isActive(),
         player.getArchivedAt(),
         player.getLastPolledAt(),
+        player.getTrackFrom(),
+        player.getBackfillMode() == null ? PlayerBackfillMode.NONE : player.getBackfillMode(),
         player.getLastSuccessfulSyncAt(),
         player.getLastSyncStatus(),
         player.getLastError(),
@@ -119,6 +167,10 @@ public record PlayerView(
       return "INACTIVE";
     }
     return lastSyncStatus == null || lastSyncStatus.isBlank() ? "NEW" : lastSyncStatus;
+  }
+
+  public boolean importsBackfillWithoutNotifications() {
+    return backfillMode == PlayerBackfillMode.IMPORT_WITHOUT_NOTIFICATIONS;
   }
 
   public String rankDisplay() {

@@ -30,6 +30,21 @@ public class AppConfigurationEntity {
   @Column(name = "telegram_chat_id", length = 1200)
   private String telegramChatIdEncrypted;
 
+  @Column(name = "polling_enabled")
+  private Boolean pollingEnabled;
+
+  @Column(name = "polling_manual_only")
+  private Boolean pollingManualOnly;
+
+  @Column(name = "polling_fixed_delay", length = 32)
+  private String pollingFixedDelay;
+
+  @Column(name = "polling_match_window_size")
+  private Integer pollingMatchWindowSize;
+
+  @Column(name = "polling_pagination_limit")
+  private Integer pollingPaginationLimit;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 

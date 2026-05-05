@@ -9,7 +9,13 @@ public record AppConfigurationView(
     String riotApiKeySource,
     String riotRegionSource,
     String telegramBotTokenSource,
-    String telegramChatIdSource) {
+    String telegramChatIdSource,
+    boolean pollingEnabled,
+    boolean pollingManualOnly,
+    String pollingFixedDelay,
+    int pollingMatchWindowSize,
+    int pollingPaginationLimit,
+    String pollingConfigSource) {
 
   public AppConfigurationView(
       boolean riotApiKeyConfigured,
@@ -26,7 +32,13 @@ public record AppConfigurationView(
         riotApiKeyConfigured ? "ENV" : "No configurado",
         "ENV",
         telegramBotTokenConfigured ? "ENV" : "No configurado",
-        telegramChatIdConfigured ? "ENV" : "No configurado");
+        telegramChatIdConfigured ? "ENV" : "No configurado",
+        true,
+        false,
+        "PT5M",
+        10,
+        3,
+        "ENV");
   }
 
   public boolean telegramConfigured() {

@@ -108,6 +108,8 @@
       <div class="detail-row"><span class="label">Riot ID</span><span class="value" th:text="${detail.player.displayName()}">Player#TAG</span></div>
       <div class="detail-row"><span class="label">PUUID</span><span class="value" th:text="${detail.player.puuid != null ? detail.player.puuid : 'Pendiente de validar'}">puuid</span></div>
       <div class="detail-row"><span class="label">Archivado</span><span class="value" th:text="${detail.player.archivedAt != null ? detail.player.archivedAt : 'No'}">No</span></div>
+      <div class="detail-row"><span class="label">Track from</span><span class="value" th:text="${detail.player.trackFrom != null ? detail.player.trackFrom : 'Alta'}">Alta</span></div>
+      <div class="detail-row"><span class="label">Backfill</span><span class="value" th:text="${detail.player.importsBackfillWithoutNotifications() ? 'Importar sin avisos' : 'Normal'}">Normal</span></div>
       <div class="detail-row"><span class="label">Ultimo intento</span><span class="value" th:text="${detail.player.lastPolledAt != null ? detail.player.lastPolledAt : 'Pendiente'}">Pendiente</span></div>
       <div class="detail-row"><span class="label">Ultima sync OK</span><span class="value" th:text="${detail.player.lastSuccessfulSyncAt != null ? detail.player.lastSuccessfulSyncAt : 'Nunca'}">Nunca</span></div>
       <div class="detail-row" th:if="${detail.player.lastError != null && !detail.player.lastError.isBlank()}"><span class="label">Ultimo error</span><span class="value" th:text="${detail.player.lastError}">Error</span></div>
