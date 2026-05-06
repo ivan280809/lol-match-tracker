@@ -2,7 +2,7 @@ package com.loltracker.app.match;
 
 import java.util.Map;
 
-final class MatchQueueCatalog {
+public final class MatchQueueCatalog {
 
   private static final Map<Integer, MatchQueueDescriptor> KNOWN_QUEUES =
       Map.ofEntries(
@@ -22,7 +22,7 @@ final class MatchQueueCatalog {
 
   private MatchQueueCatalog() {}
 
-  static MatchQueueDescriptor describe(Integer queueId, String gameMode) {
+  public static MatchQueueDescriptor describe(Integer queueId, String gameMode) {
     if (queueId != null && KNOWN_QUEUES.containsKey(queueId)) {
       return KNOWN_QUEUES.get(queueId);
     }

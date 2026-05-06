@@ -60,7 +60,8 @@ public class NotificationStatsService {
         formatPlayerRankValue(playerRank),
         formatPlayerRankNote(playerRank),
         rosterAverageRank.map(PlayerRankSnapshot::displayName).orElse("Sin media disponible"),
-        rankDelta(playerRank.snapshot(), rosterAverageRank));
+        rankDelta(playerRank.snapshot(), rosterAverageRank),
+        sharedPlayersFor(match));
   }
 
   private String formatPlayerRankValue(RankRefreshResult playerRank) {
@@ -115,6 +116,29 @@ public class NotificationStatsService {
     return trackedMatchRepository
         .findAllByPlayerIdAndGameEndAtGreaterThanEqualAndGameEndAtLessThanOrderByGameEndAtDesc(
             playerId, startInclusive, endExclusive);
+  }
+
+  private List<NotificationSharedPlayer> sharedPlayersFor(TrackedMatchEntity match) {
+    if (match.getMatchId() == null || match.getMatchId().isBlank()) {
+      return List.of();
+    }
+    List<TrackedMatchEntity> sharedMatches =
+        Optional.ofNullable(trackedMatchRepository.findAllByMatchIdOrderByIdAsc(match.getMatchId()))
+            .orElseGet(List::of);
+    if (sharedMatches.size() < 2) {
+      return List.of();
+    }
+    return sharedMatches.stream()
+        .map(
+            shared ->
+                new NotificationSharedPlayer(
+                    shared.getPlayer().getGameName() + "#" + shared.getPlayer().getTagLine(),
+                    shared.getChampionName(),
+                    shortResult(shared),
+                    shared.getKills(),
+                    shared.getDeaths(),
+                    shared.getAssists()))
+        .toList();
   }
 
   private String recentForm(List<TrackedMatchEntity> matches) {

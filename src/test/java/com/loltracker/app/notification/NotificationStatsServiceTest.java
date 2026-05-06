@@ -138,6 +138,45 @@ class NotificationStatsServiceTest {
     assertEquals("no se pudo consultar Riot", refreshError.playerRankNote());
   }
 
+  @Test
+  void buildForIncludesSharedTrackedPlayersFromSameMatch() {
+    NotificationStatsService service = new NotificationStatsService(trackedMatchRepository, playerRankService);
+    PlayerEntity player = player();
+    TrackedMatchEntity current =
+        match(player, "VICTORY", "Lux", 1800, "2026-04-03T18:00:00Z");
+    current.setMatchId("EUW1_123");
+    current.setKills(8);
+    current.setDeaths(3);
+    current.setAssists(11);
+    PlayerEntity duo = new PlayerEntity();
+    duo.setId(8L);
+    duo.setGameName("Duo");
+    duo.setTagLine("EUW");
+    TrackedMatchEntity shared = match(duo, "VICTORY", "Ahri", 1800, "2026-04-03T18:00:00Z");
+    shared.setMatchId("EUW1_123");
+    shared.setKills(4);
+    shared.setDeaths(5);
+    shared.setAssists(9);
+
+    when(playerRankService.refreshRankAvailability(player, "puuid-1"))
+        .thenReturn(RankRefreshResult.unranked());
+    when(playerRankService.rosterAverageRank()).thenReturn(Optional.empty());
+    stubCurrentOnlyStats(current);
+    when(trackedMatchRepository.findAllByMatchIdOrderByIdAsc("EUW1_123"))
+        .thenReturn(List.of(current, shared));
+
+    NotificationStatsSnapshot stats = service.buildFor(current);
+
+    assertEquals(2, stats.sharedPlayers().size());
+    assertEquals("Bazaga#ESP", stats.sharedPlayers().get(0).playerName());
+    assertEquals("Lux", stats.sharedPlayers().get(0).championName());
+    assertEquals("W", stats.sharedPlayers().get(0).result());
+    assertEquals(8, stats.sharedPlayers().get(0).kills());
+    assertEquals("Duo#EUW", stats.sharedPlayers().get(1).playerName());
+    assertEquals("Ahri", stats.sharedPlayers().get(1).championName());
+    assertEquals(9, stats.sharedPlayers().get(1).assists());
+  }
+
   private PlayerEntity player() {
     PlayerEntity player = new PlayerEntity();
     player.setId(7L);
