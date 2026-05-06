@@ -12,6 +12,7 @@ import com.loltracker.lolmatchtracker.LolMatchTrackerApplication;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
+import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +31,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
       "spring.datasource.driver-class-name=org.postgresql.Driver",
       "spring.jpa.hibernate.ddl-auto=validate",
       "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect",
-      "spring.flyway.enabled=true"
+      "spring.flyway.enabled=false"
     })
 @DirtiesContext
 class PostgreSqlPersistenceTest {
@@ -40,9 +41,21 @@ class PostgreSqlPersistenceTest {
 
   @DynamicPropertySource
   static void configurePostgreSql(DynamicPropertyRegistry registry) {
+    migratePostgreSqlSchema();
     registry.add("spring.datasource.url", postgres::getJdbcUrl);
     registry.add("spring.datasource.username", postgres::getUsername);
     registry.add("spring.datasource.password", postgres::getPassword);
+  }
+
+  private static void migratePostgreSqlSchema() {
+    if (!postgres.isRunning()) {
+      postgres.start();
+    }
+    Flyway.configure()
+        .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
+        .locations("classpath:db/migration")
+        .load()
+        .migrate();
   }
 
   @Autowired private PlayerRepository playerRepository;

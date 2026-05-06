@@ -17,11 +17,11 @@ Validated with environment-dependent gaps recorded.
   - Result: PASS.
   - Summary: 190 tests run, 0 failures, 0 errors, 2 skipped.
   - Skipped: `PostgreSqlPersistenceTest` 2 tests, because Docker was unavailable.
-  - Finished: 2026-05-06 23:01 Europe/Madrid.
+  - Finished: 2026-05-06 23:08 Europe/Madrid after the CI hotfix below.
 - `.\mvnw.cmd -DskipTests package`
   - Result: PASS.
   - Artifact: `target\lol-match-tracker-1.0.0.jar`.
-  - Finished: 2026-05-06 23:01 Europe/Madrid.
+  - Finished: 2026-05-06 23:07 Europe/Madrid after the CI hotfix below.
 
 ## Additional Focused Validation
 
@@ -29,6 +29,16 @@ Validated with environment-dependent gaps recorded.
   - Result: PASS.
   - Summary: 38 tests run, 0 failures, 0 errors, 2 skipped.
   - Purpose: guard, migrations, global match read model, PostgreSQL skip-safe coverage, MVC E2E fallback, dashboard/audit MVC contracts.
+- `.\mvnw.cmd "-Dtest=PostgreSqlPersistenceTest,FlywayMigrationTest" test`
+  - Result: PASS.
+  - Summary: 4 tests run, 0 failures, 0 errors, 2 skipped on this workstation.
+  - Purpose: validate the PostgreSQL/Flyway hotfix path remains skip-safe locally while Flyway scripts still run on H2.
+
+## CI Hotfix
+
+- GitHub Actions run `25461004571` failed in `PostgreSqlPersistenceTest` because Docker was available in CI, so the PostgreSQL Testcontainers tests executed and Hibernate `ddl-auto=validate` started before Flyway had created the schema.
+- The test now applies Flyway migrations explicitly to the PostgreSQL container before the Spring context is created, then disables Spring-managed Flyway for that test context. This keeps the test strict: Hibernate validates the schema that the production migrations create.
+- The corrected PostgreSQL validation ordering is expected to execute in the next Docker-enabled CI run.
 
 ## Code Inspection
 
@@ -54,7 +64,7 @@ Validated with environment-dependent gaps recorded.
 
 ## Recommendations
 
-- Run `.\mvnw.cmd test` again in CI or a local environment with Docker running to execute the PostgreSQL Testcontainers tests instead of skipping them.
+- Keep the Docker-enabled CI run as the release gate for PostgreSQL Testcontainers execution.
 - Add real browser E2E only after the project owns repeatable browser tooling in the build, such as Playwright Java or another Maven-controlled runner.
 - Keep migration tests separate from general H2 service tests unless the test profile is intentionally redesigned around Flyway-managed schemas.
 
