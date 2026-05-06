@@ -1,5 +1,7 @@
 package com.loltracker.app.notification;
 
+import com.loltracker.app.match.MatchQueueCatalog;
+import com.loltracker.app.match.MatchQueueDescriptor;
 import com.loltracker.app.match.TrackedMatchEntity;
 import com.loltracker.app.match.TrackedMatchRepository;
 import com.loltracker.app.player.PlayerRankService;
@@ -38,8 +40,10 @@ public class NotificationStatsService {
 
   public NotificationStatsSnapshot buildFor(TrackedMatchEntity match) {
     Long playerId = match.getPlayer().getId();
+    RankQueueContext rankQueue = rankQueueContext(match);
     RankRefreshResult playerRank =
-        playerRankService.refreshRankAvailability(match.getPlayer(), match.getPlayer().getPuuid());
+        playerRankService.refreshRankAvailabilityForQueue(
+            match.getPlayer(), match.getPlayer().getPuuid(), rankQueue.queueType());
     Optional<PlayerRankSnapshot> rosterAverageRank = playerRankService.rosterAverageRank();
     List<TrackedMatchEntity> recentMatches =
         trackedMatchRepository.findTop10ByPlayerIdOrderByGameEndAtDesc(playerId);
@@ -58,7 +62,8 @@ public class NotificationStatsService {
         losses(championMatches),
         averageDuration(recentMatches),
         formatPlayerRankValue(playerRank),
-        formatPlayerRankNote(playerRank),
+        formatPlayerRankNote(playerRank, rankQueue),
+        formatPlayerRankQueueLabel(playerRank, rankQueue),
         rosterAverageRank.map(PlayerRankSnapshot::displayName).orElse("Sin media disponible"),
         rankDelta(playerRank.snapshot(), rosterAverageRank),
         sharedPlayersFor(match));
@@ -73,14 +78,33 @@ public class NotificationStatsService {
     };
   }
 
-  private String formatPlayerRankNote(RankRefreshResult playerRank) {
+  private String formatPlayerRankNote(RankRefreshResult playerRank, RankQueueContext rankQueue) {
     return switch (playerRank.availability()) {
       case CURRENT -> "actualizado ahora";
       case STORED -> "guardado";
-      case UNRANKED -> "sin SoloQ/Flex";
+      case UNRANKED -> rankQueue.specific() ? "sin rank " + rankQueue.label() : "sin SoloQ/Flex";
       case NO_RANK -> "";
       case REFRESH_ERROR_STORED -> "guardado; no se pudo actualizar";
       case REFRESH_ERROR_NO_STORED -> "no se pudo consultar Riot";
+    };
+  }
+
+  private String formatPlayerRankQueueLabel(RankRefreshResult playerRank, RankQueueContext rankQueue) {
+    if (rankQueue.specific()) {
+      return rankQueue.label();
+    }
+    return playerRank
+        .snapshot()
+        .map(PlayerRankSnapshot::displayQueueLabel)
+        .orElse(rankQueue.label());
+  }
+
+  private RankQueueContext rankQueueContext(TrackedMatchEntity match) {
+    MatchQueueDescriptor queue = MatchQueueCatalog.describe(match.getQueueId(), match.getGameMode());
+    return switch (queue.type()) {
+      case RANKED_SOLO -> new RankQueueContext("Solo/Duo", PlayerRankService.SOLO_QUEUE, true);
+      case RANKED_FLEX -> new RankQueueContext("Flex", PlayerRankService.FLEX_QUEUE, true);
+      default -> new RankQueueContext("Mejor rank", null, false);
     };
   }
 
@@ -189,4 +213,6 @@ public class NotificationStatsService {
   private boolean isVictory(TrackedMatchEntity match) {
     return "VICTORY".equalsIgnoreCase(match.getResult());
   }
+
+  private record RankQueueContext(String label, String queueType, boolean specific) {}
 }

@@ -4,8 +4,11 @@ import com.loltracker.app.integration.riot.RiotRankEntry;
 import com.loltracker.app.integration.riot.RiotRankPort;
 import java.time.Clock;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -15,23 +18,29 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class PlayerRankService {
 
-  private static final String SOLO_QUEUE = "RANKED_SOLO_5x5";
-  private static final String FLEX_QUEUE = "RANKED_FLEX_SR";
+  public static final String SOLO_QUEUE = "RANKED_SOLO_5x5";
+  public static final String FLEX_QUEUE = "RANKED_FLEX_SR";
+  private static final Set<String> SUPPORTED_RANK_QUEUES = Set.of(SOLO_QUEUE, FLEX_QUEUE);
 
   private final RiotRankPort riotRankPort;
   private final PlayerRepository playerRepository;
+  private final PlayerRankRepository playerRankRepository;
   private final Clock clock;
 
   public PlayerRankService(
       com.loltracker.app.integration.riot.RiotClient riotClient, PlayerRepository playerRepository) {
-    this(riotClient, playerRepository, Clock.systemUTC());
+    this(riotClient, playerRepository, null, Clock.systemUTC());
   }
 
   @Autowired
   public PlayerRankService(
-      RiotRankPort riotRankPort, PlayerRepository playerRepository, Clock clock) {
+      RiotRankPort riotRankPort,
+      PlayerRepository playerRepository,
+      PlayerRankRepository playerRankRepository,
+      Clock clock) {
     this.riotRankPort = riotRankPort;
     this.playerRepository = playerRepository;
+    this.playerRankRepository = playerRankRepository;
     this.clock = clock;
   }
 
@@ -40,19 +49,37 @@ public class PlayerRankService {
   }
 
   public RankRefreshResult refreshRankAvailability(PlayerEntity player, String puuid) {
+    return refreshRankAvailability(player, puuid, null);
+  }
+
+  public RankRefreshResult refreshRankAvailabilityForQueue(
+      PlayerEntity player, String puuid, String preferredQueueType) {
+    return refreshRankAvailability(player, puuid, normalizeQueueType(preferredQueueType).orElse(null));
+  }
+
+  private RankRefreshResult refreshRankAvailability(
+      PlayerEntity player, String puuid, String preferredQueueType) {
     if (puuid == null || puuid.isBlank()) {
-      return storedRank(player)
+      return storedRank(player, preferredQueueType)
           .map(RankRefreshResult::stored)
           .orElseGet(RankRefreshResult::noRank);
     }
     try {
-      Optional<PlayerRankSnapshot> snapshot =
-          selectBestRank(riotRankPort.fetchRankEntries(RiotPlatform.fromFormValue(player.getPlatform()), puuid));
-      saveSnapshot(player, snapshot.orElse(null));
-      return snapshot.map(RankRefreshResult::current).orElseGet(RankRefreshResult::unranked);
+      List<PlayerRankSnapshot> snapshots =
+          toSnapshots(
+              riotRankPort.fetchRankEntries(RiotPlatform.fromFormValue(player.getPlatform()), puuid));
+      saveQueueSnapshots(player, snapshots);
+      Optional<PlayerRankSnapshot> primarySnapshot = selectBestRank(snapshots);
+      saveSnapshot(player, primarySnapshot.orElse(null));
+      Optional<PlayerRankSnapshot> selectedSnapshot =
+          selectRankForQueue(snapshots, preferredQueueType).or(() -> primarySnapshot);
+      if (preferredQueueType != null) {
+        selectedSnapshot = selectRankForQueue(snapshots, preferredQueueType);
+      }
+      return selectedSnapshot.map(RankRefreshResult::current).orElseGet(RankRefreshResult::unranked);
     } catch (RuntimeException e) {
       log.warn("Rank refresh failed for {}#{}", player.getGameName(), player.getTagLine(), e);
-      return storedRank(player)
+      return storedRank(player, preferredQueueType)
           .map(RankRefreshResult::refreshErrorWithStored)
           .orElseGet(RankRefreshResult::refreshErrorWithoutStored);
     }
@@ -73,6 +100,20 @@ public class PlayerRankService {
   }
 
   public Optional<PlayerRankSnapshot> storedRank(PlayerEntity player) {
+    return storedRank(player, null);
+  }
+
+  public Optional<PlayerRankSnapshot> storedRank(PlayerEntity player, String preferredQueueType) {
+    Optional<String> normalizedQueue = normalizeQueueType(preferredQueueType);
+    if (normalizedQueue.isPresent()) {
+      Optional<PlayerRankSnapshot> storedSpecific = storedRankSnapshot(player, normalizedQueue.get());
+      if (storedSpecific.isPresent()) {
+        return storedSpecific;
+      }
+      if (!normalizedQueue.get().equals(player.getRankQueueType())) {
+        return Optional.empty();
+      }
+    }
     if (player.getRankScore() == null
         || player.getRankTier() == null
         || player.getRankDivision() == null
@@ -96,22 +137,86 @@ public class PlayerRankService {
     playerRepository.save(target);
   }
 
-  private Optional<PlayerRankSnapshot> selectBestRank(List<RiotRankEntry> entries) {
-    return entries.stream()
-        .filter(entry -> SOLO_QUEUE.equals(entry.queueType()) || FLEX_QUEUE.equals(entry.queueType()))
-        .min(Comparator.comparingInt(this::queuePriority))
-        .map(
-            entry ->
-                new PlayerRankSnapshot(
-                    entry.queueType(),
-                    entry.tier(),
-                    normalizeDivision(entry.rank()),
-                    entry.leaguePoints(),
-                    score(entry.tier(), entry.rank(), entry.leaguePoints())));
+  @Transactional
+  void saveQueueSnapshots(PlayerEntity player, List<PlayerRankSnapshot> snapshots) {
+    if (playerRankRepository == null || player.getId() == null) {
+      return;
+    }
+    PlayerEntity target =
+        player.getId() == null ? player : playerRepository.findById(player.getId()).orElse(player);
+    Map<String, PlayerRankSnapshot> snapshotByQueue = new HashMap<>();
+    snapshots.forEach(snapshot -> snapshotByQueue.put(snapshot.queueType(), snapshot));
+    List<PlayerRankEntity> existing =
+        playerRankRepository.findAllByPlayerIdAndQueueTypeIn(player.getId(), SUPPORTED_RANK_QUEUES);
+    Map<String, PlayerRankEntity> existingByQueue = new HashMap<>();
+    existing.forEach(entity -> existingByQueue.put(entity.getQueueType(), entity));
+    existing.stream()
+        .filter(entity -> !snapshotByQueue.containsKey(entity.getQueueType()))
+        .forEach(playerRankRepository::delete);
+    snapshotByQueue.values().forEach(snapshot -> saveQueueSnapshot(target, snapshot, existingByQueue));
   }
 
-  private int queuePriority(RiotRankEntry entry) {
-    return SOLO_QUEUE.equals(entry.queueType()) ? 0 : 1;
+  private void saveQueueSnapshot(
+      PlayerEntity player, PlayerRankSnapshot snapshot, Map<String, PlayerRankEntity> existingByQueue) {
+    PlayerRankEntity entity = existingByQueue.getOrDefault(snapshot.queueType(), new PlayerRankEntity());
+    entity.setPlayer(player);
+    entity.setQueueType(snapshot.queueType());
+    entity.setTier(snapshot.tier());
+    entity.setDivision(snapshot.division());
+    entity.setLeaguePoints(snapshot.leaguePoints());
+    entity.setScore(snapshot.score());
+    entity.setUpdatedAt(now());
+    playerRankRepository.save(entity);
+  }
+
+  private List<PlayerRankSnapshot> toSnapshots(List<RiotRankEntry> entries) {
+    return entries.stream()
+        .filter(entry -> SUPPORTED_RANK_QUEUES.contains(entry.queueType()))
+        .map(this::toSnapshot)
+        .toList();
+  }
+
+  private PlayerRankSnapshot toSnapshot(RiotRankEntry entry) {
+    return new PlayerRankSnapshot(
+        entry.queueType(),
+        entry.tier(),
+        normalizeDivision(entry.rank()),
+        entry.leaguePoints(),
+        score(entry.tier(), entry.rank(), entry.leaguePoints()));
+  }
+
+  private Optional<PlayerRankSnapshot> selectBestRank(List<PlayerRankSnapshot> snapshots) {
+    return snapshots.stream().min(Comparator.comparingInt(this::queuePriority));
+  }
+
+  private Optional<PlayerRankSnapshot> selectRankForQueue(
+      List<PlayerRankSnapshot> snapshots, String preferredQueueType) {
+    return normalizeQueueType(preferredQueueType)
+        .flatMap(
+            normalizedQueue ->
+                snapshots.stream()
+                    .filter(snapshot -> normalizedQueue.equals(snapshot.queueType()))
+                    .findFirst());
+  }
+
+  private Optional<PlayerRankSnapshot> storedRankSnapshot(PlayerEntity player, String queueType) {
+    if (playerRankRepository == null || player.getId() == null) {
+      return Optional.empty();
+    }
+    return playerRankRepository
+        .findByPlayerIdAndQueueType(player.getId(), queueType)
+        .map(
+            entity ->
+                new PlayerRankSnapshot(
+                    entity.getQueueType(),
+                    entity.getTier(),
+                    entity.getDivision(),
+                    entity.getLeaguePoints(),
+                    entity.getScore()));
+  }
+
+  private int queuePriority(PlayerRankSnapshot snapshot) {
+    return SOLO_QUEUE.equals(snapshot.queueType()) ? 0 : 1;
   }
 
   private void applySnapshot(PlayerEntity player, PlayerRankSnapshot snapshot) {
@@ -198,6 +303,14 @@ public class PlayerRankService {
 
   private String safeUpper(String value) {
     return value == null ? "" : value.trim().toUpperCase();
+  }
+
+  private Optional<String> normalizeQueueType(String queueType) {
+    if (queueType == null || queueType.isBlank()) {
+      return Optional.empty();
+    }
+    String normalized = queueType.trim().toUpperCase();
+    return SUPPORTED_RANK_QUEUES.contains(normalized) ? Optional.of(normalized) : Optional.empty();
   }
 
   private java.time.Instant now() {

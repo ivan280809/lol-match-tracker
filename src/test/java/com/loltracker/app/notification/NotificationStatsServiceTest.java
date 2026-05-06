@@ -31,7 +31,8 @@ class NotificationStatsServiceTest {
     PlayerEntity player = player();
     TrackedMatchEntity current =
         match(player, "VICTORY", "Lux", 1800, "2026-04-03T18:00:00Z");
-    when(playerRankService.refreshRankAvailability(player, "puuid-1"))
+    when(playerRankService.refreshRankAvailabilityForQueue(
+            player, "puuid-1", PlayerRankService.SOLO_QUEUE))
         .thenReturn(
             RankRefreshResult.current(
                 new PlayerRankSnapshot("RANKED_SOLO_5x5", "GOLD", "II", 43, 1443)));
@@ -73,6 +74,7 @@ class NotificationStatsServiceTest {
     assertEquals(1300, stats.recentAverageDurationSeconds());
     assertEquals("Gold II 43 LP", stats.playerRank());
     assertEquals("actualizado ahora", stats.playerRankNote());
+    assertEquals("Solo/Duo", stats.playerRankQueueLabel());
     assertEquals("Silver I 78 LP", stats.rosterAverageRank());
     assertEquals(265, stats.rankDelta());
   }
@@ -83,7 +85,8 @@ class NotificationStatsServiceTest {
     PlayerEntity player = player();
     TrackedMatchEntity current =
         match(player, "VICTORY", "Lux", 1800, "2026-04-03T18:00:00Z");
-    when(playerRankService.refreshRankAvailability(player, "puuid-1"))
+    when(playerRankService.refreshRankAvailabilityForQueue(
+            player, "puuid-1", PlayerRankService.SOLO_QUEUE))
         .thenReturn(
             RankRefreshResult.refreshErrorWithStored(
                 new PlayerRankSnapshot("RANKED_SOLO_5x5", "GOLD", "IV", 10, 1210)));
@@ -113,7 +116,8 @@ class NotificationStatsServiceTest {
     PlayerEntity player = player();
     TrackedMatchEntity current =
         match(player, "VICTORY", "Lux", 1800, "2026-04-03T18:00:00Z");
-    when(playerRankService.refreshRankAvailability(player, "puuid-1"))
+    when(playerRankService.refreshRankAvailabilityForQueue(
+            player, "puuid-1", PlayerRankService.SOLO_QUEUE))
         .thenReturn(
             RankRefreshResult.stored(
                 new PlayerRankSnapshot("RANKED_SOLO_5x5", "SILVER", "I", 78, 1178)),
@@ -131,11 +135,33 @@ class NotificationStatsServiceTest {
     assertEquals("Silver I 78 LP", stored.playerRank());
     assertEquals("guardado", stored.playerRankNote());
     assertEquals("Unranked", unranked.playerRank());
-    assertEquals("sin SoloQ/Flex", unranked.playerRankNote());
+    assertEquals("sin rank Solo/Duo", unranked.playerRankNote());
     assertEquals("Sin rank registrado", noRank.playerRank());
     assertEquals("", noRank.playerRankNote());
     assertEquals("Sin rank actualizado", refreshError.playerRank());
     assertEquals("no se pudo consultar Riot", refreshError.playerRankNote());
+  }
+
+  @Test
+  void buildForRequestsFlexRankForFlexMatch() {
+    NotificationStatsService service = new NotificationStatsService(trackedMatchRepository, playerRankService);
+    PlayerEntity player = player();
+    TrackedMatchEntity current =
+        match(player, "VICTORY", "Lux", 1800, "2026-04-03T18:00:00Z");
+    current.setQueueId(440);
+    when(playerRankService.refreshRankAvailabilityForQueue(
+            player, "puuid-1", PlayerRankService.FLEX_QUEUE))
+        .thenReturn(
+            RankRefreshResult.current(
+                new PlayerRankSnapshot("RANKED_FLEX_SR", "PLATINUM", "IV", 20, 1620)));
+    when(playerRankService.rosterAverageRank()).thenReturn(Optional.empty());
+    stubCurrentOnlyStats(current);
+
+    NotificationStatsSnapshot stats = service.buildFor(current);
+
+    assertEquals("Platinum IV 20 LP", stats.playerRank());
+    assertEquals("Flex", stats.playerRankQueueLabel());
+    assertEquals("actualizado ahora", stats.playerRankNote());
   }
 
   @Test
@@ -158,7 +184,8 @@ class NotificationStatsServiceTest {
     shared.setDeaths(5);
     shared.setAssists(9);
 
-    when(playerRankService.refreshRankAvailability(player, "puuid-1"))
+    when(playerRankService.refreshRankAvailabilityForQueue(
+            player, "puuid-1", PlayerRankService.SOLO_QUEUE))
         .thenReturn(RankRefreshResult.unranked());
     when(playerRankService.rosterAverageRank()).thenReturn(Optional.empty());
     stubCurrentOnlyStats(current);
@@ -193,6 +220,7 @@ class NotificationStatsServiceTest {
     match.setResult(result);
     match.setChampionName(champion);
     match.setGameMode("CLASSIC");
+    match.setQueueId(420);
     match.setDurationSeconds(durationSeconds);
     match.setGameEndAt(Instant.parse(gameEndAt));
     return match;

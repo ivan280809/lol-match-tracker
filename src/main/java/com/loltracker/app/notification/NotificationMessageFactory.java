@@ -304,7 +304,11 @@ public class NotificationMessageFactory {
   }
 
   private String formatPlayerRank(NotificationStatsSnapshot stats) {
-    String line = "Jugador: <code>" + escape(stats.playerRank()) + "</code>";
+    String rankLabel =
+        stats.playerRankQueueLabel() == null || stats.playerRankQueueLabel().isBlank()
+            ? ""
+            : " (" + escape(stats.playerRankQueueLabel()) + ")";
+    String line = "Jugador" + rankLabel + ": <code>" + escape(stats.playerRank()) + "</code>";
     if (stats.playerRankNote() == null || stats.playerRankNote().isBlank()) {
       return line + "\n";
     }

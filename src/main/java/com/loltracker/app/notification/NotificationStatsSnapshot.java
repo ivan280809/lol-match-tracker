@@ -13,6 +13,7 @@ public record NotificationStatsSnapshot(
     long recentAverageDurationSeconds,
     String playerRank,
     String playerRankNote,
+    String playerRankQueueLabel,
     String rosterAverageRank,
     Integer rankDelta,
     List<NotificationSharedPlayer> sharedPlayers) {
@@ -41,12 +42,45 @@ public record NotificationStatsSnapshot(
         recentAverageDurationSeconds,
         playerRank,
         playerRankNote,
+        "",
+        rosterAverageRank,
+        rankDelta,
+        List.of());
+  }
+
+  public NotificationStatsSnapshot(
+      String recentForm,
+      int currentStreakCount,
+      String currentStreakResult,
+      int dayWins,
+      int dayLosses,
+      int championWins,
+      int championLosses,
+      long recentAverageDurationSeconds,
+      String playerRank,
+      String playerRankNote,
+      String playerRankQueueLabel,
+      String rosterAverageRank,
+      Integer rankDelta) {
+    this(
+        recentForm,
+        currentStreakCount,
+        currentStreakResult,
+        dayWins,
+        dayLosses,
+        championWins,
+        championLosses,
+        recentAverageDurationSeconds,
+        playerRank,
+        playerRankNote,
+        playerRankQueueLabel,
         rosterAverageRank,
         rankDelta,
         List.of());
   }
 
   public NotificationStatsSnapshot {
+    playerRankQueueLabel = playerRankQueueLabel == null ? "" : playerRankQueueLabel;
     sharedPlayers = sharedPlayers == null ? List.of() : List.copyOf(sharedPlayers);
   }
 

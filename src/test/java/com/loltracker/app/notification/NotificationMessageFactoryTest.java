@@ -53,6 +53,7 @@ class NotificationMessageFactoryTest {
             1650,
             "Gold II 43 LP",
             "actualizado ahora",
+            "Solo/Duo",
             "Silver I 78 LP",
             165);
 
@@ -79,7 +80,7 @@ class NotificationMessageFactoryTest {
             + "Con Lux: <b>4W / 2L</b> (67% WR)\n"
             + "Duracion media: <code>27m 30s</code>\n\n"
             + "<b>Rank</b>\n"
-            + "Jugador: <code>Gold II 43 LP</code> <i>actualizado ahora</i>\n"
+            + "Jugador (Solo/Duo): <code>Gold II 43 LP</code> <i>actualizado ahora</i>\n"
             + "Media roster: <code>Silver I 78 LP</code>\n"
             + "Diferencia: <b>+165</b>",
         message);
@@ -170,6 +171,7 @@ class NotificationMessageFactoryTest {
             1800,
             "Gold IV 10 LP",
             "guardado",
+            "Solo/Duo",
             "Gold IV 10 LP",
             0,
             List.of(
