@@ -3,6 +3,7 @@ package com.loltracker.app.notification;
 import com.loltracker.app.integration.telegram.TelegramDeliveryReceipt;
 import com.loltracker.app.integration.telegram.TelegramNotificationPort;
 import com.loltracker.app.match.TrackedMatchEntity;
+import com.loltracker.app.ops.OpsMetrics;
 import com.loltracker.app.player.PlayerEntity;
 import java.time.Clock;
 import java.time.Instant;
@@ -27,11 +28,16 @@ public class NotificationService {
   private final NotificationOutboxRepository notificationOutboxRepository;
   private final NotificationDeliveryRecorder notificationDeliveryRecorder;
   private final Clock clock;
+  private final OpsMetrics opsMetrics;
 
   @Transactional
   public NotificationOutboxEntity enqueueMatchNotification(TrackedMatchEntity trackedMatch) {
-    return notificationOutboxRepository
-        .findByTrackedMatchId(trackedMatch.getId())
+    return notificationOutboxRepository.findByTrackedMatchId(trackedMatch.getId())
+        .map(
+            existing -> {
+              recordOutboxEnqueue("existing");
+              return existing;
+            })
         .orElseGet(() -> createOutbox(trackedMatch));
   }
 
@@ -79,9 +85,14 @@ public class NotificationService {
     entity.setStatus(NotificationDeliveryStatus.PENDING);
     entity.setNextAttemptAt(now().minusMillis(1));
     try {
-      return notificationOutboxRepository.save(entity);
+      NotificationOutboxEntity saved = notificationOutboxRepository.save(entity);
+      recordOutboxEnqueue("created");
+      return saved;
     } catch (DataIntegrityViolationException e) {
-      return notificationOutboxRepository.findByTrackedMatchId(trackedMatch.getId()).orElseThrow(() -> e);
+      NotificationOutboxEntity existing =
+          notificationOutboxRepository.findByTrackedMatchId(trackedMatch.getId()).orElseThrow(() -> e);
+      recordOutboxEnqueue("existing");
+      return existing;
     }
   }
 
@@ -94,6 +105,7 @@ public class NotificationService {
           telegramNotifier.send(notificationMessageFactory.build(trackedMatch, stats));
       Integer telegramMessageId = receipt == null ? null : receipt.messageId();
       notificationDeliveryRecorder.recordSent(outbox, telegramMessageId);
+      recordOutboxDispatch("sent");
       return new NotificationDispatchResult(1, 0);
     } catch (RuntimeException e) {
       log.warn(
@@ -102,12 +114,25 @@ public class NotificationService {
           outbox.getTrackedMatch().getMatchId(),
           e);
       notificationDeliveryRecorder.recordFailure(outbox, e);
+      recordOutboxDispatch("failed");
       return new NotificationDispatchResult(0, 1);
     }
   }
 
   private Instant now() {
     return clock == null ? Instant.now() : clock.instant();
+  }
+
+  private void recordOutboxEnqueue(String result) {
+    if (opsMetrics != null) {
+      opsMetrics.recordOutboxEnqueue(result);
+    }
+  }
+
+  private void recordOutboxDispatch(String result) {
+    if (opsMetrics != null) {
+      opsMetrics.recordOutboxDispatch(result);
+    }
   }
 }
 

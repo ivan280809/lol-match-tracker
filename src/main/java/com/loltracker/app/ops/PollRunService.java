@@ -105,6 +105,13 @@ public class PollRunService {
   }
 
   @Transactional(readOnly = true)
+  public List<PollRunView> getRecentRateLimitRuns() {
+    return pollRunRepository.findTop5ByRateLimitPausedUntilIsNotNullOrderByStartedAtDesc().stream()
+        .map(PollRunView::fromEntity)
+        .toList();
+  }
+
+  @Transactional(readOnly = true)
   public Optional<PollRunView> getActiveRun() {
     return pollRunRepository.findFirstByStatusOrderByStartedAtDesc("RUNNING").map(PollRunView::fromEntity);
   }

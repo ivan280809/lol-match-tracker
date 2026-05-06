@@ -149,7 +149,7 @@
     <div class="match-list" th:if="${!#lists.isEmpty(detail.recentMatches)}">
       <article class="match-row" th:each="match : ${detail.recentMatches}">
         <div class="result" th:classappend="${match.result == 'VICTORY'} ? ' victory' : ''" th:text="${match.result}">VICTORY</div>
-        <div><strong th:text="${match.championName}">Lux</strong><p class="muted" th:text="${match.gameMode}">CLASSIC</p></div>
+        <div><strong th:text="${match.championName}">Lux</strong><p class="muted" th:text="${match.queueLabel}">Ranked Solo/Duo</p></div>
         <div class="muted" th:text="${match.gameEndAt}">Fecha</div>
       </article>
     </div>

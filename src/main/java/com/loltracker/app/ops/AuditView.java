@@ -8,4 +8,5 @@ public record AuditView(
     List<PlayerView> playerErrors,
     List<NotificationOutboxView> problemNotifications,
     List<PollRunView> pollRuns,
+    List<PollRunView> rateLimitRuns,
     List<ExternalCallLogView> externalLogs) {}

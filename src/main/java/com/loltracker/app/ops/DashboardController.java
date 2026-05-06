@@ -265,6 +265,7 @@ public class DashboardController {
     model.addAttribute("players", rosterQueryService.getRoster(filter));
     model.addAttribute("matches", trackedMatchService.getRecentMatches());
     model.addAttribute("runs", pollRunService.getRecentRuns());
+    model.addAttribute("rateLimitHistory", pollRunService.getRecentRateLimitRuns());
     java.util.Optional<PollRunView> activeRun = pollRunService.getActiveRun();
     java.util.Optional<PollRunView> rateLimitRun = pollRunService.getActiveRateLimitPause();
     model.addAttribute("activeRun", activeRun == null ? null : activeRun.orElse(null));

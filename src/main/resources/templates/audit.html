@@ -79,6 +79,18 @@
     </section>
 
     <section class="panel">
+      <h2>Historial de rate-limit Riot</h2>
+      <div class="empty" th:if="${#lists.isEmpty(audit.rateLimitRuns)}">Sin pausas recientes por rate-limit</div>
+      <div class="list" th:if="${!#lists.isEmpty(audit.rateLimitRuns)}">
+        <article class="item" th:each="run : ${audit.rateLimitRuns}">
+          <div class="row"><span th:text="${run.startedAt}">Inicio</span><span class="tag tag-warn">RATE_LIMITED</span></div>
+          <p class="muted" th:text="${run.rateLimitMessage != null ? run.rateLimitMessage : run.errorSummary}">Riot rate limit</p>
+          <p class="quiet" th:text="${'Pausa hasta ' + run.rateLimitPausedUntil}">Pausa</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
       <h2>Respuestas externas resumidas</h2>
       <div class="empty" th:if="${#lists.isEmpty(audit.externalLogs)}">Sin validaciones ni tests registrados</div>
       <div class="list" th:if="${!#lists.isEmpty(audit.externalLogs)}">

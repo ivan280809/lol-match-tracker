@@ -23,16 +23,25 @@ public class TrackedMatchService {
 
   private final TrackedMatchRepository trackedMatchRepository;
   private final PlayerMatchService playerMatchService;
+  private final MatchReadModelService matchReadModelService;
   private final Clock clock;
 
   @Transactional(readOnly = true)
   public boolean exists(PlayerEntity player, String matchId) {
-    return trackedMatchRepository.existsByPlayerIdAndMatchId(player.getId(), matchId);
+    return trackedMatchRepository.existsByPlayerIdAndMatchId(player.getId(), matchId)
+        || (matchReadModelService != null && matchReadModelService.exists(player.getId(), matchId));
   }
 
   @Transactional(readOnly = true)
   public Optional<TrackedMatchEntity> findExisting(PlayerEntity player, String matchId) {
-    return trackedMatchRepository.findByPlayerIdAndMatchId(player.getId(), matchId);
+    Optional<TrackedMatchEntity> legacy = trackedMatchRepository.findByPlayerIdAndMatchId(player.getId(), matchId);
+    if (legacy.isPresent() || matchReadModelService == null || !matchReadModelService.exists(player.getId(), matchId)) {
+      return legacy;
+    }
+    TrackedMatchEntity marker = new TrackedMatchEntity();
+    marker.setPlayer(player);
+    marker.setMatchId(matchId);
+    return Optional.of(marker);
   }
 
   @Transactional(readOnly = true)
@@ -87,6 +96,12 @@ public class TrackedMatchService {
 
   @Transactional(readOnly = true)
   public List<TrackedMatchView> getRecentMatches() {
+    if (matchReadModelService != null) {
+      List<TrackedMatchView> globalMatches = matchReadModelService.getRecentMatches(20);
+      if (!globalMatches.isEmpty()) {
+        return globalMatches;
+      }
+    }
     return trackedMatchRepository.findTop20ByOrderByGameEndAtDesc().stream()
         .map(TrackedMatchView::fromEntity)
         .toList();
@@ -94,6 +109,12 @@ public class TrackedMatchService {
 
   @Transactional(readOnly = true)
   public List<TrackedMatchView> getRecentMatchesForPlayer(Long playerId, int limit) {
+    if (matchReadModelService != null) {
+      List<TrackedMatchView> globalMatches = matchReadModelService.getRecentMatchesForPlayer(playerId, limit);
+      if (!globalMatches.isEmpty()) {
+        return globalMatches;
+      }
+    }
     return trackedMatchRepository
         .findByPlayerIdOrderByGameEndAtDesc(playerId, PageRequest.of(0, Math.max(1, limit)))
         .stream()
@@ -103,6 +124,12 @@ public class TrackedMatchService {
 
   @Transactional(readOnly = true)
   public PlayerRecentStatsView getRecentStatsForPlayer(Long playerId) {
+    if (matchReadModelService != null) {
+      PlayerRecentStatsView globalStats = matchReadModelService.getRecentStatsForPlayer(playerId);
+      if (globalStats.games() > 0) {
+        return globalStats;
+      }
+    }
     List<TrackedMatchEntity> matches =
         trackedMatchRepository.findByPlayerIdOrderByGameEndAtDesc(playerId, PageRequest.of(0, 30));
     if (matches.isEmpty()) {
@@ -132,6 +159,13 @@ public class TrackedMatchService {
     if (!hasHistoryFilter) {
       return Set.of();
     }
+    if (matchReadModelService != null) {
+      Set<Long> globalMatches =
+          matchReadModelService.findPlayerIdsMatchingHistory(text, champion, fromDate, toDate);
+      if (!globalMatches.isEmpty() || matchReadModelService.countMatches() > 0) {
+        return globalMatches;
+      }
+    }
     Instant from = fromDate == null ? null : fromDate.atStartOfDay().toInstant(ZoneOffset.UTC);
     Instant to = toDate == null ? null : toDate.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
     return trackedMatchRepository.findAll().stream()
@@ -153,7 +187,23 @@ public class TrackedMatchService {
 
   @Transactional(readOnly = true)
   public long countMatches() {
+    if (matchReadModelService != null) {
+      long globalMatches = matchReadModelService.countMatches();
+      if (globalMatches > 0) {
+        return globalMatches;
+      }
+    }
     return trackedMatchRepository.count();
+  }
+
+  @Transactional(readOnly = true)
+  public List<SharedMatchStatsView> getSharedMatchStats(int limit) {
+    return matchReadModelService == null ? List.of() : matchReadModelService.getSharedMatchStats(limit);
+  }
+
+  @Transactional(readOnly = true)
+  public Optional<SharedMatchStatsView> getSharedMatchStats(String matchId) {
+    return matchReadModelService == null ? Optional.empty() : matchReadModelService.getSharedMatchStats(matchId);
   }
 
   private String recentForm(List<TrackedMatchEntity> matches) {

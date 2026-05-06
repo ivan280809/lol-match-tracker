@@ -78,6 +78,7 @@ class DashboardControllerTest {
     when(rosterQueryService.getRoster(any(DashboardFilter.class))).thenReturn(List.of(player));
     when(trackedMatchService.getRecentMatches()).thenReturn(List.of());
     when(pollRunService.getRecentRuns()).thenReturn(List.of());
+    when(pollRunService.getRecentRateLimitRuns()).thenReturn(List.of());
     when(appConfigurationService.getView())
         .thenReturn(new AppConfigurationView(true, RiotRegion.EUROPE, true, true, true));
     when(appConfigurationService.getForm())
@@ -169,6 +170,7 @@ class DashboardControllerTest {
                     "players",
                     "matches",
                     "runs",
+                    "rateLimitHistory",
                     "playerForm",
                     "configuration",
                     "configurationForm",
@@ -502,13 +504,14 @@ class DashboardControllerTest {
 
   @Test
   void auditRendersOperationalAudit() throws Exception {
-    when(auditService.getAudit()).thenReturn(new AuditView(List.of(), List.of(), List.of(), List.of()));
+    when(auditService.getAudit()).thenReturn(new AuditView(List.of(), List.of(), List.of(), List.of(), List.of()));
 
     mockMvc
         .perform(get("/audit"))
         .andExpect(status().isOk())
         .andExpect(view().name("audit"))
         .andExpect(content().string(containsString("Auditoria")))
+        .andExpect(content().string(containsString("Historial de rate-limit Riot")))
         .andExpect(content().string(containsString("Respuestas externas resumidas")));
   }
 

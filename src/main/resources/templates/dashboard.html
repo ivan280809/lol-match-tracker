@@ -981,7 +981,7 @@
     <div class="metric">
       <p class="metric-label">Region Riot</p>
       <div class="metric-value" th:text="${configuration.riotRegion.displayName()}">Europe</div>
-      <p class="metric-note">Ruta regional activa</p>
+      <p class="metric-note">Region global de match history</p>
     </div>
     <div class="metric">
       <p class="metric-label">Telegram</p>
@@ -1147,13 +1147,13 @@
             <div class="match-main">
               <div class="match-title">
                 <strong class="champion" th:text="${match.championName}">Champion</strong>
-                <span class="mode" th:text="${match.gameMode}">CLASSIC</span>
+                <span class="mode" th:text="${match.queueLabel}">Ranked Solo/Duo</span>
               </div>
               <p class="match-player" th:text="${match.playerName}">Player#TAG</p>
             </div>
             <div class="match-meta">
               <div th:text="${match.gameEndAt}">2026-05-03T00:00:00Z</div>
-              <div th:text="${match.notificationSent ? 'Aviso enviado' : 'Aviso pendiente'}">Aviso enviado</div>
+              <div th:text="${match.notificationLabel()}">Aviso gestionado por outbox</div>
             </div>
           </article>
         </div>
@@ -1252,6 +1252,24 @@
                 <span class="status-value tag" th:classappend="${health.failedNotifications > 0} ? ' tag-danger' : (${health.pendingNotifications > 0} ? ' tag-warn' : ' tag-success')"
                       th:text="${health.pendingNotifications + ' pendientes / ' + health.failedNotifications + ' fallidos'}">0 pendientes</span>
               </div>
+              <div class="status-row">
+                <span class="status-name">Routing Riot</span>
+                <span class="status-value">
+                  <span th:text="${configuration.riotRegion.displayName()}">Europe</span>
+                  <span class="source">match history global; servidor por jugador</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="run-list" th:if="${rateLimitHistory != null && !#lists.isEmpty(rateLimitHistory)}">
+              <article class="run-item" th:each="run : ${rateLimitHistory}">
+                <div class="run-top">
+                  <span class="run-time" th:text="${run.startedAt}">Inicio</span>
+                  <span class="tag tag-warn">Rate limit</span>
+                </div>
+                <p class="muted" th:text="${run.rateLimitMessage != null ? run.rateLimitMessage : run.errorSummary}">Riot rate limit</p>
+                <p class="quiet" th:text="${'Pausa hasta ' + run.rateLimitPausedUntil}">Pausa</p>
+              </article>
             </div>
 
             <div class="health-actions">

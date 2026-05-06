@@ -43,6 +43,26 @@ jobs:
       - name: Run tests
         run: ./mvnw -B clean test
 
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Package application
+        run: ./mvnw -B -DskipTests package
+
+      - name: Upload application jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: lol-match-tracker-jar
+          path: target/lol-match-tracker-*.jar
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

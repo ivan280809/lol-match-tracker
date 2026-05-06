@@ -1,5 +1,6 @@
 package com.loltracker.app.integration.telegram;
 
+import com.loltracker.app.ops.OpsMetrics;
 import com.loltracker.app.settings.AppConfigurationService;
 import com.loltracker.app.settings.RuntimeAppConfiguration;
 import java.time.Duration;
@@ -24,6 +25,7 @@ public class TelegramNotifier implements TelegramNotificationPort {
   private final RestClient.Builder restClientBuilder;
   private final AppConfigurationService appConfigurationService;
   private final ObjectMapper objectMapper;
+  private final OpsMetrics opsMetrics;
 
   @Value("${app.http.timeout:PT10S}")
   private Duration httpTimeout;
@@ -36,26 +38,36 @@ public class TelegramNotifier implements TelegramNotificationPort {
 
   @Override
   public TelegramDeliveryReceipt send(String message) {
+    long startedNanos = System.nanoTime();
     RuntimeAppConfiguration configuration = appConfigurationService.getRuntimeConfiguration();
     String botToken = configuration.telegramBotToken();
     String chatId = configuration.telegramChatId();
     if (botToken == null || botToken.isBlank() || chatId == null || chatId.isBlank()) {
-      throw new IllegalStateException("Telegram is not configured");
+      IllegalStateException exception = new IllegalStateException("Telegram is not configured");
+      recordTelegram("ERROR", "NOT_CONFIGURED", startedNanos);
+      throw exception;
     }
 
-    String body =
-        executeWithRetry(
-            () ->
-                restClientBuilder
-                    .clone()
-                    .build()
-                    .post()
-                    .uri("https://api.telegram.org/bot{token}/sendMessage", botToken)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("chat_id", chatId, "text", message, "parse_mode", "HTML"))
-                    .retrieve()
-                    .body(String.class));
-    return parseReceipt(body);
+    try {
+      String body =
+          executeWithRetry(
+              () ->
+                  restClientBuilder
+                      .clone()
+                      .build()
+                      .post()
+                      .uri("https://api.telegram.org/bot{token}/sendMessage", botToken)
+                      .contentType(MediaType.APPLICATION_JSON)
+                      .body(Map.of("chat_id", chatId, "text", message, "parse_mode", "HTML"))
+                      .retrieve()
+                      .body(String.class));
+      TelegramDeliveryReceipt receipt = parseReceipt(body);
+      recordTelegram("OK", "NONE", startedNanos);
+      return receipt;
+    } catch (RuntimeException e) {
+      recordTelegram("ERROR", telegramCategory(e), startedNanos);
+      throw e;
+    }
   }
 
   private TelegramDeliveryReceipt parseReceipt(String body) {
@@ -95,6 +107,34 @@ public class TelegramNotifier implements TelegramNotificationPort {
       return status >= 500 && status <= 599;
     }
     return false;
+  }
+
+  private String telegramCategory(RuntimeException failure) {
+    if (failure instanceof ResourceAccessException) {
+      return "TIMEOUT";
+    }
+    if (failure instanceof RestClientResponseException exception) {
+      int status = exception.getStatusCode().value();
+      if (status == 401 || status == 403) {
+        return "UNAUTHORIZED";
+      }
+      if (status == 429) {
+        return "RATE_LIMIT";
+      }
+      if (status >= 500 && status <= 599) {
+        return "UNAVAILABLE";
+      }
+      if (status >= 400 && status <= 499) {
+        return "CLIENT_ERROR";
+      }
+    }
+    return "UNKNOWN";
+  }
+
+  private void recordTelegram(String status, String category, long startedNanos) {
+    if (opsMetrics != null) {
+      opsMetrics.recordTelegramRequest("send", status, category, System.nanoTime() - startedNanos);
+    }
   }
 
   private void sleepBeforeRetry(int attempt) {

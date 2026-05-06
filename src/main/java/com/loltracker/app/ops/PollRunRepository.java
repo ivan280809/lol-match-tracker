@@ -13,6 +13,10 @@ public interface PollRunRepository extends JpaRepository<PollRunEntity, Long> {
 
   Optional<PollRunEntity> findFirstByRateLimitPausedUntilAfterOrderByRateLimitPausedUntilDesc(Instant now);
 
+  long countByRateLimitPausedUntilAfter(Instant now);
+
+  List<PollRunEntity> findTop5ByRateLimitPausedUntilIsNotNullOrderByStartedAtDesc();
+
   Optional<PollRunEntity> findFirstByFinishedAtIsNotNullOrderByFinishedAtDesc();
 }
 

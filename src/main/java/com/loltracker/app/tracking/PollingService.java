@@ -13,6 +13,7 @@ import com.loltracker.app.ops.PollLease;
 import com.loltracker.app.ops.PollLockService;
 import com.loltracker.app.ops.PollRunEntity;
 import com.loltracker.app.ops.PollRunService;
+import com.loltracker.app.ops.OpsMetrics;
 import com.loltracker.app.player.PlayerEntity;
 import com.loltracker.app.player.PlayerService;
 import com.loltracker.app.settings.AppConfigurationService;
@@ -47,6 +48,7 @@ public class PollingService {
   private final PollLockService pollLockService;
   private final AppConfigurationService appConfigurationService;
   private final Clock clock;
+  private final OpsMetrics opsMetrics;
 
   private final AtomicBoolean running = new AtomicBoolean(false);
 
@@ -68,15 +70,16 @@ public class PollingService {
   }
 
   public PollSummary runPoll() {
+    long startedNanos = System.nanoTime();
     if (!running.compareAndSet(false, true)) {
       log.info("Skipping poll because another local run is still active");
-      return new PollSummary(0, 0, 0, 0, "SKIPPED");
+      return finish(new PollSummary(0, 0, 0, 0, "SKIPPED"), startedNanos);
     }
 
     if (pollRunService.isRateLimitPaused()) {
       running.set(false);
       log.info("Skipping poll because Riot rate-limit pause is active");
-      return new PollSummary(0, 0, 0, 0, "RATE_LIMITED");
+      return finish(new PollSummary(0, 0, 0, 0, "RATE_LIMITED"), startedNanos);
     }
 
     PollLease lease = null;
@@ -94,7 +97,7 @@ public class PollingService {
               : pollLockService.acquire(POLL_LOCK_LEASE);
       if (acquiredLease.isEmpty()) {
         log.info("Skipping poll because another instance owns the DB poll lock");
-        return new PollSummary(0, 0, 0, 0, "SKIPPED");
+        return finish(new PollSummary(0, 0, 0, 0, "SKIPPED"), startedNanos);
       }
       lease = acquiredLease.get();
       run = pollLockService == null ? pollRunService.startRun() : pollRunService.startRun(lease.owner());
@@ -111,8 +114,11 @@ public class PollingService {
             Instant pausedUntil = now().plus(rateLimitPause(e));
             String message = friendlyRiotMessage(e);
             pollRunService.rateLimited(run, processed, newMatches, notifications, pausedUntil, message);
+            recordRateLimitPause(rateLimitPause(e));
             playerService.updateSyncFailure(player, message);
-            return new PollSummary(processed, newMatches, notifications, playerErrors.size() + 1, "RATE_LIMITED");
+            return finish(
+                new PollSummary(processed, newMatches, notifications, playerErrors.size() + 1, "RATE_LIMITED"),
+                startedNanos);
           }
           log.warn("Player sync failed for {}#{}", player.getGameName(), player.getTagLine(), e);
           String message = friendlyRiotMessage(e);
@@ -127,16 +133,19 @@ public class PollingService {
       }
 
       pollRunService.completeRun(run, processed, newMatches, notifications, playerErrors);
-      return new PollSummary(
-          processed,
-          newMatches,
-          notifications,
-          playerErrors.size(),
-          playerErrors.isEmpty() ? "SUCCESS" : "PARTIAL_SUCCESS");
+      return finish(
+          new PollSummary(
+              processed,
+              newMatches,
+              notifications,
+              playerErrors.size(),
+              playerErrors.isEmpty() ? "SUCCESS" : "PARTIAL_SUCCESS"),
+          startedNanos);
     } catch (Exception e) {
       if (run != null) {
         pollRunService.failRun(run, processed, newMatches, notifications, friendlyMessage(e));
       }
+      recordPollRun("ERROR", startedNanos);
       throw e;
     } finally {
       if (lease != null && pollLockService != null) {
@@ -295,6 +304,23 @@ public class PollingService {
 
   private Instant now() {
     return clock == null ? Instant.now() : clock.instant();
+  }
+
+  private PollSummary finish(PollSummary summary, long startedNanos) {
+    recordPollRun(summary.status(), startedNanos);
+    return summary;
+  }
+
+  private void recordPollRun(String status, long startedNanos) {
+    if (opsMetrics != null) {
+      opsMetrics.recordPollRun(status, System.nanoTime() - startedNanos);
+    }
+  }
+
+  private void recordRateLimitPause(Duration duration) {
+    if (opsMetrics != null) {
+      opsMetrics.recordRateLimitPause(duration);
+    }
   }
 
   private record PlayerPollResult(int newMatches, int notifications) {}

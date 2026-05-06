@@ -80,6 +80,7 @@ class TrackedMatchServiceTest {
     trackedMatch.setChampionName("Lux");
     trackedMatch.setResult("VICTORY");
     trackedMatch.setGameMode("CLASSIC");
+    trackedMatch.setQueueId(420);
     trackedMatch.setDurationSeconds(1500);
     trackedMatch.setGameEndAt(Instant.parse("2026-04-03T18:00:00Z"));
     trackedMatch.setNotificationSent(true);
@@ -93,6 +94,8 @@ class TrackedMatchServiceTest {
     assertEquals(12L, views.get(0).playerId());
     assertEquals("Bazaga#ESP", views.get(0).playerName());
     assertEquals("EUW1_900", views.get(0).matchId());
+    assertEquals("Ranked Solo/Duo", views.get(0).queueLabel());
+    assertEquals(MatchQueueType.RANKED_SOLO, views.get(0).queueType());
     assertTrue(views.get(0).notificationSent());
   }
 }

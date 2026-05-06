@@ -14,6 +14,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.loltracker.app.player.RiotPlatform;
+import com.loltracker.app.ops.OpsMetrics;
 import com.loltracker.app.settings.AppConfigurationService;
 import com.loltracker.app.settings.RiotRegion;
 import com.loltracker.app.settings.RuntimeAppConfiguration;
@@ -62,7 +63,13 @@ class RiotClientTest {
                 3));
     restClientBuilder = RestClient.builder();
     server = MockRestServiceServer.bindTo(restClientBuilder).build();
-    riotClient = new RiotClient(restClientBuilder, new ObjectMapper(), appConfigurationService, FIXED_CLOCK);
+    riotClient =
+        new RiotClient(
+            restClientBuilder,
+            new ObjectMapper(),
+            appConfigurationService,
+            FIXED_CLOCK,
+            mock(OpsMetrics.class));
     ReflectionTestUtils.setField(riotClient, "httpMaxAttempts", 1);
     ReflectionTestUtils.setField(riotClient, "httpRetryBackoff", Duration.ZERO);
   }

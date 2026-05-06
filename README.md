@@ -48,6 +48,7 @@ El workflow `.github/workflows/publish-ghcr.yml` hace tres cosas al recibir un p
 3. Ejecuta un job de despliegue en un runner self-hosted con labels `self-hosted` y `minipc`.
 
 El job de despliegue usa un project name estable de Docker Compose: `lol-match-tracker`. Tambien copia `docker-compose.deploy.yml` a `/opt/lol-match-tracker/docker-compose.deploy.yml`, carga secretos desde `/opt/lol-match-tracker/lol-tracker.env`, combina ese Compose con el override local `/opt/lol-match-tracker/docker-compose.swag.yml`, hace `docker compose pull`, reinicia con `docker compose up -d --remove-orphans` y comprueba `/actuator/health`.
+El workflow conserva los informes de tests y el jar empaquetado durante 14 dias como artifacts de GitHub Actions.
 
 ### Preparar el mini PC
 
@@ -205,9 +206,24 @@ Si usas `docker-compose.deploy.yml` con una imagen publicada en `GHCR`, el otro 
 - `APP_HTTP_RETRY_MAX_ATTEMPTS`
 - `APP_HTTP_RETRY_BACKOFF`
 - `APP_TIME_ZONE`
+- `APP_DASHBOARD_GUARD_ENABLED`
+- `APP_DASHBOARD_GUARD_USERNAME`
+- `APP_DASHBOARD_GUARD_PASSWORD`
 
 ### Configuracion desde la UI
 
 El dashboard permite guardar Riot API key, region Riot, Telegram bot token, Telegram chat id y configuracion operativa de polling.
 Los secretos se almacenan cifrados en PostgreSQL. Manten estable `APP_CONFIG_ENCRYPTION_KEY`,
 porque si cambia no se podran descifrar los valores ya guardados.
+
+### Guardia opcional del dashboard
+
+Por defecto el dashboard no pide credenciales (`APP_DASHBOARD_GUARD_ENABLED=false`). Para exponerlo fuera de una LAN de confianza, activa la guardia HTTP Basic:
+
+```bash
+APP_DASHBOARD_GUARD_ENABLED=true
+APP_DASHBOARD_GUARD_USERNAME=admin
+APP_DASHBOARD_GUARD_PASSWORD=un-password-largo
+```
+
+La ruta `/actuator/health` queda abierta para Docker, Compose y el workflow de despliegue.

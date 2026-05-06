@@ -29,6 +29,7 @@ public class AuditService {
             .toList(),
         notificationService.getRecentProblemNotifications(),
         pollRunService.getRecentRuns(),
+        pollRunService.getRecentRateLimitRuns(),
         externalCallLogService.recentLogs());
   }
 }

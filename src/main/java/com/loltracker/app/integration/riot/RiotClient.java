@@ -1,6 +1,7 @@
 package com.loltracker.app.integration.riot;
 
 import com.loltracker.app.player.RiotPlatform;
+import com.loltracker.app.ops.OpsMetrics;
 import com.loltracker.app.settings.AppConfigurationService;
 import com.loltracker.app.settings.RuntimeAppConfiguration;
 import java.time.Clock;
@@ -32,6 +33,7 @@ public class RiotClient
   private final ObjectMapper objectMapper;
   private final AppConfigurationService appConfigurationService;
   private final Clock clock;
+  private final OpsMetrics opsMetrics;
 
   @Value("${app.http.retry.max-attempts:3}")
   private int httpMaxAttempts;
@@ -46,6 +48,10 @@ public class RiotClient
 
   @Override
   public RiotAccount fetchAccount(String gameName, String tagLine) {
+    return observeRiot("account", () -> fetchAccountInternal(gameName, tagLine));
+  }
+
+  private RiotAccount fetchAccountInternal(String gameName, String tagLine) {
     RuntimeAppConfiguration configuration = riotConfiguration();
     String body =
         executeWithRetry(
@@ -76,6 +82,10 @@ public class RiotClient
 
   @Override
   public List<String> fetchRecentMatchIds(String puuid, int start, int count) {
+    return observeRiot("match_ids", () -> fetchRecentMatchIdsInternal(puuid, start, count));
+  }
+
+  private List<String> fetchRecentMatchIdsInternal(String puuid, int start, int count) {
     RuntimeAppConfiguration configuration = riotConfiguration();
     String body =
         executeWithRetry(
@@ -108,6 +118,10 @@ public class RiotClient
 
   @Override
   public RiotMatchDetails fetchMatchDetails(String matchId) {
+    return observeRiot("match_detail", () -> fetchMatchDetailsInternal(matchId));
+  }
+
+  private RiotMatchDetails fetchMatchDetailsInternal(String matchId) {
     RuntimeAppConfiguration configuration = riotConfiguration();
     String body =
         executeWithRetry(
@@ -151,6 +165,10 @@ public class RiotClient
 
   @Override
   public List<RiotRankEntry> fetchRankEntries(RiotPlatform platform, String puuid) {
+    return observeRiot("rank", () -> fetchRankEntriesInternal(platform, puuid));
+  }
+
+  private List<RiotRankEntry> fetchRankEntriesInternal(RiotPlatform platform, String puuid) {
     RuntimeAppConfiguration configuration = riotConfiguration();
     String summonerBody =
         executeWithRetry(
@@ -211,6 +229,10 @@ public class RiotClient
 
   @Override
   public String validateApiKey(RiotPlatform platform) {
+    return observeRiot("validate_key", () -> validateApiKeyInternal(platform));
+  }
+
+  private String validateApiKeyInternal(RiotPlatform platform) {
     RuntimeAppConfiguration configuration = riotConfiguration();
     try {
       String body =
@@ -360,6 +382,27 @@ public class RiotClient
 
   private RiotApiException malformed(String message, Throwable cause) {
     return new RiotApiException(RiotErrorCategory.MALFORMED_RESPONSE, message, cause);
+  }
+
+  private <T> T observeRiot(String operation, Supplier<T> action) {
+    long startedNanos = System.nanoTime();
+    try {
+      T result = action.get();
+      recordRiot(operation, "OK", "NONE", startedNanos);
+      return result;
+    } catch (RiotApiException e) {
+      recordRiot(operation, "ERROR", e.category().name(), startedNanos);
+      throw e;
+    } catch (RuntimeException e) {
+      recordRiot(operation, "ERROR", "UNKNOWN", startedNanos);
+      throw e;
+    }
+  }
+
+  private void recordRiot(String operation, String status, String category, long startedNanos) {
+    if (opsMetrics != null) {
+      opsMetrics.recordRiotRequest(operation, status, category, System.nanoTime() - startedNanos);
+    }
   }
 
   private void sleepBeforeRetry(int attempt) {
