@@ -38,7 +38,17 @@ Validated with environment-dependent gaps recorded.
 
 - GitHub Actions run `25461004571` failed in `PostgreSqlPersistenceTest` because Docker was available in CI, so the PostgreSQL Testcontainers tests executed and Hibernate `ddl-auto=validate` started before Flyway had created the schema.
 - The test now applies Flyway migrations explicitly to the PostgreSQL container before the Spring context is created, then disables Spring-managed Flyway for that test context. This keeps the test strict: Hibernate validates the schema that the production migrations create.
-- The corrected PostgreSQL validation ordering is expected to execute in the next Docker-enabled CI run.
+- The corrected PostgreSQL validation ordering was confirmed in GitHub Actions run `25461254902`.
+
+## CI And Deployment Validation
+
+- GitHub Actions run `25461254902`
+  - Result: PASS.
+  - Commit: `70b1fa05dcef948035a9d2a2931413816112c06d`.
+  - `test-and-publish`: PASS in 1m51s. Docker-enabled CI executed tests, packaged the application, uploaded artifacts, and pushed `ghcr.io/ivan280809/lol-match-tracker:70b1fa05dcef948035a9d2a2931413816112c06d`.
+  - `deploy-minipc`: PASS in 25s. The mini PC pulled the image, recreated the Spring Boot container, kept PostgreSQL healthy, and exposed the app on `127.0.0.1:8085->8080/tcp`.
+  - Healthcheck: PASS. `/actuator/health` returned `{"groups":["liveness","readiness"],"status":"UP"}`.
+  - Non-blocking warning: GitHub Actions reported Node.js 20 action deprecation warnings for several marketplace actions. This does not block the current release, but should be addressed before GitHub's 2026 Node 20 removal deadlines.
 
 ## Code Inspection
 
