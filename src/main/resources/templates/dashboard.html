@@ -246,7 +246,7 @@
 
     .content-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.45fr) minmax(360px, 0.55fr);
+      grid-template-columns: minmax(0, 1fr) minmax(420px, 0.48fr);
       gap: 16px;
       align-items: start;
     }
@@ -529,6 +529,7 @@
 
     .side-tabs {
       padding: 0;
+      min-width: 0;
     }
 
     .tab-input {
@@ -570,6 +571,9 @@
     .tab-panel {
       display: none;
       padding: 18px;
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
     }
 
     #tab-player:checked ~ .tab-content .tab-player-panel,
@@ -586,6 +590,56 @@
       gap: 8px;
       flex-wrap: wrap;
       align-items: center;
+    }
+
+    .side-tabs .tab-content,
+    .side-tabs .tab-panel > *,
+    .side-tabs form,
+    .side-tabs label,
+    .side-tabs input,
+    .side-tabs select,
+    .side-tabs button {
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .side-tabs .quick-player-grid,
+    .side-tabs .settings-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .side-tabs .quick-player-grid {
+      grid-template-areas:
+        "platform"
+        "name"
+        "tag";
+    }
+
+    .side-tabs .quick-player-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      align-items: stretch;
+      justify-content: stretch;
+      gap: 10px;
+    }
+
+    .side-tabs .form-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      justify-content: stretch;
+      width: 100%;
+    }
+
+    .side-tabs .quick-player-actions button,
+    .side-tabs .settings-form .form-actions button {
+      width: 100%;
+      min-width: 0;
+      white-space: normal;
+    }
+
+    .side-tabs .check-row {
+      width: 100%;
+      align-items: flex-start;
     }
 
     .filter-actions {
@@ -635,6 +689,7 @@
     input[type="text"],
     input[type="password"],
     input[type="number"],
+    input[type="date"],
     select {
       width: 100%;
       min-height: 46px;

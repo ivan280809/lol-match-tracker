@@ -1,5 +1,9 @@
 # LOL Match Tracker
 
+## Documentacion interna
+
+- Referencia Riot/LoL API: [docs/reference/riot-lol-api.md](docs/reference/riot-lol-api.md)
+
 ## Docker Compose
 
 La forma mas simple de levantar la aplicacion completa es con Docker Compose.
