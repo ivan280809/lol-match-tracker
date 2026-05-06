@@ -78,9 +78,7 @@ public class NotificationMessageFactory {
         + formatDuration(stats.recentAverageDurationSeconds())
         + "</code>\n\n"
         + "<b>Rank</b>\n"
-        + "Jugador: <code>"
-        + escape(stats.playerRank())
-        + "</code>\n"
+        + formatPlayerRank(stats)
         + "Media roster: <code>"
         + escape(stats.rosterAverageRank())
         + "</code>\n"
@@ -111,6 +109,14 @@ public class NotificationMessageFactory {
       return "+" + delta;
     }
     return String.valueOf(delta);
+  }
+
+  private String formatPlayerRank(NotificationStatsSnapshot stats) {
+    String line = "Jugador: <code>" + escape(stats.playerRank()) + "</code>";
+    if (stats.playerRankNote() == null || stats.playerRankNote().isBlank()) {
+      return line + "\n";
+    }
+    return line + " <i>" + escape(stats.playerRankNote()) + "</i>\n";
   }
 
   private boolean isVictory(TrackedMatchEntity match) {

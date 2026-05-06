@@ -36,17 +36,25 @@ public class PlayerRankService {
   }
 
   public Optional<PlayerRankSnapshot> refreshRank(PlayerEntity player, String puuid) {
+    return refreshRankAvailability(player, puuid).snapshot();
+  }
+
+  public RankRefreshResult refreshRankAvailability(PlayerEntity player, String puuid) {
     if (puuid == null || puuid.isBlank()) {
-      return storedRank(player);
+      return storedRank(player)
+          .map(RankRefreshResult::stored)
+          .orElseGet(RankRefreshResult::noRank);
     }
     try {
       Optional<PlayerRankSnapshot> snapshot =
           selectBestRank(riotRankPort.fetchRankEntries(RiotPlatform.fromFormValue(player.getPlatform()), puuid));
       saveSnapshot(player, snapshot.orElse(null));
-      return snapshot;
+      return snapshot.map(RankRefreshResult::current).orElseGet(RankRefreshResult::unranked);
     } catch (RuntimeException e) {
       log.warn("Rank refresh failed for {}#{}", player.getGameName(), player.getTagLine(), e);
-      return storedRank(player);
+      return storedRank(player)
+          .map(RankRefreshResult::refreshErrorWithStored)
+          .orElseGet(RankRefreshResult::refreshErrorWithoutStored);
     }
   }
 
@@ -194,5 +202,42 @@ public class PlayerRankService {
 
   private java.time.Instant now() {
     return clock == null ? java.time.Instant.now() : clock.instant();
+  }
+
+  public record RankRefreshResult(
+      Optional<PlayerRankSnapshot> snapshot, RankAvailability availability) {
+
+    public static RankRefreshResult current(PlayerRankSnapshot snapshot) {
+      return new RankRefreshResult(Optional.of(snapshot), RankAvailability.CURRENT);
+    }
+
+    public static RankRefreshResult stored(PlayerRankSnapshot snapshot) {
+      return new RankRefreshResult(Optional.of(snapshot), RankAvailability.STORED);
+    }
+
+    public static RankRefreshResult unranked() {
+      return new RankRefreshResult(Optional.empty(), RankAvailability.UNRANKED);
+    }
+
+    public static RankRefreshResult noRank() {
+      return new RankRefreshResult(Optional.empty(), RankAvailability.NO_RANK);
+    }
+
+    public static RankRefreshResult refreshErrorWithStored(PlayerRankSnapshot snapshot) {
+      return new RankRefreshResult(Optional.of(snapshot), RankAvailability.REFRESH_ERROR_STORED);
+    }
+
+    public static RankRefreshResult refreshErrorWithoutStored() {
+      return new RankRefreshResult(Optional.empty(), RankAvailability.REFRESH_ERROR_NO_STORED);
+    }
+  }
+
+  public enum RankAvailability {
+    CURRENT,
+    STORED,
+    UNRANKED,
+    NO_RANK,
+    REFRESH_ERROR_STORED,
+    REFRESH_ERROR_NO_STORED
   }
 }

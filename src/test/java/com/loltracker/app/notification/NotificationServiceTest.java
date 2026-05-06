@@ -53,7 +53,18 @@ class NotificationServiceTest {
     NotificationOutboxEntity outbox = outbox(trackedMatch);
     NotificationStatsSnapshot stats =
         new NotificationStatsSnapshot(
-            "W", 1, "victoria", 1, 0, 1, 0, 1800, "Gold IV 10 LP", "Gold IV 10 LP", 0);
+            "W",
+            1,
+            "victoria",
+            1,
+            0,
+            1,
+            0,
+            1800,
+            "Gold IV 10 LP",
+            "actualizado ahora",
+            "Gold IV 10 LP",
+            0);
     when(notificationOutboxRepository
             .findTop50ByTrackedMatchPlayerIdAndStatusInAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
                 org.mockito.ArgumentMatchers.eq(7L),

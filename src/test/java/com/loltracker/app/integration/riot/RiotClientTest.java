@@ -140,22 +140,65 @@ class RiotClientTest {
   }
 
   @Test
+  void fetchRankEntriesUsesDirectLeaguePuuidEndpoint() {
+    server
+        .expect(once(), requestTo("https://euw1.api.riotgames.com/lol/league/v4/entries/by-puuid/puuid-1"))
+        .andExpect(method(HttpMethod.GET))
+        .andExpect(header("X-Riot-Token", RIOT_KEY))
+        .andRespond(
+            withSuccess(
+                """
+                [{
+                  "queueType":"RANKED_SOLO_5x5",
+                  "tier":"GOLD",
+                  "rank":"II",
+                  "leaguePoints":48,
+                  "wins":22,
+                  "losses":18
+                }]
+                """,
+                MediaType.APPLICATION_JSON));
+
+    var entries = riotClient.fetchRankEntries(RiotPlatform.EUW1, "puuid-1");
+
+    assertEquals(1, entries.size());
+    RiotRankEntry entry = entries.get(0);
+    assertEquals("RANKED_SOLO_5x5", entry.queueType());
+    assertEquals("GOLD", entry.tier());
+    assertEquals("II", entry.rank());
+    assertEquals(48, entry.leaguePoints());
+    assertEquals(22, entry.wins());
+    assertEquals(18, entry.losses());
+    server.verify();
+  }
+
+  @Test
   void fetchRankRetriesTransientServerErrors() {
     ReflectionTestUtils.setField(riotClient, "httpMaxAttempts", 2);
     server
-        .expect(once(), requestTo("https://euw1.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/puuid-1"))
+        .expect(once(), requestTo("https://euw1.api.riotgames.com/lol/league/v4/entries/by-puuid/puuid-1"))
         .andExpect(method(HttpMethod.GET))
         .andRespond(withServerError());
     server
-        .expect(once(), requestTo("https://euw1.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/puuid-1"))
-        .andExpect(method(HttpMethod.GET))
-        .andRespond(withSuccess("{\"id\":\"summoner-1\"}", MediaType.APPLICATION_JSON));
-    server
-        .expect(once(), requestTo("https://euw1.api.riotgames.com/lol/league/v4/entries/by-summoner/summoner-1"))
+        .expect(once(), requestTo("https://euw1.api.riotgames.com/lol/league/v4/entries/by-puuid/puuid-1"))
         .andExpect(method(HttpMethod.GET))
         .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON));
 
     assertEquals(0, riotClient.fetchRankEntries(RiotPlatform.EUW1, "puuid-1").size());
+    server.verify();
+  }
+
+  @Test
+  void fetchRankEntriesClassifiesMalformedResponses() {
+    server
+        .expect(once(), requestTo("https://euw1.api.riotgames.com/lol/league/v4/entries/by-puuid/puuid-1"))
+        .andExpect(method(HttpMethod.GET))
+        .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+    RiotApiException exception =
+        assertThrows(RiotApiException.class, () -> riotClient.fetchRankEntries(RiotPlatform.EUW1, "puuid-1"));
+
+    assertEquals(RiotErrorCategory.MALFORMED_RESPONSE, exception.category());
     server.verify();
   }
 

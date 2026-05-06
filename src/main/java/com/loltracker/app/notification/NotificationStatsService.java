@@ -3,6 +3,8 @@ package com.loltracker.app.notification;
 import com.loltracker.app.match.TrackedMatchEntity;
 import com.loltracker.app.match.TrackedMatchRepository;
 import com.loltracker.app.player.PlayerRankService;
+import com.loltracker.app.player.PlayerRankService.RankAvailability;
+import com.loltracker.app.player.PlayerRankService.RankRefreshResult;
 import com.loltracker.app.player.PlayerRankSnapshot;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -36,8 +38,8 @@ public class NotificationStatsService {
 
   public NotificationStatsSnapshot buildFor(TrackedMatchEntity match) {
     Long playerId = match.getPlayer().getId();
-    Optional<PlayerRankSnapshot> playerRank =
-        playerRankService.refreshRank(match.getPlayer(), match.getPlayer().getPuuid());
+    RankRefreshResult playerRank =
+        playerRankService.refreshRankAvailability(match.getPlayer(), match.getPlayer().getPuuid());
     Optional<PlayerRankSnapshot> rosterAverageRank = playerRankService.rosterAverageRank();
     List<TrackedMatchEntity> recentMatches =
         trackedMatchRepository.findTop10ByPlayerIdOrderByGameEndAtDesc(playerId);
@@ -55,9 +57,46 @@ public class NotificationStatsService {
         wins(championMatches),
         losses(championMatches),
         averageDuration(recentMatches),
-        playerRank.map(PlayerRankSnapshot::displayName).orElse("Sin rank disponible"),
+        formatPlayerRankValue(playerRank),
+        formatPlayerRankNote(playerRank),
         rosterAverageRank.map(PlayerRankSnapshot::displayName).orElse("Sin media disponible"),
-        rankDelta(playerRank, rosterAverageRank));
+        rankDelta(playerRank.snapshot(), rosterAverageRank));
+  }
+
+  private String formatPlayerRankValue(RankRefreshResult playerRank) {
+    return switch (playerRank.availability()) {
+      case CURRENT, STORED, REFRESH_ERROR_STORED -> displaySnapshot(playerRank);
+      case UNRANKED -> "Unranked";
+      case NO_RANK -> "Sin rank registrado";
+      case REFRESH_ERROR_NO_STORED -> "Sin rank actualizado";
+    };
+  }
+
+  private String formatPlayerRankNote(RankRefreshResult playerRank) {
+    return switch (playerRank.availability()) {
+      case CURRENT -> "actualizado ahora";
+      case STORED -> "guardado";
+      case UNRANKED -> "sin SoloQ/Flex";
+      case NO_RANK -> "";
+      case REFRESH_ERROR_STORED -> "guardado; no se pudo actualizar";
+      case REFRESH_ERROR_NO_STORED -> "no se pudo consultar Riot";
+    };
+  }
+
+  private String displaySnapshot(RankRefreshResult playerRank) {
+    return playerRank
+        .snapshot()
+        .map(PlayerRankSnapshot::displayName)
+        .orElseGet(() -> fallbackRankLabel(playerRank.availability()));
+  }
+
+  private String fallbackRankLabel(RankAvailability availability) {
+    return switch (availability) {
+      case UNRANKED -> "Unranked";
+      case NO_RANK -> "Sin rank registrado";
+      case REFRESH_ERROR_NO_STORED -> "Sin rank actualizado";
+      default -> "Sin rank disponible";
+    };
   }
 
   private Integer rankDelta(

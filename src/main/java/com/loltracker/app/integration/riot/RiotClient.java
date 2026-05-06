@@ -170,35 +170,12 @@ public class RiotClient
 
   private List<RiotRankEntry> fetchRankEntriesInternal(RiotPlatform platform, String puuid) {
     RuntimeAppConfiguration configuration = riotConfiguration();
-    String summonerBody =
-        executeWithRetry(
-            () ->
-                platformClient(configuration, platform)
-                    .get()
-                    .uri("/lol/summoner/v4/summoners/by-puuid/{puuid}", puuid)
-                    .retrieve()
-                    .body(String.class),
-            "No se pudo consultar el invocador de Riot");
-
-    String summonerId;
-    try {
-      JsonNode node = objectMapper.readTree(summonerBody);
-      summonerId = node.path("id").asText();
-      if (summonerId == null || summonerId.isBlank()) {
-        throw malformed("Riot respondio sin summoner id", null);
-      }
-    } catch (RiotApiException e) {
-      throw e;
-    } catch (Exception e) {
-      throw malformed("Riot respondio con un invocador mal formado", e);
-    }
-
     String leagueBody =
         executeWithRetry(
             () ->
                 platformClient(configuration, platform)
                     .get()
-                    .uri("/lol/league/v4/entries/by-summoner/{summonerId}", summonerId)
+                    .uri("/lol/league/v4/entries/by-puuid/{encryptedPUUID}", puuid)
                     .retrieve()
                     .body(String.class),
             "No se pudo consultar el rank de Riot");

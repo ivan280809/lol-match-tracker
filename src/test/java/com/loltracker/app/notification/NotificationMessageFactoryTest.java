@@ -28,7 +28,18 @@ class NotificationMessageFactoryTest {
 
     NotificationStatsSnapshot stats =
         new NotificationStatsSnapshot(
-            "W W L", 2, "victoria", 2, 1, 4, 2, 1650, "Gold II 43 LP", "Silver I 78 LP", 165);
+            "W W L",
+            2,
+            "victoria",
+            2,
+            1,
+            4,
+            2,
+            1650,
+            "Gold II 43 LP",
+            "actualizado ahora",
+            "Silver I 78 LP",
+            165);
 
     String message = notificationMessageFactory.build(match, stats);
 
@@ -46,7 +57,7 @@ class NotificationMessageFactoryTest {
             + "4W / 2L - 67% WR\n"
             + "Duracion media reciente: <code>27m 30s</code>\n\n"
             + "<b>Rank</b>\n"
-            + "Jugador: <code>Gold II 43 LP</code>\n"
+            + "Jugador: <code>Gold II 43 LP</code> <i>actualizado ahora</i>\n"
             + "Media roster: <code>Silver I 78 LP</code>\n"
             + "Diferencia: <b>+165</b>",
         message);
@@ -68,7 +79,18 @@ class NotificationMessageFactoryTest {
 
     NotificationStatsSnapshot stats =
         new NotificationStatsSnapshot(
-            "W < L", 1, "derrota", 0, 1, 0, 1, 65, "Sin < rank", "Media & roster", null);
+            "W < L",
+            1,
+            "derrota",
+            0,
+            1,
+            0,
+            1,
+            65,
+            "Sin < rank",
+            "guardado & pendiente < retry",
+            "Media & roster",
+            null);
 
     String message = notificationMessageFactory.build(match, stats);
 
@@ -86,7 +108,7 @@ class NotificationMessageFactoryTest {
             + "0W / 1L - 0% WR\n"
             + "Duracion media reciente: <code>1m 5s</code>\n\n"
             + "<b>Rank</b>\n"
-            + "Jugador: <code>Sin &lt; rank</code>\n"
+            + "Jugador: <code>Sin &lt; rank</code> <i>guardado &amp; pendiente &lt; retry</i>\n"
             + "Media roster: <code>Media &amp; roster</code>\n"
             + "Diferencia: <b>Sin datos</b>",
         message);

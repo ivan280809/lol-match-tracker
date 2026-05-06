@@ -10,6 +10,7 @@ public record NotificationStatsSnapshot(
     int championLosses,
     long recentAverageDurationSeconds,
     String playerRank,
+    String playerRankNote,
     String rosterAverageRank,
     Integer rankDelta) {
 
