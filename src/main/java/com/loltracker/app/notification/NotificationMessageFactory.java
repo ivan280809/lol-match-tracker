@@ -38,16 +38,9 @@ public class NotificationMessageFactory {
         .append(result)
         .append(" | ")
         .append(player)
-        .append("</b>\n")
-        .append("<i>")
-        .append(escape(formatChampion(match)))
-        .append(" | ")
-        .append(escape(queue.label()))
-        .append(" | ")
-        .append(escape(formatPosition(match)))
-        .append("</i>\n\n");
+        .append("</b>\n");
 
-    appendMatchSection(message, match, queue);
+    appendSummaryCard(message, match, queue);
     appendPerformanceSection(message, match);
     appendComparisonSection(message, stats);
     appendFormSection(message, match, stats);
@@ -55,61 +48,69 @@ public class NotificationMessageFactory {
     appendSharedSection(message, stats);
     appendHighlightsSection(message, stats);
     appendRankSection(message, stats);
+    appendDetailsSection(message, match, queue);
     return message.toString();
   }
 
-  private void appendMatchSection(
+  private void appendSummaryCard(
       StringBuilder message, TrackedMatchEntity match, MatchQueueDescriptor queue) {
     message
-        .append("<b>Partida</b>\n")
-        .append("Cola: <code>")
-        .append(escape(formatQueue(queue)))
-        .append("</code>\n")
-        .append("Duracion: <code>")
-        .append(formatDuration(match.getDurationSeconds()))
-        .append("</code> | Fin: <code>")
-        .append(formatInstant(match))
-        .append("</code>\n")
-        .append("Servidor: <code>")
-        .append(escape(formatServer(match)))
-        .append("</code>\n")
-        .append("ID: <code>")
-        .append(escape(formatText(match.getMatchId())))
-        .append("</code>\n\n");
-  }
-
-  private void appendPerformanceSection(StringBuilder message, TrackedMatchEntity match) {
-    message
-        .append("<b>Rendimiento</b>\n")
-        .append("KDA: <b>")
+        .append("<blockquote>")
+        .append("<b>")
+        .append(escape(formatChampion(match)))
+        .append("</b> | ")
+        .append(escape(queue.label()))
+        .append(" | ")
+        .append(escape(formatPosition(match)))
+        .append("\n")
+        .append("KDA ")
         .append(match.getKills())
         .append("/")
         .append(match.getDeaths())
         .append("/")
         .append(match.getAssists())
-        .append("</b> (<code>")
+        .append(" (")
         .append(formatKdaRatio(match))
-        .append("</code>)\n")
-        .append("CS: <code>")
-        .append(match.getCreepScore())
-        .append("</code> (<code>")
-        .append(formatOneDecimal(perMinute(match.getCreepScore(), match.getDurationSeconds())))
-        .append("/min</code>)\n")
-        .append("Oro: <code>")
-        .append(formatCompactNumber(match.getGoldEarned()))
-        .append("</code> (<code>")
-        .append(formatWhole(perMinute(match.getGoldEarned(), match.getDurationSeconds())))
-        .append("/min</code>)\n")
-        .append("Dano: <code>")
-        .append(formatCompactNumber(match.getDamageDealtToChampions()))
-        .append("</code> (<code>")
-        .append(formatWhole(perMinute(match.getDamageDealtToChampions(), match.getDurationSeconds())))
-        .append("/min</code>)\n")
-        .append("Vision: <code>")
-        .append(match.getVisionScore())
-        .append("</code> (<code>")
-        .append(formatOneDecimal(perMinute(match.getVisionScore(), match.getDurationSeconds())))
-        .append("/min</code>)\n\n");
+        .append(") | ")
+        .append(formatDuration(match.getDurationSeconds()))
+        .append("\n")
+        .append(formatInstant(match))
+        .append(" | ")
+        .append(escape(formatServer(match)))
+        .append("</blockquote>\n\n");
+  }
+
+  private void appendPerformanceSection(StringBuilder message, TrackedMatchEntity match) {
+    message
+        .append("<b>Rendimiento</b>\n")
+        .append("<pre>");
+    appendMetricRow(
+        message,
+        "KDA",
+        match.getKills() + "/" + match.getDeaths() + "/" + match.getAssists(),
+        formatKdaRatio(match));
+    appendMetricRow(
+        message,
+        "CS",
+        String.valueOf(match.getCreepScore()),
+        formatOneDecimal(perMinute(match.getCreepScore(), match.getDurationSeconds())) + "/min");
+    appendMetricRow(
+        message,
+        "Oro",
+        formatCompactNumber(match.getGoldEarned()),
+        formatWhole(perMinute(match.getGoldEarned(), match.getDurationSeconds())) + "/min");
+    appendMetricRow(
+        message,
+        "Dano",
+        formatCompactNumber(match.getDamageDealtToChampions()),
+        formatWhole(perMinute(match.getDamageDealtToChampions(), match.getDurationSeconds()))
+            + "/min");
+    appendMetricRow(
+        message,
+        "Vision",
+        String.valueOf(match.getVisionScore()),
+        formatOneDecimal(perMinute(match.getVisionScore(), match.getDurationSeconds())) + "/min");
+    message.append("</pre>\n\n");
   }
 
   private void appendFormSection(
@@ -252,7 +253,9 @@ public class NotificationMessageFactory {
       return;
     }
     message.append("<b>Destacados</b>\n");
-    stats.highlights().forEach(highlight -> message.append("- ").append(escape(highlight)).append("\n"));
+    stats
+        .highlights()
+        .forEach(highlight -> message.append("- ").append(escape(highlight)).append("\n"));
     message.append("\n");
   }
 
@@ -265,7 +268,23 @@ public class NotificationMessageFactory {
         .append("</code>\n")
         .append("Diferencia: <b>")
         .append(formatRankDelta(stats.rankDelta()))
-        .append("</b>");
+        .append("</b>\n\n");
+  }
+
+  private void appendDetailsSection(
+      StringBuilder message, TrackedMatchEntity match, MatchQueueDescriptor queue) {
+    message
+        .append("<blockquote expandable>")
+        .append("<b>Detalles</b>\n")
+        .append("Cola: ")
+        .append(escape(formatQueue(queue)))
+        .append("\n")
+        .append("Servidor: ")
+        .append(escape(formatServer(match)))
+        .append("\n")
+        .append("ID: ")
+        .append(escape(formatText(match.getMatchId())))
+        .append("</blockquote>");
   }
 
   private String formatDuration(long seconds) {
@@ -290,6 +309,10 @@ public class NotificationMessageFactory {
       return "+" + delta;
     }
     return String.valueOf(delta);
+  }
+
+  private void appendMetricRow(StringBuilder message, String label, String value, String detail) {
+    message.append(escape(String.format(Locale.ROOT, "%-7s %-8s %s\n", label, value, detail)));
   }
 
   private String formatChampion(TrackedMatchEntity match) {

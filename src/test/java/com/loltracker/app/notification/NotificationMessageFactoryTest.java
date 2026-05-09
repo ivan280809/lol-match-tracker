@@ -61,18 +61,16 @@ class NotificationMessageFactoryTest {
 
     assertEquals(
         "<b>[+] VICTORIA | Bazaga#ESP</b>\n"
-            + "<i>Lux (#99) | Ranked Solo/Duo | MID/SOLO</i>\n\n"
-            + "<b>Partida</b>\n"
-            + "Cola: <code>Ranked Solo/Duo (420)</code>\n"
-            + "Duracion: <code>30m 0s</code> | Fin: <code>03/04/2026 20:00</code>\n"
-            + "Servidor: <code>EUW1 / EUROPE</code>\n"
-            + "ID: <code>EUW1_123</code>\n\n"
+            + "<blockquote><b>Lux (#99)</b> | Ranked Solo/Duo | MID/SOLO\n"
+            + "KDA 8/3/11 (6.33) | 30m 0s\n"
+            + "03/04/2026 20:00 | EUW1 / EUROPE</blockquote>\n\n"
             + "<b>Rendimiento</b>\n"
-            + "KDA: <b>8/3/11</b> (<code>6.33</code>)\n"
-            + "CS: <code>210</code> (<code>7.0/min</code>)\n"
-            + "Oro: <code>12.3k</code> (<code>412/min</code>)\n"
-            + "Dano: <code>22.0k</code> (<code>733/min</code>)\n"
-            + "Vision: <code>32</code> (<code>1.1/min</code>)\n\n"
+            + "<pre>KDA     8/3/11   6.33\n"
+            + "CS      210      7.0/min\n"
+            + "Oro     12.3k    412/min\n"
+            + "Dano    22.0k    733/min\n"
+            + "Vision  32       1.1/min\n"
+            + "</pre>\n\n"
             + "<b>Forma</b>\n"
             + "Reciente: <code>W W L</code>\n"
             + "Racha: <b>2 victorias</b>\n"
@@ -82,7 +80,11 @@ class NotificationMessageFactoryTest {
             + "<b>Rank</b>\n"
             + "Jugador (Solo/Duo): <code>Gold II 43 LP</code> <i>actualizado ahora</i>\n"
             + "Media roster: <code>Silver I 78 LP</code>\n"
-            + "Diferencia: <b>+165</b>",
+            + "Diferencia: <b>+165</b>\n\n"
+            + "<blockquote expandable><b>Detalles</b>\n"
+            + "Cola: Ranked Solo/Duo (420)\n"
+            + "Servidor: EUW1 / EUROPE\n"
+            + "ID: EUW1_123</blockquote>",
         message);
   }
 
@@ -119,18 +121,16 @@ class NotificationMessageFactoryTest {
 
     assertEquals(
         "<b>[-] DERROTA | Baza&lt;ga#E&amp;SP</b>\n"
-            + "<i>Lux &gt; Morgana | Classic | Sin posicion</i>\n\n"
-            + "<b>Partida</b>\n"
-            + "Cola: <code>Classic</code>\n"
-            + "Duracion: <code>1m 5s</code> | Fin: <code>03/04/2026 20:00</code>\n"
-            + "Servidor: <code>Sin dato</code>\n"
-            + "ID: <code>Sin dato</code>\n\n"
+            + "<blockquote><b>Lux &gt; Morgana</b> | Classic | Sin posicion\n"
+            + "KDA 0/0/0 (Perfect) | 1m 5s\n"
+            + "03/04/2026 20:00 | Sin dato</blockquote>\n\n"
             + "<b>Rendimiento</b>\n"
-            + "KDA: <b>0/0/0</b> (<code>Perfect</code>)\n"
-            + "CS: <code>0</code> (<code>0.0/min</code>)\n"
-            + "Oro: <code>0</code> (<code>0/min</code>)\n"
-            + "Dano: <code>0</code> (<code>0/min</code>)\n"
-            + "Vision: <code>0</code> (<code>0.0/min</code>)\n\n"
+            + "<pre>KDA     0/0/0    Perfect\n"
+            + "CS      0        0.0/min\n"
+            + "Oro     0        0/min\n"
+            + "Dano    0        0/min\n"
+            + "Vision  0        0.0/min\n"
+            + "</pre>\n\n"
             + "<b>Forma</b>\n"
             + "Reciente: <code>W &lt; L</code>\n"
             + "Racha: <b>1 derrota</b>\n"
@@ -140,7 +140,11 @@ class NotificationMessageFactoryTest {
             + "<b>Rank</b>\n"
             + "Jugador: <code>Sin &lt; rank</code> <i>guardado &amp; pendiente &lt; retry</i>\n"
             + "Media roster: <code>Media &amp; roster</code>\n"
-            + "Diferencia: <b>Sin datos</b>",
+            + "Diferencia: <b>Sin datos</b>\n\n"
+            + "<blockquote expandable><b>Detalles</b>\n"
+            + "Cola: Classic\n"
+            + "Servidor: Sin dato\n"
+            + "ID: Sin dato</blockquote>",
         message);
   }
 
