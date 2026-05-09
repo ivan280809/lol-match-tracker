@@ -181,9 +181,72 @@ class NotificationMessageFactoryTest {
     String message = notificationMessageFactory.build(match, stats);
 
     org.junit.jupiter.api.Assertions.assertTrue(message.contains("<b>Compartida</b>\n"));
-    org.junit.jupiter.api.Assertions.assertTrue(message.contains("Tracked juntos: <b>2</b>\n"));
+    org.junit.jupiter.api.Assertions.assertTrue(
+        message.contains("Tracked juntos: <b>2</b> | KDA grupo: <b>12/8/20</b>\n"));
     org.junit.jupiter.api.Assertions.assertTrue(message.contains("- Bazaga#ESP: Lux 8/3/11 W\n"));
     org.junit.jupiter.api.Assertions.assertTrue(
         message.contains("- Duo&lt;One#EUW: Ahri &amp; Zoe 4/5/9 W\n"));
+  }
+
+  @Test
+  void buildIncludesDerivedContextComparisonAndHighlights() {
+    PlayerEntity player = new PlayerEntity();
+    player.setGameName("Bazaga");
+    player.setTagLine("ESP");
+
+    TrackedMatchEntity match = new TrackedMatchEntity();
+    match.setPlayer(player);
+    match.setMatchId("EUW1_123");
+    match.setChampionName("Lux");
+    match.setResult("VICTORY");
+    match.setGameMode("CLASSIC");
+    match.setQueueId(420);
+    match.setLane("MID");
+    match.setRole("SOLO");
+    match.setKills(12);
+    match.setDeaths(0);
+    match.setAssists(8);
+    match.setDurationSeconds(1800);
+    match.setGameEndAt(Instant.parse("2026-04-03T18:00:00Z"));
+
+    NotificationStatsSnapshot stats =
+        new NotificationStatsSnapshot(
+            "W W W",
+            3,
+            "victoria",
+            1,
+            0,
+            3,
+            0,
+            1800,
+            "Gold II 43 LP",
+            "actualizado ahora",
+            "Solo/Duo",
+            "Silver I 78 LP",
+            165,
+            List.of(),
+            new NotificationPerformanceProfile(
+                "Ult. 30", 5, 3, 2, 60, 6.2, 3.4, 8.0, 4.18, 6.4, 395.0, 620.0, 0.8),
+            new NotificationPerformanceProfile(
+                "Solo/Duo", 4, 3, 1, 75, 7.0, 3.0, 8.5, 5.17, 6.8, 410.0, 650.0, 0.9),
+            new NotificationPerformanceProfile(
+                "Lux", 3, 3, 0, 100, 8.0, 2.0, 9.0, 8.5, 7.0, 430.0, 700.0, 1.0),
+            new NotificationPerformanceProfile(
+                "MID/SOLO", 3, 2, 1, 67, 7.3, 3.7, 8.3, 4.2, 6.9, 405.0, 630.0, 0.8),
+            new NotificationPerformanceDelta(true, 15.82, 0.6, 25.0, 113.0, 0.3),
+            List.of("KDA perfecto", "3 victorias seguidas", "Lux fuerte: 100% WR"));
+
+    String message = notificationMessageFactory.build(match, stats);
+
+    org.junit.jupiter.api.Assertions.assertTrue(message.contains("<b>Comparativa</b>\n"));
+    org.junit.jupiter.api.Assertions.assertTrue(
+        message.contains("Vs media reciente: KDA <code>+15.82</code> | CS/min <code>+0.6</code>\n"));
+    org.junit.jupiter.api.Assertions.assertTrue(message.contains("<b>Contexto</b>\n"));
+    org.junit.jupiter.api.Assertions.assertTrue(
+        message.contains("Ult. 30: <b>3W / 2L</b> (60% WR, 5 partidas)"));
+    org.junit.jupiter.api.Assertions.assertTrue(
+        message.contains("Lux: <b>3W / 0L</b> (100% WR, 3 partidas)"));
+    org.junit.jupiter.api.Assertions.assertTrue(message.contains("<b>Destacados</b>\n"));
+    org.junit.jupiter.api.Assertions.assertTrue(message.contains("- KDA perfecto\n"));
   }
 }

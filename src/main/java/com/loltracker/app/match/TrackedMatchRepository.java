@@ -20,6 +20,15 @@ public interface TrackedMatchRepository extends JpaRepository<TrackedMatchEntity
   List<TrackedMatchEntity> findTop20ByPlayerIdAndChampionNameIgnoreCaseOrderByGameEndAtDesc(
       Long playerId, String championName);
 
+  List<TrackedMatchEntity> findTop20ByPlayerIdAndQueueIdOrderByGameEndAtDesc(
+      Long playerId, Integer queueId);
+
+  List<TrackedMatchEntity> findTop20ByPlayerIdAndLaneIgnoreCaseOrderByGameEndAtDesc(
+      Long playerId, String lane);
+
+  List<TrackedMatchEntity> findTop20ByPlayerIdAndRoleIgnoreCaseOrderByGameEndAtDesc(
+      Long playerId, String role);
+
   List<TrackedMatchEntity> findByPlayerIdOrderByGameEndAtDesc(Long playerId, Pageable pageable);
 
   @EntityGraph(attributePaths = {"player"})

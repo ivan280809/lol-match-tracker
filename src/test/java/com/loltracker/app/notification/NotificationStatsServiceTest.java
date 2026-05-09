@@ -3,6 +3,9 @@ package com.loltracker.app.notification;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.loltracker.app.match.TrackedMatchEntity;
@@ -14,6 +17,7 @@ import com.loltracker.app.player.PlayerRankSnapshot;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -202,6 +206,86 @@ class NotificationStatsServiceTest {
     assertEquals("Duo#EUW", stats.sharedPlayers().get(1).playerName());
     assertEquals("Ahri", stats.sharedPlayers().get(1).championName());
     assertEquals(9, stats.sharedPlayers().get(1).assists());
+  }
+
+  @Test
+  void buildForCalculatesDerivedProfilesDeltasAndHighlights() {
+    NotificationStatsService service = new NotificationStatsService(trackedMatchRepository, playerRankService);
+    PlayerEntity player = player();
+    TrackedMatchEntity current =
+        match(player, "VICTORY", "Lux", 1800, "2026-04-03T18:00:00Z");
+    current.setId(100L);
+    current.setMatchId("EUW1_123");
+    current.setLane("MID");
+    current.setRole("SOLO");
+    current.setKills(12);
+    current.setDeaths(0);
+    current.setAssists(8);
+    current.setCreepScore(210);
+    current.setGoldEarned(12600);
+    current.setDamageDealtToChampions(24000);
+    current.setVisionScore(36);
+    TrackedMatchEntity baselineWin =
+        match(player, "VICTORY", "Lux", 1800, "2026-04-02T18:00:00Z");
+    baselineWin.setId(101L);
+    baselineWin.setMatchId("EUW1_122");
+    baselineWin.setLane("MID");
+    baselineWin.setKills(6);
+    baselineWin.setDeaths(3);
+    baselineWin.setAssists(6);
+    baselineWin.setCreepScore(180);
+    baselineWin.setGoldEarned(10800);
+    baselineWin.setDamageDealtToChampions(18000);
+    baselineWin.setVisionScore(18);
+    TrackedMatchEntity baselineLoss =
+        match(player, "VICTORY", "Lux", 1800, "2026-04-01T18:00:00Z");
+    baselineLoss.setId(102L);
+    baselineLoss.setMatchId("EUW1_121");
+    baselineLoss.setLane("MID");
+    baselineLoss.setKills(4);
+    baselineLoss.setDeaths(5);
+    baselineLoss.setAssists(6);
+    baselineLoss.setCreepScore(150);
+    baselineLoss.setGoldEarned(9000);
+    baselineLoss.setDamageDealtToChampions(12000);
+    baselineLoss.setVisionScore(12);
+
+    when(playerRankService.refreshRankAvailabilityForQueue(
+            player, "puuid-1", PlayerRankService.SOLO_QUEUE))
+        .thenReturn(RankRefreshResult.unranked());
+    when(playerRankService.rosterAverageRank()).thenReturn(Optional.empty());
+    when(trackedMatchRepository.findTop10ByPlayerIdOrderByGameEndAtDesc(7L))
+        .thenReturn(List.of(current, baselineWin, baselineLoss));
+    when(trackedMatchRepository.findByPlayerIdOrderByGameEndAtDesc(eq(7L), any(Pageable.class)))
+        .thenReturn(List.of(current, baselineWin, baselineLoss));
+    when(trackedMatchRepository.findTop20ByPlayerIdAndChampionNameIgnoreCaseOrderByGameEndAtDesc(
+            7L, "Lux"))
+        .thenReturn(List.of(current, baselineWin, baselineLoss));
+    when(trackedMatchRepository.findTop20ByPlayerIdAndQueueIdOrderByGameEndAtDesc(7L, 420))
+        .thenReturn(List.of(current, baselineWin, baselineLoss));
+    when(trackedMatchRepository.findTop20ByPlayerIdAndLaneIgnoreCaseOrderByGameEndAtDesc(
+            7L, "MID"))
+        .thenReturn(List.of(current, baselineWin, baselineLoss));
+    when(trackedMatchRepository
+            .findAllByPlayerIdAndGameEndAtGreaterThanEqualAndGameEndAtLessThanOrderByGameEndAtDesc(
+                7L, Instant.parse("2026-04-02T22:00:00Z"), Instant.parse("2026-04-03T22:00:00Z")))
+        .thenReturn(List.of(current));
+    when(trackedMatchRepository.findAllByMatchIdOrderByIdAsc("EUW1_123"))
+        .thenReturn(List.of(current));
+
+    NotificationStatsSnapshot stats = service.buildFor(current);
+
+    assertEquals(3, stats.recentProfile().games());
+    assertEquals(100, stats.recentProfile().winRate());
+    assertEquals(3, stats.championProfile().games());
+    assertEquals(100, stats.championProfile().winRate());
+    assertEquals("MID/SOLO", stats.positionProfile().label());
+    assertTrue(stats.performanceDelta().available());
+    assertEquals(17.0, stats.performanceDelta().kdaRatioDelta());
+    assertEquals(300.0, stats.performanceDelta().damagePerMinuteDelta());
+    assertTrue(stats.highlights().contains("KDA perfecto"));
+    assertTrue(stats.highlights().contains("3 victorias seguidas"));
+    assertTrue(stats.highlights().contains("Lux fuerte: 100% WR"));
   }
 
   private PlayerEntity player() {

@@ -49,8 +49,11 @@ public class NotificationMessageFactory {
 
     appendMatchSection(message, match, queue);
     appendPerformanceSection(message, match);
+    appendComparisonSection(message, stats);
     appendFormSection(message, match, stats);
+    appendContextSection(message, stats);
     appendSharedSection(message, stats);
+    appendHighlightsSection(message, stats);
     appendRankSection(message, stats);
     return message.toString();
   }
@@ -144,6 +147,70 @@ public class NotificationMessageFactory {
         .append("</code>\n\n");
   }
 
+  private void appendContextSection(StringBuilder message, NotificationStatsSnapshot stats) {
+    if (!stats.recentProfile().hasData()
+        && !stats.queueProfile().hasData()
+        && !stats.championProfile().hasData()
+        && !stats.positionProfile().hasData()) {
+      return;
+    }
+    message.append("<b>Contexto</b>\n");
+    appendProfileLine(message, stats.recentProfile());
+    appendProfileLine(message, stats.queueProfile());
+    appendProfileLine(message, stats.championProfile());
+    appendProfileLine(message, stats.positionProfile());
+    message.append("\n");
+  }
+
+  private void appendProfileLine(
+      StringBuilder message, NotificationPerformanceProfile profile) {
+    if (profile == null || !profile.hasData()) {
+      return;
+    }
+    message
+        .append(escape(profile.label()))
+        .append(": <b>")
+        .append(profile.wins())
+        .append("W / ")
+        .append(profile.losses())
+        .append("L</b> (")
+        .append(profile.winRate())
+        .append("% WR, ")
+        .append(profile.games())
+        .append(" ")
+        .append(pluralize(profile.games(), "partida", "partidas"))
+        .append(") | KDA <code>")
+        .append(formatOneDecimal(profile.averageKills()))
+        .append("/")
+        .append(formatOneDecimal(profile.averageDeaths()))
+        .append("/")
+        .append(formatOneDecimal(profile.averageAssists()))
+        .append("</code> (<code>")
+        .append(formatTwoDecimals(profile.averageKdaRatio()))
+        .append("</code>)\n");
+  }
+
+  private void appendComparisonSection(StringBuilder message, NotificationStatsSnapshot stats) {
+    NotificationPerformanceDelta delta = stats.performanceDelta();
+    if (delta == null || !delta.available()) {
+      return;
+    }
+    message
+        .append("<b>Comparativa</b>\n")
+        .append("Vs media reciente: KDA <code>")
+        .append(formatSignedTwoDecimals(delta.kdaRatioDelta()))
+        .append("</code> | CS/min <code>")
+        .append(formatSignedOneDecimal(delta.csPerMinuteDelta()))
+        .append("</code>\n")
+        .append("Oro/min <code>")
+        .append(formatSignedOneDecimal(delta.goldPerMinuteDelta()))
+        .append("</code> | Dano/min <code>")
+        .append(formatSignedOneDecimal(delta.damagePerMinuteDelta()))
+        .append("</code> | Vision/min <code>")
+        .append(formatSignedOneDecimal(delta.visionPerMinuteDelta()))
+        .append("</code>\n\n");
+  }
+
   private void appendSharedSection(StringBuilder message, NotificationStatsSnapshot stats) {
     if (stats.sharedPlayers().isEmpty()) {
       return;
@@ -152,6 +219,12 @@ public class NotificationMessageFactory {
         .append("<b>Compartida</b>\n")
         .append("Tracked juntos: <b>")
         .append(stats.sharedPlayers().size())
+        .append("</b> | KDA grupo: <b>")
+        .append(sharedKills(stats))
+        .append("/")
+        .append(sharedDeaths(stats))
+        .append("/")
+        .append(sharedAssists(stats))
         .append("</b>\n");
     stats.sharedPlayers().forEach(shared -> appendSharedPlayer(message, shared));
     message.append("\n");
@@ -172,6 +245,15 @@ public class NotificationMessageFactory {
         .append(" ")
         .append(escape(shared.result()))
         .append("\n");
+  }
+
+  private void appendHighlightsSection(StringBuilder message, NotificationStatsSnapshot stats) {
+    if (stats.highlights().isEmpty()) {
+      return;
+    }
+    message.append("<b>Destacados</b>\n");
+    stats.highlights().forEach(highlight -> message.append("- ").append(escape(highlight)).append("\n"));
+    message.append("\n");
   }
 
   private void appendRankSection(StringBuilder message, NotificationStatsSnapshot stats) {
@@ -295,6 +377,19 @@ public class NotificationMessageFactory {
     return String.format(Locale.ROOT, "%.2f", value);
   }
 
+  private String formatSignedOneDecimal(double value) {
+    return formatSigned(value, "%.1f");
+  }
+
+  private String formatSignedTwoDecimals(double value) {
+    return formatSigned(value, "%.2f");
+  }
+
+  private String formatSigned(double value, String pattern) {
+    String formatted = String.format(Locale.ROOT, pattern, value);
+    return value > 0 ? "+" + formatted : formatted;
+  }
+
   private String formatText(String value) {
     return value == null || value.isBlank() ? "Sin dato" : value;
   }
@@ -317,6 +412,18 @@ public class NotificationMessageFactory {
 
   private boolean isVictory(TrackedMatchEntity match) {
     return "VICTORY".equalsIgnoreCase(match.getResult());
+  }
+
+  private int sharedKills(NotificationStatsSnapshot stats) {
+    return stats.sharedPlayers().stream().mapToInt(NotificationSharedPlayer::kills).sum();
+  }
+
+  private int sharedDeaths(NotificationStatsSnapshot stats) {
+    return stats.sharedPlayers().stream().mapToInt(NotificationSharedPlayer::deaths).sum();
+  }
+
+  private int sharedAssists(NotificationStatsSnapshot stats) {
+    return stats.sharedPlayers().stream().mapToInt(NotificationSharedPlayer::assists).sum();
   }
 
   private DateTimeFormatter formatter() {
