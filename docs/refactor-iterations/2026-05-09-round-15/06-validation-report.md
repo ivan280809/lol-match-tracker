@@ -22,6 +22,14 @@ Implemented and locally validated.
   - 2 skipped existing PostgreSQL/Testcontainers tests because Docker is not available locally.
 - Package: PASS.
   - Built `target/lol-match-tracker-1.0.0.jar`.
+- Remote CI/deploy: PASS.
+  - Run `25611761081`.
+  - CI tests: PASS.
+  - Package: PASS.
+  - GHCR image build and push: PASS.
+  - Deploy mini PC: PASS.
+  - Application health check: PASS.
+  - URL: `https://github.com/ivan280809/lol-match-tracker/actions/runs/25611761081`.
 
 ## Implementation Notes
 
