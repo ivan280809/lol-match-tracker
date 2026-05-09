@@ -125,8 +125,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull deployment images
-        run: docker compose --env-file "$DEPLOY_ENV_FILE" --file "$DEPLOY_COMPOSE_FILE" --file "$DEPLOY_SWAG_COMPOSE_FILE" --project-name "$COMPOSE_PROJECT_NAME" pull
+      - name: Pull application image
+        run: docker compose --env-file "$DEPLOY_ENV_FILE" --file "$DEPLOY_COMPOSE_FILE" --file "$DEPLOY_SWAG_COMPOSE_FILE" --project-name "$COMPOSE_PROJECT_NAME" pull lol-match-tracker
 
       - name: Restart application stack
         run: docker compose --env-file "$DEPLOY_ENV_FILE" --file "$DEPLOY_COMPOSE_FILE" --file "$DEPLOY_SWAG_COMPOSE_FILE" --project-name "$COMPOSE_PROJECT_NAME" up -d --remove-orphans
