@@ -28,11 +28,12 @@ Cada issue que represente una tarea debe incluir, al menos, los siguientes bloqu
 
 El Software Factory sigue el siguiente protocolo de control de flujo:
 
-1. **factory:ready** – Se publica el issue con la etiqueta `factory:ready`.  El Factory inicia la tarea.
-2. **factory:cancel** – Si durante la ejecución se determina que la tarea no debe continuar (por ejemplo, se encuentra un error crítico), se publica un comentario con la etiqueta `factory:cancel` y la tarea se detiene.
-3. **factory:resume** – Una vez corregido el motivo de cancelación, se comenta `factory:resume` para re‑iniciar la ejecución.
+1. **`factory:ready`** – Se publica el issue con la etiqueta `factory:ready`.  El Factory inicia la tarea.
+2. **`factory:cancel`** – Si durante la ejecución se determina que la tarea no debe continuar (por ejemplo, se encuentra un error crítico), el propietario del issue aplica la etiqueta `factory:cancel`.  La tarea se detiene de forma **térmica** y no puede re‑ejecutarse.
+3. **`factory:retry`** – Cuando una tarea termina con estado `FAILED`, el propietario puede aplicar la etiqueta `factory:retry`.  El Factory re‑inicia la tarea desde el principio.
+4. **`factory:resume`** – Una vez que la tarea está en estado `WAITING` (por ejemplo, a la espera de una decisión humana o de que se cambie el alcance), el propietario comenta `factory:resume`.  El Factory re‑inicia la tarea desde el punto donde quedó.
 
-La respuesta `factory:resume` indica que el Factory ha re‑iniciado la tarea y continuará hasta que se completen todos los pasos o se genere una nueva cancelación.
+> **Importante:** `factory:resume` **no** puede ser usado para re‑iniciar una tarea que ha sido cancelada con `factory:cancel`.
 
 ---
 
@@ -46,8 +47,28 @@ El resultado de la tarea es **una Pull Request** que requiere revisión humana. 
 
 - Mantén los títulos de los issues claros y breves.
 - Utiliza plantillas de issue si están disponibles (por ejemplo, `Issue Template` en la sección `templates`).
-- Añade la etiqueta `software-factory` para identificar rápidamente los issues que deben ser procesados por el Factory.
+- Aplica la etiqueta `factory:ready` para indicar que la tarea está lista para ser procesada por el Factory.
 - Si la tarea depende de recursos externos (por ejemplo, credenciales), crea una rama de trabajo y enlaza el issue con la PR.
+- La rama por defecto del proyecto es `master`; no se utiliza `main`.
+
+---
+
+## Ejemplo de issue de tarea
+
+```
+## Objetivo
+Implementar una nueva API REST para consultar los últimos 10 partidos de un jugador.
+
+## Criterios de aceptación
+- El endpoint `GET /api/players/{id}/matches` devuelve un JSON con la lista de los 10 partidos más recientes.
+- Se agrega un test de integración que verifica el comportamiento del endpoint.
+- La documentación Swagger se actualiza para reflejar el nuevo endpoint.
+
+## Restricciones / Contenido mínimo
+- La rama debe llamarse `feature/players-matches-api`.
+- Los cambios deben incluir al menos un test.
+- Se debe crear un PR de borrador (draft) y enlazarlo con el issue.
+```
 
 ---
 
