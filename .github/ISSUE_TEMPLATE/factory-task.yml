@@ -1,0 +1,33 @@
+name: Tarea para Software Factory
+description: Bug o funcionalidad con criterios para ejecución automática.
+title: "[Factory] "
+body:
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objetivo
+      description: Qué problema quieres resolver o qué comportamiento nuevo necesitas.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Criterios de aceptación
+      description: Resultados concretos que permitan comprobar que la tarea está terminada.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Restricciones
+      description: Qué debe conservarse, límites y ejemplos relevantes. No incluyas claves ni contraseñas.
+  - type: input
+    id: dependencies
+    attributes:
+      label: Dependencias
+      description: Si depende de otra tarea, incluye una línea «Depends on: #12» en la descripción.
+  - type: markdown
+    attributes:
+      value: |
+        Añade `factory:ready` cuando quieras autorizar su ejecución.
+        La fábrica entrega una PR para revisión humana; no fusiona ni despliega automáticamente.
