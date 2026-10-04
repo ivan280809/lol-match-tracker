@@ -1,83 +1,54 @@
-# Guía de Contribución a Software Factory
+# Escribir tareas para Software Factory
 
-Esta guía describe cómo crear **tareas ejecutables** (issues) que el **Software Factory** de este repositorio pueda procesar.  Es el piloto aprobado y no cambia el comportamiento de la aplicación.
+Crea una [issue en este proyecto](https://github.com/ivan280809/lol-match-tracker/issues/new).
+Incluye objetivo, criterios de aceptación y restricciones. Una idea puede quedarse
+en el backlog hasta que tenga información suficiente para ejecutarla.
 
----
+## Ejemplo
 
-## Enlace a los Issues del proyecto
-
-Todas las tareas deben crearse como *issues* dentro de este repositorio:
-
-- https://github.com/ivan280809/lol-match-tracker/issues
-
----
-
-## Estructura mínima de una tarea
-
-Cada issue que represente una tarea debe incluir, al menos, los siguientes bloques:
-
-1. **Objetivo** – qué se quiere conseguir con la tarea.
-2. **Criterios de aceptación** – condiciones que deben cumplirse para que la tarea se considere completada.
-3. **Restricciones / Contenido mínimo** – requisitos obligatorios (por ejemplo, nombre de la rama, formato de los cambios, test que deben añadirse, etc.).
-
-> **Nota:** No es necesario incluir código dentro del issue; el objetivo es describir la tarea que será desarrollada.
-
----
-
-## Flujo de ejecución en Software Factory
-
-El Software Factory sigue el siguiente protocolo de control de flujo:
-
-1. **`factory:ready`** – Se publica el issue con la etiqueta `factory:ready`.  El Factory inicia la tarea.
-2. **`factory:cancel`** – Si durante la ejecución se determina que la tarea no debe continuar (por ejemplo, se encuentra un error crítico), el propietario del issue aplica la etiqueta `factory:cancel`.  La tarea se detiene de forma **térmica** y no puede re‑ejecutarse.
-3. **`factory:retry`** – Cuando una tarea termina con estado `FAILED`, el propietario puede aplicar la etiqueta `factory:retry`.  El Factory re‑inicia la tarea desde el principio.
-4. **`factory:resume`** – Una vez que la tarea está en estado `WAITING` (por ejemplo, a la espera de una decisión humana o de que se cambie el alcance), el propietario comenta `factory:resume`.  El Factory re‑inicia la tarea desde el punto donde quedó.
-
-> **Importante:** `factory:resume` **no** puede ser usado para re‑iniciar una tarea que ha sido cancelada con `factory:cancel`.
-
----
-
-## Entregable final
-
-El resultado de la tarea es **una Pull Request** que requiere revisión humana.  El Software Factory **no** fusiona ni despliega automáticamente la PR.  Solo después de que un responsable apruebe la PR y se haga merge, los cambios se desplegarán siguiendo el flujo habitual de CI/CD.
-
----
-
-## Buenas prácticas adicionales
-
-- Mantén los títulos de los issues claros y breves.
-- Utiliza plantillas de issue si están disponibles (por ejemplo, `Issue Template` en la sección `templates`).
-- Aplica la etiqueta `factory:ready` para indicar que la tarea está lista para ser procesada por el Factory.
-- Si la tarea depende de recursos externos (por ejemplo, credenciales), crea una rama de trabajo y enlaza el issue con la PR.
-- La rama por defecto del proyecto es `master`; no se utiliza `main`.
-
----
-
-## Ejemplo de issue de tarea
-
-```
+```markdown
 ## Objetivo
-Implementar una nueva API REST para consultar los últimos 10 partidos de un jugador.
+Documentar cómo consultar los últimos partidos de un jugador.
 
 ## Criterios de aceptación
-- El endpoint `GET /api/players/{id}/matches` devuelve un JSON con la lista de los 10 partidos más recientes.
-- Se agrega un test de integración que verifica el comportamiento del endpoint.
-- La documentación Swagger se actualiza para reflejar el nuevo endpoint.
+- La guía indica el endpoint existente y un ejemplo de respuesta.
+- Los ejemplos coinciden con la implementación actual.
+- Las pruebas existentes pasan.
 
-## Restricciones / Contenido mínimo
-- La rama debe llamarse `feature/players-matches-api`.
-- Los cambios deben incluir al menos un test.
-- Se debe crear un PR de borrador (draft) y enlazarlo con el issue.
+## Restricciones
+- Cambiar únicamente documentación.
+- No añadir dependencias ni modificar el despliegue.
 ```
 
----
+## Autorizar y controlar la ejecución
 
-## Referencias
+El propietario `ivan280809` aplica estas **etiquetas a la issue**:
 
-- **Software Factory**: https://github.com/ivan280809/lol-match-tracker/tree/main/docs
-- **Plantillas de Issues**: https://github.com/ivan280809/lol-match-tracker/tree/main/.github/ISSUE_TEMPLATE
-- **Política de Revisión de PR**: https://github.com/ivan280809/lol-match-tracker/blob/main/CONTRIBUTING.md (este mismo documento).
+| Etiqueta | Efecto |
+| --- | --- |
+| `factory:ready` | Autoriza el trabajo. Sin ella, la fábrica no lo inicia. |
+| `factory:cancel` | Cancela la tarea. Es un estado terminal; un comentario no la reactiva. |
+| `factory:retry` | Permite un reintento de una tarea `FAILED`, conservando su fase y reiniciando su presupuesto. La autorización se consume una vez. |
 
----
+Si la fábrica espera una decisión humana o confirmación de un cambio de alcance,
+el propietario responde con un **comentario** `factory:resume` seguido de su aclaración.
+Esto devuelve la tarea a planificación. No sirve para reactivar tareas canceladas
+ni para saltarse bloqueos técnicos, dependencias o cuarentenas.
 
-> Esta guía se mantiene actualizada y revisada periódicamente para reflejar las mejores prácticas de desarrollo.
+La fábrica trabaja de forma secuencial. Asigna su propia rama
+`codex/factory-issue-N`, ejecuta las pruebas y publica el resultado como una
+**PR de borrador para revisión humana**. El comentario de estado de la issue
+incluye fase, bloqueos, modelo, fecha de observación y enlace a la PR.
+Una observación antigua no garantiza que el PC siga encendido.
+
+## Revisar el resultado
+
+Revisa el diff y las pruebas antes de aceptar los cambios. La fábrica no fusiona
+PRs ni despliega automáticamente. El despliegue requiere una decisión separada.
+La rama principal del proyecto es `master`.
+
+La [plantilla de tareas](https://github.com/ivan280809/lol-match-tracker/tree/codex/factory-setup/.github/ISSUE_TEMPLATE)
+y el [flujo del proyecto](https://github.com/ivan280809/lol-match-tracker/blob/codex/factory-setup/WORKFLOW.md)
+están preparados en la PR de configuración. La plantilla aparecerá en la pantalla
+de nuevas issues cuando esa PR se integre en `master`; entretanto puedes abrir
+una issue en blanco con la estructura anterior.
