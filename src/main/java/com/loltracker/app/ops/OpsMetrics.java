@@ -41,6 +41,19 @@ public class OpsMetrics {
         .tag("status", "failed")
         .register(meterRegistry);
     Gauge.builder(
+            "loltracker.outbox.oldest_retryable_age.seconds",
+            notificationOutboxRepository,
+            repository ->
+                repository
+                    .findFirstByStatusInOrderByCreatedAtAsc(
+                        java.util.List.of(
+                            NotificationDeliveryStatus.PENDING, NotificationDeliveryStatus.FAILED))
+                    .map(outbox ->
+                        Math.max(0, Duration.between(outbox.getCreatedAt(), clock.instant()).toSeconds()))
+                    .orElse(0L))
+        .description("Age in seconds of the oldest pending or failed notification awaiting retry")
+        .register(meterRegistry);
+    Gauge.builder(
             "loltracker.rate_limit.paused",
             pollRunRepository,
             repository -> repository.countByRateLimitPausedUntilAfter(clock.instant()))

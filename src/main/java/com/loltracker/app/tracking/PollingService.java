@@ -7,7 +7,6 @@ import com.loltracker.app.integration.riot.RiotMatchPort;
 import com.loltracker.app.match.MatchSummary;
 import com.loltracker.app.match.TrackedMatchEntity;
 import com.loltracker.app.match.TrackedMatchService;
-import com.loltracker.app.notification.NotificationDispatchResult;
 import com.loltracker.app.notification.NotificationService;
 import com.loltracker.app.ops.PollLease;
 import com.loltracker.app.ops.PollLockService;
@@ -166,7 +165,6 @@ public class PollingService {
     pollRunService.updateProgress(run, player, "Resolviendo identidad Riot");
     String puuid = playerService.ensurePuuid(player);
     enqueueLegacyPendingNotifications(player);
-    notifications += dispatchPendingNotifications(player);
 
     int pageSize = configuration.pollingMatchWindowSize();
     int pageLimit = configuration.pollingPaginationLimit();
@@ -206,7 +204,6 @@ public class PollingService {
     }
 
     pollRunService.updateProgress(run, player, "Enviando avisos pendientes");
-    notifications += dispatchPendingNotifications(player);
     playerService.updateSyncSuccess(player, puuid);
     return new PlayerPollResult(newMatches, notifications);
   }
@@ -253,18 +250,6 @@ public class PollingService {
       return true;
     }
     return playerService.shouldNotifyMatch(player, summary);
-  }
-
-  private int dispatchPendingNotifications(PlayerEntity player) {
-    NotificationDispatchResult result = notificationService.dispatchPendingForPlayer(player);
-    if (result.failed() > 0) {
-      log.warn(
-          "{} notification deliveries failed for {}#{}; matches remain queued",
-          result.failed(),
-          player.getGameName(),
-          player.getTagLine());
-    }
-    return result.sent();
   }
 
   private Duration rateLimitPause(RiotApiException e) {

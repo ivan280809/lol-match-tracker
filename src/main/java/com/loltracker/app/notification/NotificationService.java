@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClientResponseException;
 
 @Service
 @RequiredArgsConstructor
@@ -42,15 +43,52 @@ public class NotificationService {
   }
 
   public NotificationDispatchResult dispatchPendingForPlayer(PlayerEntity player) {
+    return dispatchPendingForPlayer(player, 50);
+  }
+
+  public NotificationDispatchResult dispatchPendingForPlayer(PlayerEntity player, int maximumMessages) {
+    return dispatchPendingForPlayer(player, maximumMessages, Long.MAX_VALUE);
+  }
+
+  public NotificationDispatchResult dispatchPendingForPlayer(
+      PlayerEntity player, int maximumMessages, long deadlineNanos) {
+    return dispatchPendingForPlayer(player, maximumMessages, deadlineNanos, 0L);
+  }
+
+  public NotificationDispatchResult dispatchPendingForPlayer(
+      PlayerEntity player, int maximumMessages, long deadlineNanos, long minimumSendWindowNanos) {
+    if (maximumMessages <= 0) {
+      return NotificationDispatchResult.empty();
+    }
+    if (activeTelegramRateLimitUntil() != null) {
+      return NotificationDispatchResult.empty();
+    }
     List<NotificationOutboxEntity> outboxItems =
         notificationOutboxRepository
             .findTop50ByTrackedMatchPlayerIdAndStatusInAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
                 player.getId(), RETRYABLE_STATUSES, now());
     NotificationDispatchResult result = NotificationDispatchResult.empty();
-    for (NotificationOutboxEntity outbox : outboxItems) {
-      result = result.plus(dispatch(outbox));
+    for (NotificationOutboxEntity outbox : outboxItems.stream().limit(maximumMessages).toList()) {
+      if (deadlineNanos - System.nanoTime() < minimumSendWindowNanos) {
+        break;
+      }
+      NotificationDispatchResult delivery = dispatch(outbox, deadlineNanos);
+      result = result.plus(delivery);
+      if (delivery.rateLimited()) {
+        break;
+      }
     }
     return result;
+  }
+
+  @Transactional(readOnly = true)
+  public Instant activeTelegramRateLimitUntil() {
+    return notificationOutboxRepository
+        .findTopByStatusAndLastErrorStartingWithOrderByNextAttemptAtDesc(
+            NotificationDeliveryStatus.FAILED, NotificationDeliveryRecorder.TELEGRAM_RATE_LIMIT_ERROR_PREFIX)
+        .map(NotificationOutboxEntity::getNextAttemptAt)
+        .filter(until -> until.isAfter(now()))
+        .orElse(null);
   }
 
   @Transactional(readOnly = true)
@@ -96,13 +134,15 @@ public class NotificationService {
     }
   }
 
-  private NotificationDispatchResult dispatch(NotificationOutboxEntity outbox) {
+  private NotificationDispatchResult dispatch(NotificationOutboxEntity outbox, long deadlineNanos) {
     notificationDeliveryRecorder.recordAttempt(outbox);
     try {
       TrackedMatchEntity trackedMatch = outbox.getTrackedMatch();
       NotificationStatsSnapshot stats = notificationStatsService.buildFor(trackedMatch);
-      TelegramDeliveryReceipt receipt =
-          telegramNotifier.send(notificationMessageFactory.build(trackedMatch, stats));
+      String message = notificationMessageFactory.build(trackedMatch, stats);
+      TelegramDeliveryReceipt receipt = deadlineNanos == Long.MAX_VALUE
+          ? telegramNotifier.send(message)
+          : telegramNotifier.send(message, java.time.Duration.ofNanos(Math.max(1L, deadlineNanos - System.nanoTime())));
       Integer telegramMessageId = receipt == null ? null : receipt.messageId();
       notificationDeliveryRecorder.recordSent(outbox, telegramMessageId);
       recordOutboxDispatch("sent");
@@ -115,7 +155,9 @@ public class NotificationService {
           e);
       notificationDeliveryRecorder.recordFailure(outbox, e);
       recordOutboxDispatch("failed");
-      return new NotificationDispatchResult(0, 1);
+      boolean rateLimited = e instanceof RestClientResponseException response
+          && response.getStatusCode().value() == 429;
+      return new NotificationDispatchResult(0, 1, rateLimited);
     }
   }
 
@@ -135,4 +177,3 @@ public class NotificationService {
     }
   }
 }
-

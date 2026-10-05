@@ -11,27 +11,38 @@ import com.loltracker.app.integration.telegram.TelegramDeliveryReceipt;
 import com.loltracker.app.match.MatchSummary;
 import com.loltracker.app.match.TrackedMatchRepository;
 import com.loltracker.app.notification.NotificationOutboxRepository;
+import com.loltracker.app.notification.NotificationOutboxDispatcherService;
+import com.loltracker.app.notification.NotificationDeliveryStatus;
+import com.loltracker.app.ops.PollRunRepository;
 import com.loltracker.app.player.PlayerRepository;
 import com.loltracker.lolmatchtracker.LolMatchTrackerApplication;
 import java.time.Instant;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+import io.micrometer.core.instrument.MeterRegistry;
 
 @SpringBootTest(
     classes = {
       LolMatchTrackerApplication.class,
       ApplicationFlowIntegrationTest.TestConfig.class
-    })
+    },
+    properties = {"app.notification.dispatch.delay=PT1H", "spring.task.scheduling.enabled=true"})
 @DirtiesContext
 class ApplicationFlowIntegrationTest {
 
@@ -39,9 +50,13 @@ class ApplicationFlowIntegrationTest {
   @Autowired private PlayerRepository playerRepository;
   @Autowired private TrackedMatchRepository trackedMatchRepository;
   @Autowired private NotificationOutboxRepository notificationOutboxRepository;
+  @Autowired private NotificationOutboxDispatcherService notificationOutboxDispatcherService;
+  @Autowired private PollRunRepository pollRunRepository;
   @Autowired private ExternalCallLogRepository externalCallLogRepository;
   @Autowired private RiotClient riotClient;
   @Autowired private TelegramNotifier telegramNotifier;
+  @Autowired private TaskScheduler taskScheduler;
+  @Autowired private MeterRegistry meterRegistry;
 
   private MockMvc mockMvc;
 
@@ -74,6 +89,17 @@ class ApplicationFlowIntegrationTest {
 
   @Test
   void uiAndPollingFlowWorkWithoutLiveIntegrations() throws Exception {
+    CountDownLatch deliveryStarted = new CountDownLatch(1);
+    CountDownLatch releaseDelivery = new CountDownLatch(1);
+    when(telegramNotifier.send(anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class)))
+        .thenAnswer(
+            invocation -> {
+              deliveryStarted.countDown();
+              if (!releaseDelivery.await(5, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("Simulated Telegram delivery timed out");
+              }
+              return new TelegramDeliveryReceipt(44);
+            });
     when(riotClient.fetchAccount("Bazaga", "ESP")).thenReturn(new RiotAccount("puuid-1", "Bazaga", "ESP"));
 
     mockMvc
@@ -93,12 +119,43 @@ class ApplicationFlowIntegrationTest {
                 "EUW1_900", "Lux", true, "CLASSIC", 1800, Instant.parse("2030-04-03T18:00:00Z")));
 
     mockMvc.perform(post("/api/operations/poll")).andExpect(status().isOk()).andExpect(jsonPath("$.newMatchesFound").value(1));
+    assertEquals(1, notificationOutboxRepository.count());
+    verify(telegramNotifier, never()).send(anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class));
+    ScheduledFuture<?> delivery =
+        taskScheduler.schedule(notificationOutboxDispatcherService::runDispatch, Instant.now().plusMillis(10));
+    assertTrue(deliveryStarted.await(2, TimeUnit.SECONDS), "Dispatcher should start the slow fake send");
+    try {
+      long pollStarted = System.nanoTime();
+      mockMvc
+          .perform(post("/api/operations/poll"))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.newMatchesFound").value(0))
+          .andExpect(jsonPath("$.notificationsSent").value(0));
+      long pollDurationMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - pollStarted);
+      assertTrue(pollDurationMillis < 2_000, "A blocked Telegram send must not hold the polling request");
+      assertEquals(2, pollRunRepository.count(), "Polling completes while the scheduled Telegram call is blocked");
+      assertEquals(
+          NotificationDeliveryStatus.PENDING,
+          notificationOutboxRepository.findAll().get(0).getStatus());
+      assertTrue(
+          meterRegistry.get("loltracker.poll.duration").tag("status", "success").timer().count() >= 2,
+          "Both polling runs should record a real duration");
+      assertTrue(
+          meterRegistry.get("loltracker.outbox.oldest_retryable_age.seconds").gauge().value() >= 0,
+          "Pending outbox age should be observable while delivery is blocked");
+    } finally {
+      releaseDelivery.countDown();
+    }
+    delivery.get(2, TimeUnit.SECONDS);
+    assertEquals(
+        NotificationDeliveryStatus.SENT,
+        notificationOutboxRepository.findAll().get(0).getStatus());
 
     mockMvc.perform(get("/")).andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.containsString("LOL Match Tracker")));
 
-    verify(telegramNotifier).send(anyString());
-    org.junit.jupiter.api.Assertions.assertEquals(1, playerRepository.count());
-    org.junit.jupiter.api.Assertions.assertEquals(1, trackedMatchRepository.count());
+    verify(telegramNotifier).send(anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class));
+    assertEquals(1, playerRepository.count());
+    assertEquals(1, trackedMatchRepository.count());
   }
 
   @Test
