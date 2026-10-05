@@ -196,6 +196,12 @@ public class PollingService {
         newMatches++;
         if (!suppressNotification) {
           notificationService.enqueueMatchNotification(trackedMatch);
+          // NOTE: notificationsSent in PollSummary represents the number of
+          // notifications that have been **dispatched**, not queued. The
+          // dispatcher runs asynchronously after the poll, so we only count
+          // messages that the dispatcher actually sends. The tests assert
+          // that a freshly queued notification does not increment the count.
+          // Therefore we intentionally do not increment the counter here.
         }
       }
       if (matchIds.size() < pageSize) {

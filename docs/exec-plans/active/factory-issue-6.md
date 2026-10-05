@@ -1,18 +1,20 @@
 # Issue #6: P3: Separar el despacho de Telegram del ciclo de polling
 
-El alcance está definido y puede pasar a la siguiente fase local de escritura. El plan existente en `docs/exec-plans/active/factory-issue-6.md` fija una instancia, conserva las protecciones PostgreSQL y no requiere otra decisión funcional. En esta fase no hice cambios.
+La inspección confirma que el alcance aprobado está delimitado y no requiere otra decisión funcional. El plan existente cubre dispatcher programado en el monolito, límites y reintentos, métricas y pruebas; la evidencia registrada conserva los mecanismos de polling y documenta las limitaciones de verificación PostgreSQL.
 
 ## Steps
 
-- Desacoplar el envío del polling: dejar el polling encargado de persistir notificaciones en la outbox y procesarlas desde un dispatcher programado del monolito.
-- Preservar el registro de entrega, la deduplicación y los claims actuales; acotar cada pasada por cantidad y duración, respetando el siguiente intento y el backoff existente para 429.
-- Añadir mediciones de duración del polling y antigüedad de notificaciones pendientes mediante los mecanismos operativos existentes.
-- Añadir pruebas con Telegram simulado lento y caído que cubran reintentos, pausa y reanudación, y comprueben que polling termina mientras los avisos permanecen en la outbox.
-- Ejecutar Maven verify con Java 17 y revisar el resultado, incluidos los límites de evidencia si las pruebas PostgreSQL requieren Docker.
+- Continuar desde el worktree preservado; mantener el cambio enfocado y el diff total por debajo de 60 KB.
+- Separar el envío del polling mediante la outbox durable y el dispatcher programado existente, conservando lock PostgreSQL, rate limit, paginación, caché, métricas, filtros y manejo de errores del polling.
+- Conservar deduplicación, persistencia, siguiente intento y backoff de 429; limitar cada pasada por mensajes y duración sin introducir claims locales duplicados ni prometer exactly-once.
+- Completar las pruebas simuladas de lentitud, caída, pausa y reanudación, incluida la demostración de que polling termina y la notificación sigue en outbox mientras Telegram está bloqueado.
+- Registrar duración del polling y antigüedad de avisos pendientes; ejecutar Maven verify y pruebas PostgreSQL con Docker, y solicitar revisión independiente del diff completo revisable.
 
 ## Acceptance
 
-- El dispatcher procesa la outbox independientemente del polling y limita cada pasada por mensajes y tiempo.
-- Los avisos no elegibles esperan su siguiente intento; se conserva el backoff de 429 y la persistencia con deduplicación, sin afirmar exactly-once ni introducir claims locales duplicados.
-- Las pruebas muestran que fallos o lentitud de Telegram no impiden terminar el polling y que las notificaciones pendientes permanecen en la outbox; también cubren pausa y reanudación.
-- Quedan registradas la duración del polling y la antigüedad de las notificaciones pendientes.
+- El despacho de la outbox es independiente del ciclo de polling y permanece dentro del monolito.
+- Cada pasada está limitada por cantidad y tiempo; se respetan siguiente intento y backoff de 429.
+- Persistencia, reintentos y deduplicación se mantienen con las protecciones PostgreSQL existentes.
+- Pruebas simuladas acreditan polling terminado con Telegram lento o caído, outbox durable y pausa/reanudación.
+- Se miden duración del polling y antigüedad de notificaciones pendientes.
+- Semántica existente de polling intacta, diff total inferior a 60 KB y Maven/PostgreSQL ejecutados; revisión independiente limitada al diff completo.
