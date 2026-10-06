@@ -356,8 +356,11 @@ class HttpClientBenchmarkTest {
   }
 
   private static long processCpuNanos() {
-    java.lang.management.OperatingSystemMXBean bean = ManagementFactory.getOperatingSystemMXBean();
-    return bean instanceof OperatingSystemMXBean os ? os.getProcessCpuTime() : -1;
+    java.lang.management.OperatingSystemMXBean osBean = ManagementFactory.getOperatingSystemMXBean();
+    if (osBean instanceof com.sun.management.OperatingSystemMXBean os) {
+      return os.getProcessCpuTime();
+    }
+    return -1;
   }
 
   private static void printMeasurement(Measurement result) {
