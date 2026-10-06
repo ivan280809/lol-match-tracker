@@ -11,7 +11,7 @@ import com.loltracker.app.settings.AppConfigurationService;
 import com.loltracker.app.settings.RuntimeAppConfiguration;
 import com.loltracker.app.settings.RiotRegion;
 import com.loltracker.app.ops.OpsMetrics;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;

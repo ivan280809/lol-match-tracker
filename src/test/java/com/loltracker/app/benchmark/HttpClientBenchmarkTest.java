@@ -239,11 +239,24 @@ class HttpClientBenchmarkTest {
     return factory;
   }
 
-  private static ClientHttpRequestFactory jdkFactory(Duration connectTimeout) {
-    HttpClient client = HttpClient.newBuilder().connectTimeout(connectTimeout)
-        .version(HttpClient.Version.HTTP_1_1).build();
+  /**
+   * Builds a {@link JdkClientHttpRequestFactory} backed by a {@link HttpClient}
+   * with the specified connection timeout. The read timeout is derived from the
+   * same {@link Duration} value.
+   *
+   * <p>The original implementation mistakenly passed a {@link Duration}
+   * directly to {@link JdkClientHttpRequestFactory#setReadTimeout(int)}, which
+   * expects milliseconds as an {@code int}. The compiler error caused the test
+   * suite to fail before the benchmark could run. This method now converts the
+   * duration to milliseconds explicitly.
+   */
+  private static ClientHttpRequestFactory jdkFactory(Duration timeout) {
+    HttpClient client = HttpClient.newBuilder()
+        .connectTimeout(timeout)
+        .version(HttpClient.Version.HTTP_1_1)
+        .build();
     JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(client);
-    factory.setReadTimeout(connectTimeout);
+    factory.setReadTimeout((int) timeout.toMillis());
     return factory;
   }
 
