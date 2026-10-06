@@ -110,14 +110,50 @@ class HttpClientBenchmarkTest {
     assertEquals(REQUESTS_PER_TRANSPORT, jdk.serverRequests());
     assertEquals(REQUESTS_PER_TRANSPORT, simple.statusCodes().size());
     assertEquals(REQUESTS_PER_TRANSPORT, jdk.statusCodes().size());
-    assertTrue(simple.statusCodes().stream().allMatch(status -> status == 200));
-    assertTrue(jdk.statusCodes().stream().allMatch(status -> status == 200));
+    assertTrue(simple.statusCodes().stream().allMatch(status -> status == 200),
+            "All simple transport responses should be 200");
+    assertTrue(jdk.statusCodes().stream().allMatch(status -> status == 200),
+            "All JDK shared transport responses should be 200");
     assertTrue(simple.uniqueRemotePorts() > 0);
     assertTrue(jdk.uniqueRemotePorts() > 0);
     assertEquals(REQUESTS_PER_TRANSPORT, simple.uniqueTokens());
     assertEquals(REQUESTS_PER_TRANSPORT, jdk.uniqueTokens());
     assertEquals(3, simple.uniqueRegions());
     assertEquals(3, jdk.uniqueRegions());
+
+    // Verify that the latency data has the expected length and contains
+    // meaningful values. The benchmark sends 1,000 requests per transport
+    // so the latency list should match that count.
+    assertEquals(REQUESTS_PER_TRANSPORT, simple.latenciesNanos().size(),
+            "Simple transport should record 1,000 latency samples");
+    assertEquals(REQUESTS_PER_TRANSPORT, jdk.latenciesNanos().size(),
+            "JDK shared transport should record 1,000 latency samples");
+
+    // Percentile and mean latency should be > 0, otherwise the benchmark
+    // measurement logic failed.
+    assertTrue(percentile95Millis(simple.latenciesNanos()) > 0,
+            "Simple transport p95 latency should be positive");
+    assertTrue(percentile95Millis(jdk.latenciesNanos()) > 0,
+            "JDK shared transport p95 latency should be positive");
+
+    // Process CPU time should increase for each transport unless the OS
+    // does not support the API.  In that case the value is reported as -1.
+    assertTrue(simple.cpuNanos() >= 0 || simple.cpuNanos() == -1,
+            "Simple transport CPU measurement should be >= 0 or unsupported");
+    assertTrue(jdk.cpuNanos() >= 0 || jdk.cpuNanos() == -1,
+            "JDK shared transport CPU measurement should be >= 0 or unsupported");
+
+    // Heap delta should be non‑negative or unsupported.
+    assertTrue(simple.heapDeltaBytes() >= 0 || simple.heapDeltaBytes() == -1,
+            "Simple transport heap delta should be >= 0 or unsupported");
+    assertTrue(jdk.heapDeltaBytes() >= 0 || jdk.heapDeltaBytes() == -1,
+            "JDK shared transport heap delta should be >= 0 or unsupported");
+
+    // Elapsed time for the entire loop should be > 0.
+    assertTrue(simple.elapsedNanos() > 0,
+            "Simple transport elapsed time should be positive");
+    assertTrue(jdk.elapsedNanos() > 0,
+            "JDK shared transport elapsed time should be positive");
 
     printMeasurement(simple);
     printMeasurement(jdk);
