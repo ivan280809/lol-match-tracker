@@ -4,12 +4,14 @@ import com.loltracker.app.ops.OpsMetrics;
 import com.loltracker.app.settings.AppConfigurationService;
 import com.loltracker.app.settings.RuntimeAppConfiguration;
 import java.time.Duration;
+import java.net.http.HttpClient;
 import java.util.Map;
-import java.util.function.Supplier;
+import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -36,8 +38,18 @@ public class TelegramNotifier implements TelegramNotificationPort {
   @Value("${app.http.retry.backoff:PT1S}")
   private Duration httpRetryBackoff;
 
+  private volatile HttpClient boundedHttpClient;
+
+  @Value("${app.telegram.api-base-url:https://api.telegram.org}")
+  private String telegramApiBaseUrl;
+
   @Override
   public TelegramDeliveryReceipt send(String message) {
+    return send(message, null);
+  }
+
+  @Override
+  public TelegramDeliveryReceipt send(String message, Duration timeout) {
     long startedNanos = System.nanoTime();
     RuntimeAppConfiguration configuration = appConfigurationService.getRuntimeConfiguration();
     String botToken = configuration.telegramBotToken();
@@ -51,16 +63,14 @@ public class TelegramNotifier implements TelegramNotificationPort {
     try {
       String body =
           executeWithRetry(
-              () ->
-                  restClientBuilder
-                      .clone()
-                      .build()
+              remaining ->
+                  requestClient(remaining)
                       .post()
-                      .uri("https://api.telegram.org/bot{token}/sendMessage", botToken)
+                      .uri(telegramApiBaseUrl + "/bot{token}/sendMessage", botToken)
                       .contentType(MediaType.APPLICATION_JSON)
                       .body(Map.of("chat_id", chatId, "text", message, "parse_mode", "HTML"))
                       .retrieve()
-                      .body(String.class));
+                      .body(String.class), timeout);
       TelegramDeliveryReceipt receipt = parseReceipt(body);
       recordTelegram("OK", "NONE", startedNanos);
       return receipt;
@@ -81,16 +91,49 @@ public class TelegramNotifier implements TelegramNotificationPort {
     }
   }
 
-  private String executeWithRetry(Supplier<String> request) {
+  private RestClient requestClient(Duration timeout) {
+    RestClient.Builder builder = restClientBuilder.clone();
+    if (timeout != null && !timeout.isZero() && !timeout.isNegative()) {
+      JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(boundedHttpClient());
+      factory.setReadTimeout(timeout);
+      builder.requestFactory(factory);
+    }
+    return builder.build();
+  }
+
+  private HttpClient boundedHttpClient() {
+    HttpClient client = boundedHttpClient;
+    if (client == null) {
+      synchronized (this) {
+        client = boundedHttpClient;
+        if (client == null) {
+          client = HttpClient.newBuilder().connectTimeout(httpTimeout).build();
+          boundedHttpClient = client;
+        }
+      }
+    }
+    return client;
+  }
+
+  private String executeWithRetry(Function<Duration, String> request, Duration totalTimeout) {
     int attempts = Math.max(1, httpMaxAttempts);
     RuntimeException lastFailure = null;
+    long deadline = totalTimeout == null ? Long.MAX_VALUE : System.nanoTime() + totalTimeout.toNanos();
     for (int attempt = 1; attempt <= attempts; attempt++) {
+      if (deadline != Long.MAX_VALUE && deadline - System.nanoTime() <= 0) {
+        throw new IllegalStateException("Telegram dispatch deadline exceeded", lastFailure);
+      }
       try {
-        return request.get();
+        Duration remaining = deadline == Long.MAX_VALUE ? null : Duration.ofNanos(deadline - System.nanoTime());
+        return request.apply(remaining);
       } catch (RuntimeException e) {
         lastFailure = e;
         if (attempt >= attempts || !isTransientFailure(e)) {
           throw e;
+        }
+        long backoffMillis = httpRetryBackoff.multipliedBy(Math.max(1, attempt)).toMillis();
+        if (deadline != Long.MAX_VALUE && deadline - System.nanoTime() <= backoffMillis * 1_000_000L) {
+          throw new IllegalStateException("Telegram dispatch deadline exceeded", e);
         }
         sleepBeforeRetry(attempt);
       }

@@ -44,7 +44,8 @@ import org.springframework.web.context.WebApplicationContext;
     classes = {
       LolMatchTrackerApplication.class,
       DashboardMvcEndToEndFallbackTest.TestConfig.class
-    })
+    },
+    properties = "app.notification.dispatch.delay=PT1H")
 @DirtiesContext
 class DashboardMvcEndToEndFallbackTest {
 
@@ -159,7 +160,7 @@ class DashboardMvcEndToEndFallbackTest {
             flash()
                 .attribute(
                     "successMessage",
-                    "Polling ejecutado. Estado: SUCCESS, jugadores: 1, nuevas partidas: 1, avisos: 1"));
+                    "Polling ejecutado. Estado: SUCCESS, jugadores: 1, nuevas partidas: 1, avisos: 0"));
 
     mockMvc
         .perform(get("/"))
@@ -177,6 +178,7 @@ class DashboardMvcEndToEndFallbackTest {
         .andExpect(content().string(containsString("Auditoria")))
         .andExpect(content().string(containsString("Ultimos poll runs")));
 
-    verify(telegramNotifier).send(anyString());
+    verify(telegramNotifier, org.mockito.Mockito.never()).send(anyString());
+    org.junit.jupiter.api.Assertions.assertEquals(1, notificationOutboxRepository.count());
   }
 }

@@ -47,6 +47,7 @@ import com.loltracker.app.player.PlayerRepository;
 import com.loltracker.app.player.RiotPlatform;
 import com.loltracker.lolmatchtracker.LolMatchTrackerApplication;
 import java.time.Instant;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,6 +62,8 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -70,7 +73,8 @@ import org.springframework.web.context.WebApplicationContext;
     classes = {
       LolMatchTrackerApplication.class,
       ExternalIntegrationsEndToEndTest.TestConfig.class
-    })
+    },
+    properties = "app.notification.dispatch.delay=PT1H")
 @DirtiesContext
 class ExternalIntegrationsEndToEndTest {
 
@@ -85,6 +89,7 @@ class ExternalIntegrationsEndToEndTest {
   @Autowired private MatchRepository matchRepository;
   @Autowired private PlayerMatchRepository playerMatchRepository;
   @Autowired private NotificationOutboxRepository notificationOutboxRepository;
+  @Autowired private com.loltracker.app.notification.NotificationOutboxDispatcherService notificationOutboxDispatcherService;
   @Autowired private ExternalCallLogRepository externalCallLogRepository;
   @Autowired private PollRunRepository pollRunRepository;
   @Autowired private RiotClient riotClient;
@@ -141,7 +146,7 @@ class ExternalIntegrationsEndToEndTest {
     assertTrue(trackedMatch.isNotificationSent());
     assertNotNull(trackedMatch.getNotificationSentAt());
     assertEquals(0, notificationOutboxRepository.count());
-    verify(telegramNotifier, never()).send(anyString());
+    verify(telegramNotifier, never()).send(anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class));
 
     PlayerMatchEntity playerMatch =
         playerMatchRepository.findByPlayerIdAndMatchMatchId(player.getId(), MATCH_ID).orElseThrow();
@@ -156,7 +161,7 @@ class ExternalIntegrationsEndToEndTest {
     when(riotClient.fetchRecentMatchIds(PUUID)).thenReturn(List.of(MATCH_ID));
     when(riotClient.fetchRecentMatchIds("puuid-2")).thenReturn(List.of(MATCH_ID));
     when(riotClient.fetchMatchDetails(MATCH_ID)).thenReturn(sharedMatchDetails());
-    when(telegramNotifier.send(anyString()))
+    when(telegramNotifier.send(anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class)))
         .thenReturn(new TelegramDeliveryReceipt(301), new TelegramDeliveryReceipt(302));
 
     mockMvc
@@ -164,7 +169,7 @@ class ExternalIntegrationsEndToEndTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.playersProcessed").value(2))
         .andExpect(jsonPath("$.newMatchesFound").value(2))
-        .andExpect(jsonPath("$.notificationsSent").value(2))
+        .andExpect(jsonPath("$.notificationsSent").value(0))
         .andExpect(jsonPath("$.playerFailures").value(0))
         .andExpect(jsonPath("$.status").value("SUCCESS"));
 
@@ -172,6 +177,10 @@ class ExternalIntegrationsEndToEndTest {
     assertEquals(2, playerMatchRepository.count());
     assertTrue(playerMatchRepository.existsByPlayerIdAndMatchMatchId(firstPlayer.getId(), MATCH_ID));
     assertTrue(playerMatchRepository.existsByPlayerIdAndMatchMatchId(secondPlayer.getId(), MATCH_ID));
+    assertEquals(2, notificationOutboxRepository.countByStatus(NotificationDeliveryStatus.PENDING));
+    verify(telegramNotifier, never()).send(anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class));
+    notificationOutboxDispatcherService.runDispatch();
+    assertEquals(2, notificationOutboxRepository.countByStatus(NotificationDeliveryStatus.SENT));
     verify(riotClient, times(1)).fetchMatchDetails(MATCH_ID);
   }
 
@@ -198,7 +207,7 @@ class ExternalIntegrationsEndToEndTest {
     when(riotClient.fetchRecentMatchIds(PUUID)).thenReturn(List.of(MATCH_ID));
     when(riotClient.fetchMatchSummary(MATCH_ID, PUUID)).thenReturn(summary(MATCH_ID));
     when(riotClient.fetchRankEntries(RiotPlatform.EUW1, PUUID)).thenReturn(List.of(soloRank()));
-    when(telegramNotifier.send(anyString())).thenReturn(new TelegramDeliveryReceipt(101));
+    when(telegramNotifier.send(anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class))).thenReturn(new TelegramDeliveryReceipt(101));
 
     mockMvc
         .perform(post("/integrations/riot/validate").param("platform", "EUW1"))
@@ -225,7 +234,7 @@ class ExternalIntegrationsEndToEndTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.playersProcessed").value(1))
         .andExpect(jsonPath("$.newMatchesFound").value(1))
-        .andExpect(jsonPath("$.notificationsSent").value(1))
+        .andExpect(jsonPath("$.notificationsSent").value(0))
         .andExpect(jsonPath("$.playerFailures").value(0))
         .andExpect(jsonPath("$.status").value("SUCCESS"));
 
@@ -233,6 +242,9 @@ class ExternalIntegrationsEndToEndTest {
     assertEquals(1, trackedMatchRepository.count());
     assertEquals(1, notificationOutboxRepository.count());
     assertEquals(1, pollRunRepository.count());
+    assertEquals(1, notificationOutboxRepository.countByStatus(NotificationDeliveryStatus.PENDING));
+    verify(telegramNotifier, never()).send(anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class));
+    notificationOutboxDispatcherService.runDispatch();
 
     PlayerEntity syncedPlayer = playerRepository.findById(player.getId()).orElseThrow();
     assertEquals("SUCCESS", syncedPlayer.getLastSyncStatus());
@@ -361,7 +373,7 @@ class ExternalIntegrationsEndToEndTest {
     assertFailedPlayerSync(player.getId(), category);
     assertPollRunContains(category, "NeedsPuuid#EUW: " + friendlyRiotMessage(category));
     assertEquals(0, trackedMatchRepository.count());
-    verify(telegramNotifier, never()).send(anyString());
+    verify(telegramNotifier, never()).send(anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class));
   }
 
   @ParameterizedTest
@@ -383,7 +395,7 @@ class ExternalIntegrationsEndToEndTest {
     assertFailedPlayerSync(player.getId(), category);
     assertPollRunContains(category, PLAYER_NAME + "#" + PLAYER_TAG + ": " + friendlyRiotMessage(category));
     assertEquals(0, trackedMatchRepository.count());
-    verify(telegramNotifier, never()).send(anyString());
+    verify(telegramNotifier, never()).send(anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class));
   }
 
   @ParameterizedTest
@@ -407,7 +419,7 @@ class ExternalIntegrationsEndToEndTest {
     assertPollRunContains(category, PLAYER_NAME + "#" + PLAYER_TAG + ": " + friendlyRiotMessage(category));
     assertEquals(0, trackedMatchRepository.count());
     assertEquals(0, notificationOutboxRepository.count());
-    verify(telegramNotifier, never()).send(anyString());
+    verify(telegramNotifier, never()).send(anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class));
   }
 
   @ParameterizedTest
@@ -418,14 +430,14 @@ class ExternalIntegrationsEndToEndTest {
     when(riotClient.fetchRecentMatchIds(PUUID)).thenReturn(List.of(MATCH_ID));
     when(riotClient.fetchMatchSummary(MATCH_ID, PUUID)).thenReturn(summary(MATCH_ID));
     when(riotClient.fetchRankEntries(RiotPlatform.EUW1, PUUID)).thenThrow(riotFailure(category));
-    when(telegramNotifier.send(anyString())).thenReturn(new TelegramDeliveryReceipt(202));
+    when(telegramNotifier.send(anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class))).thenReturn(new TelegramDeliveryReceipt(202));
 
     mockMvc
         .perform(post("/api/operations/poll"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.playersProcessed").value(1))
         .andExpect(jsonPath("$.newMatchesFound").value(1))
-        .andExpect(jsonPath("$.notificationsSent").value(1))
+        .andExpect(jsonPath("$.notificationsSent").value(0))
         .andExpect(jsonPath("$.playerFailures").value(0))
         .andExpect(jsonPath("$.status").value("SUCCESS"));
 
@@ -434,6 +446,8 @@ class ExternalIntegrationsEndToEndTest {
     assertNull(syncedPlayer.getLastError());
     assertNull(syncedPlayer.getRankTier());
 
+    assertEquals(1, notificationOutboxRepository.countByStatus(NotificationDeliveryStatus.PENDING));
+    notificationOutboxDispatcherService.runDispatch();
     NotificationOutboxEntity outbox = notificationOutboxRepository.findAll().get(0);
     assertEquals(NotificationDeliveryStatus.SENT, outbox.getStatus());
     assertEquals(202, outbox.getTelegramMessageId());
@@ -462,7 +476,7 @@ class ExternalIntegrationsEndToEndTest {
     when(riotClient.fetchRecentMatchIds(PUUID)).thenReturn(List.of(MATCH_ID));
     when(riotClient.fetchMatchSummary(MATCH_ID, PUUID)).thenReturn(summary(MATCH_ID));
     when(riotClient.fetchRankEntries(RiotPlatform.EUW1, PUUID)).thenReturn(List.of(soloRank()));
-    when(telegramNotifier.send(anyString())).thenThrow(exception);
+    when(telegramNotifier.send(anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class))).thenThrow(exception);
 
     mockMvc
         .perform(post("/api/operations/poll"))
@@ -481,10 +495,63 @@ class ExternalIntegrationsEndToEndTest {
     assertFalse(trackedMatch.isNotificationSent());
 
     NotificationOutboxEntity outbox = notificationOutboxRepository.findAll().get(0);
+    assertEquals(NotificationDeliveryStatus.PENDING, outbox.getStatus());
+    assertEquals(0, outbox.getAttemptCount());
+    notificationOutboxDispatcherService.runDispatch();
+    outbox = notificationOutboxRepository.findAll().get(0);
     assertEquals(NotificationDeliveryStatus.FAILED, outbox.getStatus());
     assertEquals(1, outbox.getAttemptCount());
     assertEquals(exception.getMessage(), outbox.getLastError());
     assertNotNull(outbox.getNextAttemptAt());
+  }
+
+  @Test
+  void telegram429WaitsForRetryAfterAndThenResumesFromTheOutbox() throws Exception {
+    PlayerEntity player = createConfiguredPlayer(PLAYER_NAME, PLAYER_TAG, PUUID);
+    PlayerEntity otherPlayer = createConfiguredPlayer("Other", "EUW", "puuid-2");
+    when(riotClient.fetchRecentMatchIds(PUUID)).thenReturn(List.of(MATCH_ID));
+    when(riotClient.fetchRecentMatchIds("puuid-2")).thenReturn(List.of(MATCH_ID));
+    when(riotClient.fetchMatchSummary(MATCH_ID, PUUID)).thenReturn(summary(MATCH_ID));
+    when(riotClient.fetchMatchSummary(MATCH_ID, "puuid-2")).thenReturn(summary(MATCH_ID));
+    when(riotClient.fetchRankEntries(RiotPlatform.EUW1, PUUID)).thenReturn(List.of(soloRank()));
+    HttpHeaders headers = new HttpHeaders();
+    headers.set(HttpHeaders.RETRY_AFTER, "120");
+    RestClientResponseException rateLimit =
+        new RestClientResponseException(
+            "Telegram rate limited", 429, "Too Many Requests", headers, new byte[0], StandardCharsets.UTF_8);
+    when(telegramNotifier.send(anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class)))
+        .thenThrow(rateLimit)
+        .thenReturn(new TelegramDeliveryReceipt(901), new TelegramDeliveryReceipt(902));
+
+    mockMvc
+        .perform(post("/api/operations/poll"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.newMatchesFound").value(2));
+    List<NotificationOutboxEntity> outboxes = notificationOutboxRepository.findAll();
+    assertEquals(2, outboxes.size());
+    assertTrue(outboxes.stream().allMatch(outbox -> outbox.getStatus() == NotificationDeliveryStatus.PENDING));
+    verify(telegramNotifier, never()).send(anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class));
+
+    notificationOutboxDispatcherService.runDispatch();
+    outboxes = notificationOutboxRepository.findAll();
+    assertEquals(1, outboxes.stream().filter(outbox -> outbox.getStatus() == NotificationDeliveryStatus.FAILED).count());
+    assertTrue(outboxes.stream().allMatch(outbox -> outbox.getNextAttemptAt().isAfter(Instant.now().plusSeconds(100))));
+
+    notificationOutboxDispatcherService.runDispatch();
+    verify(telegramNotifier, times(1)).send(anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class));
+    assertTrue(notificationOutboxRepository.findAll().stream()
+        .anyMatch(outbox -> outbox.getStatus() == NotificationDeliveryStatus.PENDING));
+
+    outboxes = notificationOutboxRepository.findAll();
+    outboxes.forEach(outbox -> outbox.setNextAttemptAt(Instant.now().minusSeconds(1)));
+    notificationOutboxRepository.saveAll(outboxes);
+    notificationOutboxDispatcherService.runDispatch();
+
+    assertEquals(2, notificationOutboxRepository.countByStatus(NotificationDeliveryStatus.SENT));
+    assertEquals(3, notificationOutboxRepository.findAll().stream().mapToInt(NotificationOutboxEntity::getAttemptCount).sum());
+    verify(telegramNotifier, times(3)).send(anyString(), org.mockito.ArgumentMatchers.any(java.time.Duration.class));
+    assertTrue(playerRepository.findById(player.getId()).orElseThrow().isActive());
+    assertTrue(playerRepository.findById(otherPlayer.getId()).orElseThrow().isActive());
   }
 
   private PlayerEntity createConfiguredPlayer(String gameName, String tagLine, String puuid)

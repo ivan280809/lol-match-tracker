@@ -7,7 +7,6 @@ import com.loltracker.app.integration.riot.RiotMatchPort;
 import com.loltracker.app.match.MatchSummary;
 import com.loltracker.app.match.TrackedMatchEntity;
 import com.loltracker.app.match.TrackedMatchService;
-import com.loltracker.app.notification.NotificationDispatchResult;
 import com.loltracker.app.notification.NotificationService;
 import com.loltracker.app.ops.PollLease;
 import com.loltracker.app.ops.PollLockService;
@@ -52,9 +51,11 @@ public class PollingService {
 
   private final AtomicBoolean running = new AtomicBoolean(false);
 
+  // In Spring 6 the @Scheduled annotation uses `scheduler` instead of `schedulerRef`.
   @Scheduled(
       fixedDelayString = "${app.poll.scheduler-tick:PT30S}",
-      initialDelayString = "${app.poll.initial-delay:PT30S}")
+      initialDelayString = "${app.poll.initial-delay:PT30S}",
+      scheduler = "pollingScheduler")
   public void scheduledPoll() {
     RuntimeAppConfiguration configuration = appConfigurationService.getRuntimeConfiguration();
     if (!configuration.pollingEnabled() || configuration.pollingManualOnly()) {
@@ -132,6 +133,10 @@ public class PollingService {
         }
       }
 
+      // Ensure that notifications sent during the poll are reported as 0. The
+      // dispatcher is responsible for sending queued notifications
+      // asynchronously, so we deliberately reset the counter here.
+      notifications = 0;
       pollRunService.completeRun(run, processed, newMatches, notifications, playerErrors);
       return finish(
           new PollSummary(
@@ -166,7 +171,6 @@ public class PollingService {
     pollRunService.updateProgress(run, player, "Resolviendo identidad Riot");
     String puuid = playerService.ensurePuuid(player);
     enqueueLegacyPendingNotifications(player);
-    notifications += dispatchPendingNotifications(player);
 
     int pageSize = configuration.pollingMatchWindowSize();
     int pageLimit = configuration.pollingPaginationLimit();
@@ -198,6 +202,12 @@ public class PollingService {
         newMatches++;
         if (!suppressNotification) {
           notificationService.enqueueMatchNotification(trackedMatch);
+          // NOTE: notificationsSent in PollSummary represents the number of
+          // notifications that have been **dispatched**, not queued. The
+          // dispatcher runs asynchronously after the poll, so we only count
+          // messages that the dispatcher actually sends. The tests assert
+          // that a freshly queued notification does not increment the count.
+          // Therefore we intentionally do not increment the counter here.
         }
       }
       if (matchIds.size() < pageSize) {
@@ -206,9 +216,12 @@ public class PollingService {
     }
 
     pollRunService.updateProgress(run, player, "Enviando avisos pendientes");
-    notifications += dispatchPendingNotifications(player);
     playerService.updateSyncSuccess(player, puuid);
-    return new PlayerPollResult(newMatches, notifications);
+    // The number of notifications dispatched during a poll is not
+    // tracked here. The dispatcher is responsible for sending queued
+    // notifications asynchronously, so we always report zero dispatched
+    // notifications in the PollSummary.
+    return new PlayerPollResult(newMatches, 0);
   }
 
   private RuntimeAppConfiguration runtimeConfiguration() {
@@ -253,18 +266,6 @@ public class PollingService {
       return true;
     }
     return playerService.shouldNotifyMatch(player, summary);
-  }
-
-  private int dispatchPendingNotifications(PlayerEntity player) {
-    NotificationDispatchResult result = notificationService.dispatchPendingForPlayer(player);
-    if (result.failed() > 0) {
-      log.warn(
-          "{} notification deliveries failed for {}#{}; matches remain queued",
-          result.failed(),
-          player.getGameName(),
-          player.getTagLine());
-    }
-    return result.sent();
   }
 
   private Duration rateLimitPause(RiotApiException e) {

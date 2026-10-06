@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 
 import com.loltracker.app.notification.NotificationDeliveryStatus;
 import com.loltracker.app.notification.NotificationOutboxRepository;
+import com.loltracker.app.notification.NotificationOutboxEntity;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
@@ -27,6 +28,11 @@ class OpsMetricsTest {
   void registersLowCardinalityOperationalMeters() {
     when(outboxRepository.countByStatus(NotificationDeliveryStatus.PENDING)).thenReturn(3L);
     when(outboxRepository.countByStatus(NotificationDeliveryStatus.FAILED)).thenReturn(1L);
+    NotificationOutboxEntity oldestRetryable = new NotificationOutboxEntity();
+    oldestRetryable.setCreatedAt(clock.instant().minusSeconds(75));
+    when(outboxRepository.findFirstByStatusInOrderByCreatedAtAsc(
+            java.util.List.of(NotificationDeliveryStatus.PENDING, NotificationDeliveryStatus.FAILED)))
+        .thenReturn(java.util.Optional.of(oldestRetryable));
     when(pollRunRepository.countByRateLimitPausedUntilAfter(clock.instant())).thenReturn(1L);
 
     opsMetrics.registerGauges();
@@ -49,6 +55,9 @@ class OpsMetricsTest {
             .tag("status", "pending")
             .gauge()
             .value());
+    assertEquals(
+        75.0,
+        registry.find("loltracker.outbox.oldest_retryable_age.seconds").gauge().value());
     assertEquals(
         1,
         registry
