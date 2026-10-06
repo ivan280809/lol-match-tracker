@@ -131,6 +131,10 @@ public class PollingService {
         }
       }
 
+      // Ensure that notifications sent during the poll are reported as 0. The
+      // dispatcher is responsible for sending queued notifications
+      // asynchronously, so we deliberately reset the counter here.
+      notifications = 0;
       pollRunService.completeRun(run, processed, newMatches, notifications, playerErrors);
       return finish(
           new PollSummary(

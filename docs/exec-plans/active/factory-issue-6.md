@@ -1,19 +1,19 @@
 # Issue #6: P3: Separar el despacho de Telegram del ciclo de polling
 
-El alcance está suficientemente definido y la aclaración del owner resuelve el tamaño de revisión. El siguiente paso local puede compactar las pruebas del dispatcher/outbox, conservar intactas las protecciones y métricas existentes, y verificar la solución con las puertas indicadas.
+El alcance aprobado está definido: el dispatcher programado ya desacopla la entrega de Telegram del polling en el monolito, y el plan preservado identifica la consolidación de pruebas como siguiente paso. No hace falta una decisión funcional adicional.
 
 ## Steps
 
-- Revisar el diff preservado y los tests existentes relevantes para identificar duplicación sin alterar el comportamiento aprobado.
-- Consolidar las pruebas nuevas del dispatcher/outbox en un único suite unitario que cubra límites de batch y tiempo, reintentos, 429/backoff, pausa/reanudación y deduplicación.
-- Mantener un test de integración focalizado que pruebe que polling termina con Telegram lento mientras el aviso sigue durablemente pendiente en outbox; reutilizar fixtures existentes.
-- Conservar las protecciones PostgreSQL, configuración, filtros, manejo de errores y métricas, incluidas duración de polling y edad del backlog.
-- Reducir el diff total por debajo de 55 KB con margen y ejecutar ./mvnw verify con Docker.
-- Exigir cero fallos, errores u omisiones y revisión completa gpt-6-luna low; no crear PR si alguna puerta falla.
+- Revisar el diff preservado y las pruebas relacionadas del dispatcher y la outbox.
+- Consolidar las pruebas unitarias para límites de mensajes y tiempo, reintentos, 429/backoff, pausa/reanudación y deduplicación; mantener la integración que demuestra polling terminado con Telegram lento y aviso aún pendiente.
+- Conservar lock, rate limit, configuración, métricas, filtros, manejo de errores y persistencia PostgreSQL existentes.
+- Ejecutar Maven verify con Docker y comprobar que no haya fallos, errores ni pruebas omitidas; verificar las métricas de duración del polling y antigüedad de notificaciones pendientes.
+- Solicitar revisión independiente completa gpt-6-luna low sobre el diff dentro del límite acordado de 120 KiB. No publicar PR si falla alguna comprobación o criterio.
 
 ## Acceptance
 
-- Diff total inferior a 55 KB con margen, sin retirar criterios ni ampliar alcance.
-- Pruebas consolidada unitarias e integración focalizada cubren los comportamientos aprobados y demuestran que polling termina mientras las notificaciones permanecen pendientes durante un envío lento.
-- ./mvnw verify con Docker termina sin fallos, errores ni pruebas omitidas.
-- Revisión completa gpt-6-luna low completada; no se crea PR si una puerta falla.
+- El polling termina aunque Telegram esté lento o caído y los avisos quedan persistidos en la outbox para reintento.
+- El dispatcher tiene límites por pasada, respeta el siguiente intento y 429/backoff, y conserva reintentos y deduplicación.
+- Las pruebas cubren lentitud, fallos, pausa y reanudación.
+- Se miden la duración del polling y la antigüedad de notificaciones pendientes.
+- Maven verify con PostgreSQL completa sin fallos, errores ni pruebas omitidas, y la revisión independiente queda completada.
