@@ -2,6 +2,7 @@ package com.loltracker.app.notification;
 
 import com.loltracker.app.player.PlayerEntity;
 import com.loltracker.app.player.PlayerService;
+import com.loltracker.app.notification.NotificationDispatchResult;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +27,9 @@ public class NotificationOutboxDispatcherService {
   private long maxDurationMillis;
 
   // Default delay of 30 seconds between dispatch runs; can be overridden via app.notification.dispatch.delay
-  @Scheduled(fixedDelayString = "${app.notification.dispatch.delay:PT30S}")
+  // In Spring 6 the @Scheduled annotation uses `scheduler` instead of `schedulerRef`.
+  // The scheduler bean is defined in SchedulerConfig as `dispatcherScheduler`.
+  @Scheduled(fixedDelayString = "${app.notification.dispatch.delay:PT30S}", scheduler = "dispatcherScheduler")
   public void runDispatch() {
     if (!dispatchRunning.compareAndSet(false, true)) {
       log.debug("Skipping notification dispatch because a local run is already active");
@@ -52,6 +55,7 @@ public class NotificationOutboxDispatcherService {
         log.debug("Reached maxMessagesPerRun limit of {}", maxMessagesPerRun);
         break;
       }
+      // Check the overall run deadline before starting a new player.
       if (deadlineNanos - System.nanoTime() < minimumSendWindowNanos) {
         log.debug("Reached maxDurationMillis limit of {}ms", maxDurationMillis);
         break;

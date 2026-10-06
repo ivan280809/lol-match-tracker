@@ -51,9 +51,11 @@ public class PollingService {
 
   private final AtomicBoolean running = new AtomicBoolean(false);
 
+  // In Spring 6 the @Scheduled annotation uses `scheduler` instead of `schedulerRef`.
   @Scheduled(
       fixedDelayString = "${app.poll.scheduler-tick:PT30S}",
-      initialDelayString = "${app.poll.initial-delay:PT30S}")
+      initialDelayString = "${app.poll.initial-delay:PT30S}",
+      scheduler = "pollingScheduler")
   public void scheduledPoll() {
     RuntimeAppConfiguration configuration = appConfigurationService.getRuntimeConfiguration();
     if (!configuration.pollingEnabled() || configuration.pollingManualOnly()) {
