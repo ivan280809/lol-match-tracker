@@ -34,8 +34,13 @@ public class HttpClientConfig {
       @Value("${app.http.connect-timeout:${app.http.timeout:PT10S}}") Duration connectTimeout,
       @Value("${app.http.timeout:PT10S}") Duration readTimeout) {
     SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-    requestFactory.setConnectTimeout(connectTimeout);
-    requestFactory.setReadTimeout(readTimeout);
+    // The original implementation mistakenly passed Duration objects
+    // directly to the setter methods, which expect integer values in
+    // milliseconds. The compiler error caused the entire test suite to
+    // fail before the benchmark could run. Convert the durations to
+    // milliseconds explicitly.
+    requestFactory.setConnectTimeout((int) connectTimeout.toMillis());
+    requestFactory.setReadTimeout((int) readTimeout.toMillis());
     return requestFactory;
   }
 }
