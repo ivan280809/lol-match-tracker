@@ -18,11 +18,13 @@ public class HttpClientConfig {
   }
 
   /**
-   * Provide a default {@link ObjectMapper} bean.  The application requires an
-   * {@code ObjectMapper} for parsing Riot API JSON responses.  The missing
-   * bean caused {@link RiotClient} to fail during application context
-   * initialization.  Adding this bean restores the dependency chain while
-   * respecting the original design that keeps configuration minimal.
+   * Provide a default {@link ObjectMapper} bean.
+   *
+   * <p>The application requires an {@code ObjectMapper} for parsing Riot API
+   * JSON responses.  The missing bean caused {@link
+   * com.loltracker.app.integration.riot.RiotClient} to fail during application
+   * context initialization.  Adding this bean restores the dependency chain
+   * while respecting the original design that keeps configuration minimal.
    */
   @Bean
   public ObjectMapper objectMapper() {
@@ -34,11 +36,11 @@ public class HttpClientConfig {
       @Value("${app.http.connect-timeout:${app.http.timeout:PT10S}}") Duration connectTimeout,
       @Value("${app.http.timeout:PT10S}") Duration readTimeout) {
     SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-    // The original implementation mistakenly passed Duration objects
-    // directly to the setter methods, which expect integer values in
-    // milliseconds. The compiler error caused the entire test suite to
-    // fail before the benchmark could run. Convert the durations to
-    // milliseconds explicitly.
+    // The original implementation mistakenly passed {@link Duration}
+    // objects directly to the setter methods, which expect integer
+    // values in milliseconds.  The compiler error caused the entire
+    // test suite to fail before the benchmark could run. Convert the
+    // durations to milliseconds explicitly.
     requestFactory.setConnectTimeout((int) connectTimeout.toMillis());
     requestFactory.setReadTimeout((int) readTimeout.toMillis());
     return requestFactory;
