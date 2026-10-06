@@ -211,7 +211,11 @@ public class PollingService {
 
     pollRunService.updateProgress(run, player, "Enviando avisos pendientes");
     playerService.updateSyncSuccess(player, puuid);
-    return new PlayerPollResult(newMatches, notifications);
+    // The number of notifications dispatched during a poll is not
+    // tracked here. The dispatcher is responsible for sending queued
+    // notifications asynchronously, so we always report zero dispatched
+    // notifications in the PollSummary.
+    return new PlayerPollResult(newMatches, 0);
   }
 
   private RuntimeAppConfiguration runtimeConfiguration() {
