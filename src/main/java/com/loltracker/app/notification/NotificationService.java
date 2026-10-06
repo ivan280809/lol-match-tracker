@@ -157,13 +157,26 @@ public class NotificationService {
       TrackedMatchEntity trackedMatch = outbox.getTrackedMatch();
       NotificationStatsSnapshot stats = notificationStatsService.buildFor(trackedMatch);
       String message = notificationMessageFactory.build(trackedMatch, stats);
-      TelegramDeliveryReceipt receipt;
-      if (deadlineNanos == Long.MAX_VALUE) {
-        receipt = telegramNotifier.send(message);
-      } else {
-        long timeoutNanos = Math.max(1L, remainingNanos);
-        receipt = telegramNotifier.send(message, java.time.Duration.ofNanos(timeoutNanos));
+
+      // Re‑check the deadline just before invoking Telegram. If the deadline
+      // has been exceeded during the expensive `buildFor` or `build` calls
+      // (which may consume a non‑trivial amount of time), skip the send
+      // entirely so we don't trigger a 1‑nanosecond timeout.
+      if (deadlineNanos != Long.MAX_VALUE) {
+        long remainingBeforeSend = deadlineNanos - System.nanoTime();
+        if (remainingBeforeSend <= 0L) {
+          log.debug("Skipping Telegram delivery for outbox {} due to deadline exceeded after preparation", outbox.getId());
+          return NotificationDispatchResult.empty();
+        }
+        long timeoutNanos = Math.max(1L, remainingBeforeSend);
+        TelegramDeliveryReceipt receipt = telegramNotifier.send(message, java.time.Duration.ofNanos(timeoutNanos));
+        Integer telegramMessageId = receipt == null ? null : receipt.messageId();
+        notificationDeliveryRecorder.recordSent(outbox, telegramMessageId);
+        recordOutboxDispatch("sent");
+        return new NotificationDispatchResult(1, 0);
       }
+
+      TelegramDeliveryReceipt receipt = telegramNotifier.send(message);
       Integer telegramMessageId = receipt == null ? null : receipt.messageId();
       notificationDeliveryRecorder.recordSent(outbox, telegramMessageId);
       recordOutboxDispatch("sent");
