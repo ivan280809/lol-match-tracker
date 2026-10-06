@@ -136,13 +136,30 @@ public class NotificationService {
 
   private NotificationDispatchResult dispatch(NotificationOutboxEntity outbox, long deadlineNanos) {
     notificationDeliveryRecorder.recordAttempt(outbox);
+    // Abort if the deadline has already elapsed.  This is critical for the
+    // out‑of‑band dispatcher – the caller might have requested a tight
+    // window to avoid blocking the polling cycle.  Returning an empty result
+    // keeps the outbox in its current state (PENDING/FAILED) and allows the
+    // dispatcher to move on to the next item without hanging.
+    if (deadlineNanos != Long.MAX_VALUE && deadlineNanos <= System.nanoTime()) {
+      log.debug("Skipping Telegram delivery for outbox {} due to expired deadline", outbox.getId());
+      return NotificationDispatchResult.empty();
+    }
     try {
       TrackedMatchEntity trackedMatch = outbox.getTrackedMatch();
       NotificationStatsSnapshot stats = notificationStatsService.buildFor(trackedMatch);
       String message = notificationMessageFactory.build(trackedMatch, stats);
-      TelegramDeliveryReceipt receipt = deadlineNanos == Long.MAX_VALUE
-          ? telegramNotifier.send(message)
-          : telegramNotifier.send(message, java.time.Duration.ofNanos(Math.max(1L, deadlineNanos - System.nanoTime())));
+      TelegramDeliveryReceipt receipt;
+      if (deadlineNanos == Long.MAX_VALUE) {
+        receipt = telegramNotifier.send(message);
+      } else {
+        long timeoutNanos = Math.max(1L, deadlineNanos - System.nanoTime());
+        if (timeoutNanos <= 0L) {
+          log.debug("Computed zero‑timeout for outbox {} – aborting send", outbox.getId());
+          return NotificationDispatchResult.empty();
+        }
+        receipt = telegramNotifier.send(message, java.time.Duration.ofNanos(timeoutNanos));
+      }
       Integer telegramMessageId = receipt == null ? null : receipt.messageId();
       notificationDeliveryRecorder.recordSent(outbox, telegramMessageId);
       recordOutboxDispatch("sent");
