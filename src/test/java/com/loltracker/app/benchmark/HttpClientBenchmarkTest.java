@@ -54,8 +54,24 @@ class HttpClientBenchmarkTest {
     server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
     port = server.getAddress().getPort();
     server.createContext("/benchmark", this::handleBenchmark);
-    server.createContext("/rate-limit", exchange -> respond(exchange, 429, "rate limited"));
-    server.createContext("/error", exchange -> respond(exchange, 503, "unavailable"));
+    // For rate limiting and error scenarios we need to increment the
+    // request counter and capture the remote port as the benchmark
+    // expects these requests to be recorded for both transport types.
+    // Handlers for error scenarios record headers similar to the benchmark
+    // endpoint so that the test can verify that tokens and regions are
+    // captured for every request, regardless of status code.
+    server.createContext("/rate-limit", exchange -> {
+      requestCount.incrementAndGet();
+      remotePorts.add(exchange.getRemoteAddress().getPort());
+      recordHeaders(exchange);
+      respond(exchange, 429, "rate limited");
+    });
+    server.createContext("/error", exchange -> {
+      requestCount.incrementAndGet();
+      remotePorts.add(exchange.getRemoteAddress().getPort());
+      recordHeaders(exchange);
+      respond(exchange, 503, "unavailable");
+    });
     server.createContext("/slow", exchange -> {
       // Increment counter so that tests can verify that the request actually
       // reached the server before timing out.
@@ -112,9 +128,17 @@ class HttpClientBenchmarkTest {
   void recordsRemoteErrorsAnd429UsingFictitiousConfigurationForBothTransports() {
     for (ClientHttpRequestFactory factory : List.of(
         simpleFactory(Duration.ofSeconds(2)), jdkFactory(Duration.ofSeconds(2)))) {
+      resetCounters();
       RestClient client = RestClient.builder().requestFactory(factory).build();
-      assertEquals(429, statusFor(client, "/rate-limit", "fake-token-1", "region-a"));
-      assertEquals(503, statusFor(client, "/error", "fake-token-2", "region-b"));
+      int rl = statusFor(client, "/rate-limit", "fake-token-1", "region-a");
+      assertEquals(429, rl, "Rate limited status should be 429");
+      int err = statusFor(client, "/error", "fake-token-2", "region-b");
+      assertEquals(503, err, "Error status should be 503");
+      // Verify that the server received each request and recorded ports.
+      assertEquals(2, requestCount.get(), "Server should have received two error requests");
+      assertTrue(remotePorts.size() > 0, "Remote ports should be captured for error requests");
+      assertEquals(2, tokens.size(), "Tokens should be recorded for each error request");
+      assertEquals(2, regions.size(), "Regions should be recorded for each error request");
     }
   }
 
@@ -196,6 +220,22 @@ class HttpClientBenchmarkTest {
     tokens.add(authorization.substring("Bearer ".length()));
     regions.add(region);
     respond(exchange, 200, "ok");
+  }
+
+  /**
+   * Extracts the {@code Authorization} and {@code X-Region} headers from the
+   * request and records them in the shared token/region sets.  The benchmark
+   * test asserts that these headers are captured for error responses as well.
+   */
+  private void recordHeaders(HttpExchange exchange) {
+    String authorization = exchange.getRequestHeaders().getFirst("Authorization");
+    String region = exchange.getRequestHeaders().getFirst("X-Region");
+    if (authorization != null) {
+      tokens.add(authorization);
+    }
+    if (region != null) {
+      regions.add(region);
+    }
   }
 
   private int statusFor(RestClient client, String path, String token, String region) {
