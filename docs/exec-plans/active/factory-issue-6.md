@@ -1,19 +1,18 @@
 # Issue #6: P3: Separar el despacho de Telegram del ciclo de polling
 
-El alcance aprobado está definido: el dispatcher programado ya desacopla la entrega de Telegram del polling en el monolito, y el plan preservado identifica la consolidación de pruebas como siguiente paso. No hace falta una decisión funcional adicional.
+El fallo de compilación está localizado en NotificationOutboxDispatcherService.java: se usa PlayerEntity sin importar su tipo. El plan aprobado ya cubre los criterios funcionales y las verificaciones pendientes; no se necesita una decisión adicional del propietario.
 
 ## Steps
 
-- Revisar el diff preservado y las pruebas relacionadas del dispatcher y la outbox.
-- Consolidar las pruebas unitarias para límites de mensajes y tiempo, reintentos, 429/backoff, pausa/reanudación y deduplicación; mantener la integración que demuestra polling terminado con Telegram lento y aviso aún pendiente.
-- Conservar lock, rate limit, configuración, métricas, filtros, manejo de errores y persistencia PostgreSQL existentes.
-- Ejecutar Maven verify con Docker y comprobar que no haya fallos, errores ni pruebas omitidas; verificar las métricas de duración del polling y antigüedad de notificaciones pendientes.
-- Solicitar revisión independiente completa gpt-6-luna low sobre el diff dentro del límite acordado de 120 KiB. No publicar PR si falla alguna comprobación o criterio.
+- En la siguiente fase de escritura, reparar el símbolo de compilación en NotificationOutboxDispatcherService.java sin alterar el alcance ni los cambios preservados.
+- Ejecutar Maven verify con Java 17 y PostgreSQL disponible; tratar pruebas omitidas como verificación incompleta.
+- Revisar lentitud y caída simuladas, límites por pasada, backoff/429, pausa y reanudación, deduplicación y persistencia de outbox; comprobar duración de polling y antigüedad de avisos pendientes.
+- Solicitar revisión independiente gpt-6-luna low sobre el diff completo hasta 120 KiB; no publicar PR si falla una comprobación o criterio.
 
 ## Acceptance
 
-- El polling termina aunque Telegram esté lento o caído y los avisos quedan persistidos en la outbox para reintento.
-- El dispatcher tiene límites por pasada, respeta el siguiente intento y 429/backoff, y conserva reintentos y deduplicación.
-- Las pruebas cubren lentitud, fallos, pausa y reanudación.
-- Se miden la duración del polling y la antigüedad de notificaciones pendientes.
-- Maven verify con PostgreSQL completa sin fallos, errores ni pruebas omitidas, y la revisión independiente queda completada.
+- El dispatcher programado procesa la outbox de forma independiente del polling, con límites de mensajes y tiempo y respeto de reintentos/backoff.
+- Con Telegram lento o caído, el polling termina y los avisos permanecen persistidos en outbox para reintento.
+- Persistencia, deduplicación y protecciones PostgreSQL se conservan; no se afirma entrega exactly-once.
+- Las métricas de duración de polling y antigüedad de notificaciones pendientes están disponibles.
+- Maven verify con PostgreSQL termina sin fallos, errores ni pruebas omitidas, y la revisión independiente queda completada.

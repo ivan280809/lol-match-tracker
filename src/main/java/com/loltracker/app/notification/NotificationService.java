@@ -6,8 +6,10 @@ import com.loltracker.app.match.TrackedMatchEntity;
 import com.loltracker.app.ops.OpsMetrics;
 import com.loltracker.app.player.PlayerEntity;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import com.loltracker.app.notification.NotificationDeliveryStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -136,16 +138,22 @@ public class NotificationService {
 
   private NotificationDispatchResult dispatch(NotificationOutboxEntity outbox, long deadlineNanos) {
     notificationDeliveryRecorder.recordAttempt(outbox);
-    // Abort if the deadline has already elapsed.  This is critical for the
-    // out‑of‑band dispatcher – the caller might have requested a tight
-    // window to avoid blocking the polling cycle.  Returning an empty result
-    // keeps the outbox in its current state (PENDING/FAILED) and allows the
-    // dispatcher to move on to the next item without hanging.
+    // Abort early if the deadline has already elapsed.  This check is done
+    // immediately after the attempt has been recorded, so that the caller
+    // can decide whether to keep the item pending or mark it failed.
     if (deadlineNanos != Long.MAX_VALUE && deadlineNanos <= System.nanoTime()) {
       log.debug("Skipping Telegram delivery for outbox {} due to expired deadline", outbox.getId());
       return NotificationDispatchResult.empty();
     }
     try {
+      // Determine the remaining time budget before any expensive operations.
+      long remainingNanos = deadlineNanos == Long.MAX_VALUE
+          ? Long.MAX_VALUE
+          : deadlineNanos - System.nanoTime();
+      if (remainingNanos <= 0L) {
+        log.debug("Skipping Telegram delivery for outbox {} due to no remaining time", outbox.getId());
+        return NotificationDispatchResult.empty();
+      }
       TrackedMatchEntity trackedMatch = outbox.getTrackedMatch();
       NotificationStatsSnapshot stats = notificationStatsService.buildFor(trackedMatch);
       String message = notificationMessageFactory.build(trackedMatch, stats);
@@ -153,11 +161,7 @@ public class NotificationService {
       if (deadlineNanos == Long.MAX_VALUE) {
         receipt = telegramNotifier.send(message);
       } else {
-        long timeoutNanos = Math.max(1L, deadlineNanos - System.nanoTime());
-        if (timeoutNanos <= 0L) {
-          log.debug("Computed zero‑timeout for outbox {} – aborting send", outbox.getId());
-          return NotificationDispatchResult.empty();
-        }
+        long timeoutNanos = Math.max(1L, remainingNanos);
         receipt = telegramNotifier.send(message, java.time.Duration.ofNanos(timeoutNanos));
       }
       Integer telegramMessageId = receipt == null ? null : receipt.messageId();
