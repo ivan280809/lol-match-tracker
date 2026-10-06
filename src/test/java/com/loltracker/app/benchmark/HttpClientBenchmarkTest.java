@@ -238,10 +238,13 @@ class HttpClientBenchmarkTest {
 
     long cpuAfter = processCpuNanos();
     long memoryAfter = heapUsed(memory);
+    // If either measurement is unsupported or the delta is negative, report -1.
+    long heapDelta = (memoryBefore < 0 || memoryAfter < 0 || memoryAfter < memoryBefore) ? -1
+            : memoryAfter - memoryBefore;
     return new Measurement(name, List.copyOf(statuses), List.copyOf(latenciesNanos),
         requestCount.get(), remotePorts.size(), tokens.size(), regions.size(),
         cpuBefore < 0 || cpuAfter < 0 ? -1 : cpuAfter - cpuBefore,
-        memoryBefore < 0 || memoryAfter < 0 ? -1 : memoryAfter - memoryBefore, elapsed);
+        heapDelta, elapsed);
   }
 
   private void handleBenchmark(HttpExchange exchange) throws IOException {
