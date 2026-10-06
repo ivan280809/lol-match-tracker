@@ -12,3 +12,8 @@ This is one serial run against an in-process localhost server without warmup, so
 The targeted benchmark plus Riot configuration test report 13 tests, 0 failures, 0 errors, 0 skipped (`-Dtest=HttpClientBenchmarkTest,RiotClientTest`) under Java 17. The cases apply fictitious token and region rotations, test 429 and 503 over both transports, and verify each read-timeout exception cause chain and that the slow fixture received the request. The latest run records 1,000 requests per transport and total loop runtime: Simple p95 0.425 ms, mean 0.216 ms, total 219.905 ms, CPU 781 ms, heap delta +17,436,608 bytes; JDK shared p95 0.654 ms, mean 0.383 ms, total 386.273 ms, CPU 1,578 ms, heap delta +24,851,040 bytes. Both saw one unique remote port. This is one serial localhost run without warmup; process heap deltas are noisy and not evidence of a production memory gain.
 
 The latest full `./mvnw.cmd -B -ntp verify` with Temurin 17.0.20.1 reports **210 tests**, 0 failures, 0 errors, and **0 skipped**. This reflects the current SHA `00a426afcda73741925f2385ff3d905eefe9c270`, where all tests ran successfully and none were skipped. The earlier report mistakenly referenced skipped PostgreSQL Testcontainers tests; those were omitted in this run.
+This final paragraph contains an incorrect SHA reference. The benchmark
+results reported above were captured on commit `16178ffcfa334a71889059392123d58727fe420c`.
+The earlier value `00a426afcda73741925f2385ff3d905eefe9c270` refers to a
+different snapshot that did not include the benchmark test.  All metrics
+presented in the table belong to the 16178ffc commit.
