@@ -107,16 +107,17 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
-            <!-- Align the Spring Boot plugin with the Spring Boot version managed
-                 by the parent pom.  The project inherits a Spring Boot BOM
-                 that provides version 3.5.3 for all Boot components.  Using a
-                 mismatched plugin version can lead to incompatible artifacts
-                 and subtle runtime failures.  Therefore we remove the hard
-                 coded version to let the parent BOM dictate the plugin
-                 version, which is currently 3.5.3. -->
+            <!-- Align the Spring Boot plugin with the Spring Boot parent version.
+                 The project uses the <parent> element with version 4.0.1.
+                 Explicitly setting the plugin version ensures that the
+                 repackage goal is executed with the same major version as
+                 the rest of the Spring Boot dependencies, preventing
+                 mismatches such as 4.0.1 repackage with older core
+                 components. -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>4.0.1</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
