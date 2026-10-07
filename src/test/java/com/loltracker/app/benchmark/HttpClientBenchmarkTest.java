@@ -34,6 +34,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 
 /** Reproducible local benchmark; it never calls Riot or Telegram. */
 class HttpClientBenchmarkTest {
