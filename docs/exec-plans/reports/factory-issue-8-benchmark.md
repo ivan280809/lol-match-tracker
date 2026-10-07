@@ -1,19 +1,16 @@
 # Issue #8 benchmark evidence
 
-Command: `./mvnw.cmd -B -ntp -Dtest=HttpClientBenchmarkTest test` under Java 17. The localhost fixture verified exactly 1,000 requests for each transport, 1,000 distinct fictitious authorization values, and three rotating fictitious regions.
+Measured run: `2026-10-07-queue-recovery-benchmark`, Java Temurin 17.0.20.1.
+Command: `./mvnw.cmd -B -ntp -Dtest=HttpClientBenchmarkTest,RiotClientTest test`.
+Result: **13 tests, 0 failures, 0 errors, 0 skipped**.
 
-| Transport | Requests | p95 | Mean | Total elapsed | Unique remote ports | Process CPU | Heap delta |
+The companion [measurement manifest](factory-issue-8-benchmark.json) records the observed output, command, timestamp, source hashes and raw-log hash. These are measurements of that source snapshot, not claims about a future commit SHA. The supervisor records full-suite verification separately on the delivered commit.
+
+| Transport | Requests | p95 ms | Mean ms | Elapsed ms | Remote ports | CPU ms | Heap delta bytes |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Existing `SimpleClientHttpRequestFactory` | 1,000 | 0.425 ms | 0.216 ms | 219.905 ms | 1 | 781 ms | +17,436,608 bytes |
-| JDK `HttpClient` via `JdkClientHttpRequestFactory` | 1,000 | 0.654 ms | 0.383 ms | 386.273 ms | 1 | 1,578 ms | +24,851,040 bytes |
+| simple | 1000 | 0.462 | 0.222 | 226.115 | 1 | 703 | 17379144 |
+| jdk-shared | 1000 | 0.679 | 0.396 | 399.123 | 1 | 1875 | -1 |
 
-This is one serial run against an in-process localhost server without warmup, so it is directional evidence rather than a production load result. Both transports reused one observed client port. The shared JDK transport did not improve p95, mean latency, or process CPU, so production remains on the existing transport. Port counts are a connection-reuse proxy, not packet-level handshake measurements. Java 17 `HttpClient` has no explicit close method; the fixture server and executor are stopped after each test. The timeout test uses a delayed local endpoint. Heap delta is a before/after process snapshot and is sensitive to garbage collection.
+Each transport sent 1,000 serial requests to an in-process localhost server with fictitious rotating authorization and region values. Both reused one observed remote port. Port counts are a connection-reuse proxy, not packet-level handshake counts. Tests also exercise HTTP 429/503 and delayed responses without calling Riot or Telegram.
 
-The targeted benchmark plus Riot configuration test report 13 tests, 0 failures, 0 errors, 0 skipped (`-Dtest=HttpClientBenchmarkTest,RiotClientTest`) under Java 17. The cases apply fictitious token and region rotations, test 429 and 503 over both transports, and verify each read-timeout exception cause chain and that the slow fixture received the request. The latest run records 1,000 requests per transport and total loop runtime: Simple p95 0.425 ms, mean 0.216 ms, total 219.905 ms, CPU 781 ms, heap delta +17,436,608 bytes; JDK shared p95 0.654 ms, mean 0.383 ms, total 386.273 ms, CPU 1,578 ms, heap delta +24,851,040 bytes. Both saw one unique remote port. This is one serial localhost run without warmup; process heap deltas are noisy and not evidence of a production memory gain.
-
-The latest full `./mvnw.cmd -B -ntp verify` with Temurin 17.0.20.1 reports **210 tests**, 0 failures, 0 errors, and **0 skipped**. This reflects the current SHA `00a426afcda73741925f2385ff3d905eefe9c270`, where all tests ran successfully and none were skipped. The earlier report mistakenly referenced skipped PostgreSQL Testcontainers tests; those were omitted in this run.
-This final paragraph contains an incorrect SHA reference. The benchmark
-results reported above were captured on commit `16178ffcfa334a71889059392123d58727fe420c`.
-The earlier value `00a426afcda73741925f2385ff3d905eefe9c270` refers to a
-different snapshot that did not include the benchmark test.  All metrics
-presented in the table belong to the 16178ffc commit.
+This single run has no warmup and is not a production load measurement. The JDK transport had higher p95, mean and process CPU in this run, so production retains the existing transport. Heap measurements are sensitive to garbage collection; `-1` denotes an unavailable delta, not a one-byte reduction. The server and its executor are stopped after each test; Java 17 HttpClient has no explicit close method.
