@@ -231,3 +231,9 @@ APP_DASHBOARD_GUARD_PASSWORD=un-password-largo
 ```
 
 La ruta `/actuator/health` queda abierta para Docker, Compose y el workflow de despliegue.
+
+## Reproducible Maven build
+
+The project uses the Maven Wrapper and does not require a globally installed Maven. The wrapper downloads Maven 3.10.0 from Maven Central and validates the distribution with the SHA-256 value in `.mvn/wrapper/maven-wrapper.properties`. Run `./mvnw -B -ntp verify` on Unix or `mvnw.cmd -B -ntp verify` on Windows.
+
+To update Maven reproducibly, select a released Maven 3.x version from the Apache Maven release history, download its `-bin.zip` from Maven Central, verify the archive against the published SHA-512 sidecar, calculate the archive's SHA-256, and update `distributionUrl` and `distributionSha256Sum` together. Keep the checked-in wrapper scripts and `wrapperVersion` aligned with a stable Maven Wrapper release. The build uses Java 17; newer JDKs may run Maven, but changing the project's Java target is a separate upgrade.

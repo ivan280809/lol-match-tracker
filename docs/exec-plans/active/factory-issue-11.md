@@ -1,17 +1,17 @@
 # Issue #11: Actualizar Maven Wrapper y plugins de build
 
-Issue #11 is sufficiently defined for the authorized local implementation phase. The previous 404 comes from an extra `maven/` segment in the distribution URL: it should use `https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.10.13/apache-maven-3.10.13-bin.zip`. The checked-in wrapper scripts are 3.3.6 and support SHA-256 verification. Keep the work to the wrapper, build plugins, and build documentation; do not change application dependencies or service code. Verification and any PR remain contingent on the prescribed wrapper build succeeding.
+El problema del 404 ya está diagnosticado: la URL y las versiones 3.10.13/3.3.12 del plan no existen. El worktree contiene la URL válida de Maven 3.10.0, el wrapper 3.3.4 y un SHA-256 verificado; también consta una verificación completa satisfactoria con caché limpia. El POM ya fija compiler 3.16.0 y surefire 3.6.0; el plugin Spring Boot hereda su versión del parent 4.0.1. Puede continuar la fase de implementación autorizada para revisar el estado actual, reparar solo lo necesario dentro del alcance y ejecutar la verificación solicitada.
 
 ## Steps
 
-- Correct the Maven 3.10.13 distribution URL and add its verified SHA-256 checksum to `.mvn/wrapper/maven-wrapper.properties`.
-- Review the effective Maven plugin versions from the project POM and Spring Boot parent; update only build plugin versions that need maintenance, keeping application dependency versions unchanged.
-- Document reproducible wrapper updates and Java/Maven compatibility in build documentation.
-- Run `./mvnw.cmd -B -ntp verify` with Java 17 from the checkout and record the result; do not open a PR unless verification is green.
+- Conservar los cambios existentes y comprobar la configuración actual del wrapper, del POM y de la documentación de build; no aplicar las versiones inexistentes del plan protegido.
+- Revisar si los plugins efectivamente usados están fijados de forma reproducible y si la versión heredada del plugin Spring Boot corresponde al parent 4.0.1; ajustar solo si la revisión identifica una necesidad concreta dentro del issue.
+- Documentar cómo actualizar el wrapper de forma reproducible, incluyendo checksum y compatibilidad Maven 3.x/Java 17.
+- Ejecutar `./mvnw.cmd -B -ntp verify` desde el checkout con caché limpia y sin usar Maven global; registrar el resultado para revisión independiente.
 
 ## Acceptance
 
-- The wrapper downloads stable Maven 3.x from a valid URL and validates its SHA-256 checksum.
-- Effectively used build plugins have suitable maintained versions explicitly pinned where appropriate.
-- Build documentation explains reproducible wrapper updates and compatibility.
-- Wrapper verification succeeds with Java 17 without requiring globally installed Maven; changes stay within wrapper, build plugins, and build documentation.
+- La configuración descarga Maven 3.10.0 desde la URL oficial correcta y verifica su SHA-256 conocido.
+- Los plugins usados tienen versiones mantenidas fijadas o heredadas explícitamente de manera comprobable; no se modifican dependencias de aplicación ni código funcional.
+- La documentación describe el procedimiento reproducible de actualización del wrapper.
+- La verificación del wrapper concluye satisfactoriamente desde caché limpia; sin resultado verde, no abrir PR.
