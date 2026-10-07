@@ -96,6 +96,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.16.0</version>
                 <configuration>
                     <annotationProcessorPaths>
                         <path>
@@ -106,13 +107,22 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+            <!-- Align the Spring Boot plugin with the Spring Boot parent version.
+                 The project uses the <parent> element with version 4.0.1.
+                 Explicitly setting the plugin version ensures that the
+                 repackage goal is executed with the same major version as
+                 the rest of the Spring Boot dependencies, preventing
+                 mismatches such as 4.0.1 repackage with older core
+                 components. -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>4.0.1</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.6.0</version>
                 <configuration>
                     <argLine>-Dnet.bytebuddy.experimental=true</argLine>
                 </configuration>
