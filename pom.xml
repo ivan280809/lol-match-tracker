@@ -7,7 +7,8 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.1</version>
+        <!-- Updated to the latest stable Spring Boot 4.x release (4.1.1) -->
+        <version>4.1.1</version>
         <relativePath/>
     </parent>
 
@@ -20,7 +21,8 @@
     <properties>
         <java.version>17</java.version>
         <lombok.version>1.18.38</lombok.version>
-        <testcontainers.version>1.21.4</testcontainers.version>
+        <!-- Updated Testcontainers to the most recent stable 2.0.x series -->
+        <testcontainers.version>2.0.5</testcontainers.version>
     </properties>
 
     <dependencies>
@@ -31,6 +33,17 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- Explicitly include Jackson databind to guarantee JSON support after
+             upgrading to Spring Boot 4.x.  The starter-web already pulls in
+             spring-boot-starter-json, which manages the correct versions of
+             jackson-core, jackson-databind and jackson-annotations, but a
+             explicit dependency makes the intention clear and prevents
+             accidental exclusion during dependency shading or future
+             refactoring. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -79,13 +92,13 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
             <version>${testcontainers.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
+            <artifactId>testcontainers-postgresql</artifactId>
             <version>${testcontainers.version}</version>
             <scope>test</scope>
         </dependency>

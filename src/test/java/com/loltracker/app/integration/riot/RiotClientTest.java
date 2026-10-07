@@ -33,7 +33,11 @@ import org.springframework.http.MediaType;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
-import tools.jackson.databind.ObjectMapper;
+// The test originally used the pre‑Spring Boot 4.0 `tools.jackson` package, which has
+// been removed in the newer Spring Boot BOM.  The Jackson core library is now
+// provided via the standard `com.fasterxml.jackson` package.  Updating the import
+// restores compatibility with the upgraded Spring Boot stack.
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 class RiotClientTest {
 
