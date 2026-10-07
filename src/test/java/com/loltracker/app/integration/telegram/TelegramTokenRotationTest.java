@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.loltracker.app.settings.AppConfigurationService;
@@ -43,14 +44,16 @@ class TelegramTokenRotationTest {
     TelegramNotifier notifier = new TelegramNotifier(restClientBuilder, configService,
         new ObjectMapper(), opsMetrics);
 
-    // Expect first request with token-a and chat-a
+    // Expect first request with token-a and chat-a. Verify that the body contains the correct chat_id.
     server.expect(requestTo("https://api.telegram.org/bottoken-a/sendMessage"))
         .andExpect(method(HttpMethod.POST))
+        .andExpect(content().json("{\"chat_id\":\"chat-a\",\"text\":\"Hello 1\",\"parse_mode\":\"HTML\"}"))
         .andRespond(withSuccess("{\"ok\":true,\"result\":{\"message_id\":123}}", MediaType.APPLICATION_JSON));
 
-    // Expect second request with token-b and chat-b
+    // Expect second request with token-b and chat-b. Verify that the body contains the correct chat_id.
     server.expect(requestTo("https://api.telegram.org/bottoken-b/sendMessage"))
         .andExpect(method(HttpMethod.POST))
+        .andExpect(content().json("{\"chat_id\":\"chat-b\",\"text\":\"Hello 2\",\"parse_mode\":\"HTML\"}"))
         .andRespond(withSuccess("{\"ok\":true,\"result\":{\"message_id\":123}}", MediaType.APPLICATION_JSON));
 
     // Act & Assert
