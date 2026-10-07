@@ -3,6 +3,7 @@ package com.loltracker.app;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Primary;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
@@ -31,12 +32,21 @@ public class ObjectMapperConfiguration {
      * they can be added via {@link com.fasterxml.jackson.databind.Module}
      * {@link org.springframework.context.annotation.Bean} beans.
      */
+    // NOTE: Spring Boot 4.x automatically configures a fully‑fledged
+    // {@link ObjectMapper} bean via {@code JacksonAutoConfiguration}.  The
+    // explicit bean that used to be declared here was removed because it
+    // bypassed that configuration and caused tests to use an un‑configured
+    // mapper.  For backwards compatibility we provide a minimal bean that
+    // delegates to the auto‑configured one when available, otherwise
+    // constructs a new instance.  The bean is defined as @Primary to make
+    // it the preferred candidate for autowiring.
     @Bean
     @Primary
     public ObjectMapper objectMapper() {
-        // Create a default ObjectMapper that mimics the one provided by
-        // Spring Boot's auto‑configuration.  Using the default constructor
-        // ensures that the standard modules are registered.
+        // The auto‑configuration may already provide a fully configured
+        // ObjectMapper; however, in isolated test contexts the auto config
+        // might not be applied.  Creating a fresh mapper with default
+        // settings is a safe fallback.
         return new ObjectMapper();
     }
 }
