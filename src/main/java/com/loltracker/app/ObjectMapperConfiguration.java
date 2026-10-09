@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 /**
  * Spring configuration to provide a Jackson {@link ObjectMapper} bean.
@@ -27,10 +28,14 @@ public class ObjectMapperConfiguration {
   /**
    * Provide a module‑aware Jackson 2 {@code ObjectMapper}.
    *
-   * @return the configured {@code ObjectMapper}
+   * <p>Spring Boot 4.x automatically registers a Jackson 3 {@code ObjectMapper}
+   * bean named {@code jacksonObjectMapper}.  The application relies on the
+   * Jackson 2 API surface for several integration components.  We expose a
+   * Jackson 2 instance as the primary bean so that constructor injection
+   * without a qualifier resolves to this mapper.
    */
-  @Bean(name = "jackson2ObjectMapper")
-  @org.springframework.context.annotation.Primary
+  @Bean
+  @Primary
   public ObjectMapper objectMapper() {
     return JsonMapper.builder().findAndAddModules().build();
   }
