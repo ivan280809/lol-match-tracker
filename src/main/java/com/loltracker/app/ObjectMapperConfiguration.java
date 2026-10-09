@@ -25,7 +25,8 @@ public class ObjectMapperConfiguration {
    *
    * @return a configured ObjectMapper instance
    */
-  @Bean
+  @Bean(name = "jackson2ObjectMapper")
+  @org.springframework.context.annotation.Primary
   public ObjectMapper objectMapper() {
     return JsonMapper.builder().findAndAddModules().build();
   }
