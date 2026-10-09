@@ -17,3 +17,7 @@ Repair the Spring Boot 4.1.1 migration's missing Jackson ObjectMapper bean in th
 - Spring Boot-managed dependency versions are retained unless an explicit compatibility justification is documented; no preview releases are used.
 - ./mvnw.cmd -B -ntp verify passes on Java 17, with PostgreSQL test coverage reported accurately if Docker is unavailable.
 - Documentation records relevant dependency versions and any required migration changes; Maven Wrapper and Maven plugins remain unchanged.
+
+## Operator diagnosis 2026-10-09
+
+Read src/main/java/com/loltracker/app/ObjectMapperConfiguration.java, which currently contains only comments, and the ObjectMapper injection types in RiotClient and TelegramNotifier. Fresh PersistenceIntegrationTest fails because no com.fasterxml.jackson.databind.ObjectMapper bean exists. Add a real @Configuration in package com.loltracker.app (within component scan) providing an explicitly named @Bean of that exact Jackson 2 type, using com.fasterxml.jackson.databind.json.JsonMapper.builder().findAndAddModules().build() or an equivalent module-aware Jackson 2 mapper. Keep the Boot Jackson 3 mapper distinct; do not remove this compatibility bean on the assumption Boot creates a Jackson 2 bean, and do not pass tools.jackson instances to com.fasterxml constructors. Add a focused context/serialization regression if needed. Preserve current BOM-managed upgrade and never touch unreadable AppConfigurationService.java. Inspect new verification failures and fix the actual next cause; do not downgrade dependencies or disable tests to hide it.

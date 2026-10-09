@@ -5,9 +5,9 @@ This document records the source and target versions of the key Java stack compo
 | Component | Original version | Updated version | Notes |
 |-----------|------------------|-----------------|-------|
 | **Spring Boot** | 4.0.1 | 4.1.1 | Updated BOM to the latest 4.x release. The BOM now manages all core Spring dependencies. |
-| **Lombok** | 1.18.38 | 1.18.38 | Pin retained to preserve API compatibility; no breaking changes in this version. |
+| **Lombok** | 1.18.38 | 1.18.38 | Removed explicit pin; Spring Boot 4.1.1 BOM manages Lombok version compatible with Java 17. |
 | **Testcontainers** | 1.21.4 | 2.0.5 | The 2.x series introduced a stable release that provides better integration with JDK 17+. No API changes required. |
-| **Jackson** | implicit from Spring Boot 4.0.1 | 2.15.4 | Updated via Spring Boot BOM. The `tools.jackson` package used in legacy Spring Boot 4.0 was removed; all code now imports from `com.fasterxml.jackson`. |
+| **Jackson** | implicit from Spring Boot 4.0.1 | 2.15.4 | Updated via Spring Boot BOM. The legacy `org.springframework.boot.tools.jackson` package is no longer used; all code imports from `com.fasterxml.jackson`. |
 | **Hibernate ORM** | managed by Spring Boot 4.0.1 | managed by Spring Boot 4.1.1 | No explicit pin; updated via BOM. |
 | **Spring Data JPA** | managed by Spring Boot 4.0.1 | managed by Spring Boot 4.1.1 | No explicit pin; updated via BOM. |
 | **Flyway** | 9.x (implicit via Spring Boot) | 10.x (via BOM) | Updated to 10.12.0 automatically. |
