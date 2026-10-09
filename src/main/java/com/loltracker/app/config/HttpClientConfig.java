@@ -16,13 +16,23 @@ public class HttpClientConfig {
     return RestClient.builder().requestFactory(requestFactory);
   }
 
+  /**
+   * Create a {@link ClientHttpRequestFactory} using simple HTTP connections.
+   *
+   * <p>The configuration properties use a {@code Duration} format.  Spring
+   * will resolve the placeholders and convert them to {@link Duration}
+   * instances automatically.  If a property is missing a sane default of
+   * {@code PT10S} is used.
+   */
   @Bean
   public ClientHttpRequestFactory clientHttpRequestFactory(
-      @Value("${app.http.connect-timeout:${app.http.timeout:PT10S}}") Duration connectTimeout,
+      @Value("${app.http.connect-timeout:PT10S}") Duration connectTimeout,
       @Value("${app.http.timeout:PT10S}") Duration readTimeout) {
     SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-    requestFactory.setConnectTimeout(connectTimeout);
-    requestFactory.setReadTimeout(readTimeout);
+    // The setter methods expect milliseconds; convert the {@code Duration}
+    // values explicitly to avoid compile‑time type errors.
+    requestFactory.setConnectTimeout((int) connectTimeout.toMillis());
+    requestFactory.setReadTimeout((int) readTimeout.toMillis());
     return requestFactory;
   }
 }

@@ -107,15 +107,16 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <!--
-                 * Lombok is an optional dependency; the Spring Boot parent
-                 * POM already brings in the correct Lombok artifact.  The
-                 * previous configuration referenced an undefined property
-                 * ${lombok.version} which caused a build failure.
-                 * Removing the annotationProcessorPaths section eliminates the
-                 * dependency on that property while still allowing Lombok
-                 * annotation processing via the optional dependency.
-                 -->
+                <version>3.16.0</version>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
@@ -124,6 +125,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.6.0</version>
                 <configuration>
                     <argLine>-Dnet.bytebuddy.experimental=true</argLine>
                 </configuration>

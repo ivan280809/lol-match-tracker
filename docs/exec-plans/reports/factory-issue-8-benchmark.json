@@ -1,0 +1,41 @@
+{
+  "run": "2026-10-07-queue-recovery-benchmark",
+  "at": "2026-10-07T10:59:01.894033+00:00",
+  "command": "./mvnw.cmd -B -ntp -Dtest=HttpClientBenchmarkTest,RiotClientTest test",
+  "java": "Temurin 17.0.20.1",
+  "tests": 13,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "log_sha256": "83cbc83d0d2efeee1f676a7d5f11f532243661d0006b06e61dfb5d80a18d8c66",
+  "source_sha256": {
+    "src/test/java/com/loltracker/app/benchmark/HttpClientBenchmarkTest.java": "c68fbd79b18475ba700343150ade1a8103b98009d0f254104dd95ff77dfe62f8",
+    "src/test/java/com/loltracker/app/integration/riot/RiotClientTest.java": "9041a93c686f041f99a52f8a469597453716673dac502a79b859060ce44ae8e9",
+    "src/main/java/com/loltracker/app/integration/riot/RiotClient.java": "d5df494cf3dd0c6b6a6aa4a72db7b6ec173970cb0092b91d631c2ca2e0c38eff",
+    "pom.xml": "4cd2170b876c3c99e531b03e0b8f0ca3b23eb0dc4394d22aca4499a1d8b930ac"
+  },
+  "measurements": [
+    {
+      "name": "simple",
+      "requests": "1000",
+      "server_requests": "1000",
+      "p95_ms": "0.462",
+      "mean_ms": "0.222",
+      "elapsed_ms": "226.115",
+      "unique_remote_ports": "1",
+      "process_cpu_ms": "703",
+      "heap_delta_bytes": "17379144"
+    },
+    {
+      "name": "jdk-shared",
+      "requests": "1000",
+      "server_requests": "1000",
+      "p95_ms": "0.679",
+      "mean_ms": "0.396",
+      "elapsed_ms": "399.123",
+      "unique_remote_ports": "1",
+      "process_cpu_ms": "1875",
+      "heap_delta_bytes": "-1"
+    }
+  ]
+}
