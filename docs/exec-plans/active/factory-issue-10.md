@@ -1,23 +1,18 @@
 # Issue #10: Actualizar Spring Boot y dependencias Java gestionadas por el proyecto
 
-Repair the Spring Boot 4.1.1 migration's missing Jackson ObjectMapper bean in the local writer phase. The startup failure points to RiotClient injection; the dependency entry for jackson-databind alone does not supply Spring Boot's Jackson auto-configuration. Preserve the approved dependency migration and MVC/JPA design.
+Repair the dependency migration documentation and remove the redundant Lombok version override. Preserve the approved Spring Boot 4.1.1 / Testcontainers 2.0.5 upgrade and the Jackson 2 compatibility bean. No owner decision is needed.
 
 ## Steps
 
-- Inspect src/main/java/com/loltracker/app/config and the application/test configuration for existing Jackson or MVC auto-configuration exclusions; use the provided file map and relevant source only.
-- Restore Boot-managed Jackson auto-configuration for the application's MVC stack, preferably by relying on spring-boot-starter-web's JSON starter and removing redundant direct jackson-databind declaration if it is not otherwise justified. If source configuration excludes that auto-configuration, remove or correct the exclusion rather than constructing an unmanaged ObjectMapper.
-- Inspect the RiotClient and related context-loading tests, including src/test/resources/application.properties and any test configuration, to confirm the bean is available in production and tests without adding behavior-specific test workarounds.
-- Run ./mvnw.cmd -B -ntp verify on Java 17, including the full suite and PostgreSQL tests where Docker is available; address only migration-related compatibility failures within the approved issue.
-- Document relevant source and destination dependency versions, any incompatible API changes, and verification outcomes in project documentation. Leave Maven Wrapper and Maven plugins unchanged.
+- In pom.xml, remove the lombok.version property and the Lombok dependency version; remove the matching version from the Lombok annotationProcessorPaths entry so both use Spring Boot's dependency management.
+- Keep the explicit Jackson 2 jackson-databind dependency and the named Jackson 2 compatibility bean. Update docs/DEPENDENCY-MIGRATION.md to distinguish com.fasterxml.jackson (Jackson 2) from tools.jackson (Boot's Jackson 3), describe why the compatibility bean remains, and report resolved versions for both.
+- Replace estimated or contradictory dependency entries in docs/DEPENDENCY-MIGRATION.md with source and target versions resolved from the original and upgraded builds. Cover relevant used components, including Hibernate ORM, Spring Framework, Spring Data JPA, Flyway modules, PostgreSQL JDBC, Lombok, Testcontainers and H2; identify BOM-managed components and explicit overrides accurately.
+- Do not modify the protected execution plan, AppConfigurationService.java, Maven Wrapper, or Maven plugin versions. Preserve MVC/JPA and the existing compatibility configuration.
+- The supervisor runs ./mvnw.cmd -B -ntp verify. Review any failures and provide a focused repair for the actual cause without downgrading dependencies or disabling tests.
 
 ## Acceptance
 
-- Spring application contexts start with a Boot-configured com.fasterxml.jackson.databind.ObjectMapper injectable into RiotClient.
-- The existing Riot client JSON parsing and MVC/JPA behavior remain intact; no reactive stack is introduced.
-- Spring Boot-managed dependency versions are retained unless an explicit compatibility justification is documented; no preview releases are used.
-- ./mvnw.cmd -B -ntp verify passes on Java 17, with PostgreSQL test coverage reported accurately if Docker is unavailable.
-- Documentation records relevant dependency versions and any required migration changes; Maven Wrapper and Maven plugins remain unchanged.
-
-## Operator diagnosis 2026-10-09
-
-Read src/main/java/com/loltracker/app/ObjectMapperConfiguration.java, which currently contains only comments, and the ObjectMapper injection types in RiotClient and TelegramNotifier. Fresh PersistenceIntegrationTest fails because no com.fasterxml.jackson.databind.ObjectMapper bean exists. Add a real @Configuration in package com.loltracker.app (within component scan) providing an explicitly named @Bean of that exact Jackson 2 type, using com.fasterxml.jackson.databind.json.JsonMapper.builder().findAndAddModules().build() or an equivalent module-aware Jackson 2 mapper. Keep the Boot Jackson 3 mapper distinct; do not remove this compatibility bean on the assumption Boot creates a Jackson 2 bean, and do not pass tools.jackson instances to com.fasterxml constructors. Add a focused context/serialization regression if needed. Preserve current BOM-managed upgrade and never touch unreadable AppConfigurationService.java. Inspect new verification failures and fix the actual next cause; do not downgrade dependencies or disable tests to hide it.
+- Lombok resolves through the Spring Boot BOM without a redundant property or dependency/processor pin, unless the writer finds and documents a concrete compatibility requirement.
+- Migration documentation records verifiable original and target resolved versions, identifies BOM-managed versus explicitly versioned dependencies, and accurately describes both Jackson packages and the Jackson 2 bean.
+- Spring MVC/JPA behavior remains intact; no preview releases or reactive stack are introduced.
+- The supervisor's full verify result is recorded, with any unresolved failure reported by its actual cause.
