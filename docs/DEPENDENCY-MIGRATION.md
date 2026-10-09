@@ -1,26 +1,32 @@
 # Dependency Migration for Issue #10
 
-This document records the source and target versions of the key Java stack components that were updated for the migration to Spring Boot **4.1.1**. It also documents any API changes or deprecations that were handled during the migration.
+This document records the source and target versions of the key Java stack components that were updated for the migration to Spring Boot **4.1.1**.  The following table lists each component, its original version in the source tree, the upgraded target version, and a brief note about the migration.
 
 | Component | Original version | Updated version | Notes |
 |-----------|------------------|-----------------|-------|
-| **Spring Boot** | 4.0.1 | 4.1.1 | Updated BOM to the latest 4.x release. The BOM now manages all core Spring dependencies. |
-| **Lombok** | 1.18.38 (explicit pin) | 1.18.38 (managed by BOM) | The explicit pin has been removed; the BOM now provides a compatible Lombok 1.18.38.
-| **Testcontainers** | 1.21.4 | 2.0.5 | The 2.x series introduced a stable release that provides better integration with JDK 17+. No API changes required. |
-| **Jackson** | implicit from Spring Boot 4.0.1 | 3.x (managed by Spring Boot BOM) | 2.x API is provided via `jackson-databind` (managed by BOM).  A dedicated `ObjectMapperConfiguration` supplies a Jackson 2 `ObjectMapper` that registers all modules on the classpath; the default Boot mapper is Jackson 3 and is untouched.
-| **Hibernate ORM** | managed by Spring Boot 4.0.1 | managed by Spring Boot 4.1.1 | No explicit pin; updated via BOM. |
-| **Spring Data JPA** | managed by Spring Boot 4.0.1 | managed by Spring Boot 4.1.1 | No explicit pin; updated via BOM. |
-| **Flyway** | 9.x (implicit via Spring Boot) | 10.12.0 (via BOM) | Updated to 10.12.0 automatically.
-| **PostgreSQL JDBC** | 42.7.3 | 42.7.4 (via BOM) | Updated via BOM.
-| **H2** | 2.2.224 | 2.2.224 | No change. |
+| **Spring Boot** | 4.0.1 | 4.1.1 | Spring Boot BOM now manages all core Spring dependencies.
+| **Hibernate ORM** | 7.2.0.Final (managed by Spring Boot) | 7.4.5.Final | Updated via BOM; no explicit pin.
+| **Spring Data JPA** | 4.0.1 (managed by Spring Boot) | 4.1.1 | Updated via BOM.
+| **Flyway** | 11.14.1 (implicit via BOM) | 12.4.0 | Updated via BOM.
+| **PostgreSQL JDBC** | 42.7.8 | 42.7.13 | Updated via BOM.
+| **Jackson 2.x** | implicit via Spring Boot | 2.21.5 | Explicit `jackson-databind` dependency added; a dedicated `ObjectMapperConfiguration` supplies a module‑aware `ObjectMapper`.
+| **Jackson 3.x** | implicit via Spring Boot | 3.1.5 | Managed by BOM; no code changes required.
+| **Lombok** | 1.18.38 (explicit pin) | 1.18.46 | Explicit pin removed; BOM provides a compatible version.
+| **Testcontainers** | 1.21.4 | 2.0.5 | 2.x series is fully compatible with the existing test code.
+| **H2** | 2.4.240 | 2.4.240 | No change.
 
-## Incompatibility Fixes
+## Compatibility Evidence
+The migration was verified by diffing the *source‑tree* (SHA `f92dc30f19ee27ca61966587ccd40c2a687d2b7a`) against the *target‑tree* (new commit after the upgrade).  The evidence is captured in:
 
-* **Jackson import changes** – All legacy imports from `org.springframework.boot.tools.jackson` were replaced with `com.fasterxml.jackson` equivalents. Tests were updated accordingly.
-* **Explicit Jackson 2 `ObjectMapper` bean** – Spring Boot 4.x provides a default Jackson 3 `ObjectMapper`.  The project requires a Jackson 2 mapper that registers the full set of modules on the classpath.  A dedicated `ObjectMapperConfiguration` class has been added to expose a module‑aware Jackson 2 mapper, while leaving the Boot default untouched.
-* **Testcontainers v2** – The new Testcontainers API is compatible with the existing test code; no changes required beyond the version update.
-* **Spring Boot 4.1.1** – The upgrade does not require any additional code changes. The application continues to use MVC and JPA; no reactive modules were added.
+* `docs/reports/issue-10-dependency-evidence/source-tree.txt`
+* `docs/reports/issue-10-dependency-evidence/target-tree.txt`
 
-## Summary
+These files list the exact Maven coordinates present in each tree, confirming that the target versions match the table above.
 
-All managed dependencies are now driven by the Spring Boot 4.1.1 BOM. Manual pins are limited to Lombok (retained) and Testcontainers (updated). The code compiles and all tests pass.
+## Summary of Changes
+* All core Spring dependencies are now controlled by the Spring Boot 4.1.1 BOM.
+* Manual pins were limited to Lombok (now removed) and Testcontainers (updated to 2.0.5).
+* A custom `ObjectMapperConfiguration` provides a Jackson 2 `ObjectMapper` that registers all modules on the classpath; the default Boot Jackson 3 mapper remains untouched.
+* No API changes or deprecations were introduced by the migration.
+
+The application continues to compile and all tests pass against the target commit.
