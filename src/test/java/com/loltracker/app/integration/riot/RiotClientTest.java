@@ -33,7 +33,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 class RiotClientTest {
 
@@ -87,6 +87,24 @@ class RiotClientTest {
 
     assertEquals(RiotErrorCategory.RATE_LIMIT, exception.category());
     assertEquals(Duration.ofSeconds(7), exception.retryAfter());
+    server.verify();
+  }
+
+  @Test
+  void appliesRotatedFictitiousTokenAndRegionOnTheNextRequest() {
+    when(appConfigurationService.getRuntimeConfiguration())
+        .thenReturn(new RuntimeAppConfiguration("fake-token-a", RiotRegion.EUROPE, "", ""))
+        .thenReturn(new RuntimeAppConfiguration("fake-token-b", RiotRegion.AMERICAS, "", ""));
+    String endpoint = "/riot/account/v1/accounts/by-riot-id/Player/Tag";
+    server.expect(once(), requestTo("https://europe.api.riotgames.com" + endpoint))
+        .andExpect(header("X-Riot-Token", "fake-token-a"))
+        .andRespond(withSuccess("{\"puuid\":\"fixture-a\"}", MediaType.APPLICATION_JSON));
+    server.expect(once(), requestTo("https://americas.api.riotgames.com" + endpoint))
+        .andExpect(header("X-Riot-Token", "fake-token-b"))
+        .andRespond(withSuccess("{\"puuid\":\"fixture-b\"}", MediaType.APPLICATION_JSON));
+
+    assertEquals("fixture-a", riotClient.fetchAccount("Player", "Tag").puuid());
+    assertEquals("fixture-b", riotClient.fetchAccount("Player", "Tag").puuid());
     server.verify();
   }
 

@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.loltracker.app.match.TrackedMatchService;
 import com.loltracker.app.match.PlayerRecentStatsView;
+import com.loltracker.app.ops.DashboardFilter;
 import com.loltracker.app.notification.NotificationService;
 import com.loltracker.app.player.PlayerForm;
 import com.loltracker.app.player.PlayerService;
@@ -27,6 +28,11 @@ import com.loltracker.app.settings.AppConfigurationView;
 import com.loltracker.app.settings.RiotRegion;
 import com.loltracker.app.tracking.PollSummary;
 import com.loltracker.app.tracking.PollingService;
+import com.loltracker.app.ops.OpsHealthService;
+import com.loltracker.app.ops.IntegrationOperationsService;
+import com.loltracker.app.ops.AuditService;
+import com.loltracker.app.ops.RosterQueryService;
+import com.loltracker.app.ops.PlayerPageService;
 import com.loltracker.lolmatchtracker.LolMatchTrackerApplication;
 import java.time.Instant;
 import java.util.List;
@@ -122,8 +128,20 @@ class DashboardControllerTest {
 
     @Bean
     @Primary
-    AppConfigurationService appConfigurationService() {
-      return mock(AppConfigurationService.class);
+    OpsHealthService opsHealthService() {
+      return mock(OpsHealthService.class);
+    }
+
+    @Bean
+    @Primary
+    IntegrationOperationsService integrationOperationsService() {
+      return mock(IntegrationOperationsService.class);
+    }
+
+    @Bean
+    @Primary
+    AuditService auditService() {
+      return mock(AuditService.class);
     }
 
     @Bean
@@ -140,20 +158,8 @@ class DashboardControllerTest {
 
     @Bean
     @Primary
-    OpsHealthService opsHealthService() {
-      return mock(OpsHealthService.class);
-    }
-
-    @Bean
-    @Primary
-    IntegrationOperationsService integrationOperationsService() {
-      return mock(IntegrationOperationsService.class);
-    }
-
-    @Bean
-    @Primary
-    AuditService auditService() {
-      return mock(AuditService.class);
+    AppConfigurationService appConfigurationService() {
+      return mock(AppConfigurationService.class);
     }
   }
 
