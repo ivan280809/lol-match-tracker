@@ -1,147 +1,73 @@
-name: Publish GHCR Image and Deploy
+name: Verified GHCR release
 
 on:
   push:
-    branches:
-      - master
-      - main
+    branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
 
-env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/lol-match-tracker
-  COMPOSE_PROJECT_NAME: lol-match-tracker
-  DEPLOY_DIR: /opt/lol-match-tracker
-  DEPLOY_ENV_FILE: /opt/lol-match-tracker/lol-tracker.env
-  DEPLOY_COMPOSE_FILE: /opt/lol-match-tracker/docker-compose.deploy.yml
-  DEPLOY_SWAG_COMPOSE_FILE: /opt/lol-match-tracker/docker-compose.swag.yml
+concurrency:
+  group: verified-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   test-and-publish:
+    if: github.ref == 'refs/heads/master' && github.repository == 'ivan280809/lol-match-tracker'
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
-    outputs:
-      app-image: ${{ steps.image.outputs.app-image }}
-
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: '17'
           cache: maven
-
-      - name: Make Maven wrapper executable
-        run: chmod +x mvnw
-
-      - name: Run tests
-        run: ./mvnw -B clean test
-
-      - name: Upload test reports
+      - name: Test with PostgreSQL containers; reject skipped tests
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp clean verify
+          python3 ops/minipc/release_manifest.py check-tests
+          python3 -m unittest discover -s ops/minipc/tests -v
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
-        uses: actions/upload-artifact@v4
         with:
-          name: surefire-reports
+          name: test-reports-${{ github.sha }}
           path: target/surefire-reports/**
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Package application
-        run: ./mvnw -B -DskipTests package
-
-      - name: Upload application jar
-        uses: actions/upload-artifact@v4
-        with:
-          name: lol-match-tracker-jar
-          path: target/lol-match-tracker-*.jar
           if-no-files-found: error
-          retention-days: 14
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+          retention-days: 30
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Select image tags
+      - name: Build and publish immutable delivery
         id: image
-        run: echo "app-image=${IMAGE_NAME}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-
-      - name: Build and push image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
-          file: ./Dockerfile
+          platforms: linux/amd64
           push: true
-          tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ steps.image.outputs.app-image }}
+          tags: ghcr.io/ivan280809/lol-match-tracker:${{ github.sha }}
           labels: |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-
-  deploy-minipc:
-    runs-on: [self-hosted, minipc]
-    needs: test-and-publish
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
-    concurrency:
-      group: minipc-deploy
-      cancel-in-progress: false
-    env:
-      APP_IMAGE: ${{ needs.test-and-publish.outputs.app-image }}
-
-    steps:
-      - name: Checkout deployment files
-        uses: actions/checkout@v4
-
-      - name: Validate mini PC prerequisites
-        run: |
-          command -v docker
-          command -v curl
-          docker compose version
-          test -d "$DEPLOY_DIR"
-          test -r "$DEPLOY_ENV_FILE"
-          test -w "$DEPLOY_DIR"
-          test ! -e "$DEPLOY_COMPOSE_FILE" || test -w "$DEPLOY_COMPOSE_FILE"
-          test -r "$DEPLOY_SWAG_COMPOSE_FILE"
-
-      - name: Copy Compose file to deployment directory
-        run: cp docker-compose.deploy.yml "$DEPLOY_COMPOSE_FILE"
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+            dev.iroberto.workflow-run=${{ github.run_id }}
+      - name: Record digest and schema fingerprint
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: python3 ops/minipc/release_manifest.py create
+      - name: Publish manifest for the local updater
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Pull application image
-        run: docker compose --env-file "$DEPLOY_ENV_FILE" --file "$DEPLOY_COMPOSE_FILE" --file "$DEPLOY_SWAG_COMPOSE_FILE" --project-name "$COMPOSE_PROJECT_NAME" pull lol-match-tracker
-
-      - name: Restart application stack
-        run: docker compose --env-file "$DEPLOY_ENV_FILE" --file "$DEPLOY_COMPOSE_FILE" --file "$DEPLOY_SWAG_COMPOSE_FILE" --project-name "$COMPOSE_PROJECT_NAME" up -d --remove-orphans
-
-      - name: Show deployment status
-        run: docker compose --env-file "$DEPLOY_ENV_FILE" --file "$DEPLOY_COMPOSE_FILE" --file "$DEPLOY_SWAG_COMPOSE_FILE" --project-name "$COMPOSE_PROJECT_NAME" ps
-
-      - name: Wait for application health
-        run: |
-          for attempt in {1..30}; do
-            if curl -fsS http://localhost:8085/actuator/health > /tmp/lol-match-tracker-health.json; then
-              cat /tmp/lol-match-tracker-health.json
-              exit 0
-            fi
-            sleep 2
-          done
-          docker compose --env-file "$DEPLOY_ENV_FILE" --file "$DEPLOY_COMPOSE_FILE" --file "$DEPLOY_SWAG_COMPOSE_FILE" --project-name "$COMPOSE_PROJECT_NAME" logs --tail=120 lol-match-tracker
-          exit 1
+          name: deployment-${{ github.sha }}-${{ github.run_attempt }}
+          path: release.json
+          if-no-files-found: error
+          retention-days: 90

@@ -1,0 +1,18 @@
+[Unit]
+Description=Verify GitHub release and update LoL Tracker
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+WorkingDirectory=/opt/lol-tracker/ops/minipc
+ExecStart=/usr/bin/python3 /opt/lol-tracker/ops/minipc/manager.py update
+TimeoutStartSec=1200
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/lol-tracker
