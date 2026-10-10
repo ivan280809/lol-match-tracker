@@ -18,6 +18,12 @@ from the available Windows desktop. No pending PR was merged or deployed.
 - Added Spring Boot Flyway starter. Full same Maven command then passed all 228
   tests with no skips, including fresh PostgreSQL startup. Candidate Java code
   was tested, not published/deployed as a production image.
+- Final credential review also found raw Telegram exceptions could propagate a
+  token-bearing URL. The adapter now returns sanitized errors, retaining only
+  HTTP status and validated Retry-After metadata. Regression tests cover HTTP
+  error bodies/headers and nested transport causes without contacting Telegram.
+- Final `mvnw.cmd -B -ntp verify` after both fixes: **230 tests, zero failures,
+  errors or skips**, Java 17 with Docker/PostgreSQL available.
 
 ## Deployment toolkit
 
@@ -25,6 +31,7 @@ from the available Windows desktop. No pending PR was merged or deployed.
   workflow, reject latest/wrong SHA/run/attempt, mutually exclusive lock,
   migration review gate, crash marker, schema-incompatible rollback refusal,
   simulated failed-health rollback and successful-state recording after health.
+  These passed on both Windows and Linux.
 - `docker compose config --quiet` succeeded.
 - Separate project `lol-tracker-validation`, with secrets in an owner-restricted
   directory outside Git. PostgreSQL and proxy became healthy. Application was
@@ -38,6 +45,9 @@ from the available Windows desktop. No pending PR was merged or deployed.
   pg_restore successfully restored it into a newly created isolated database.
   PostgreSQL restart preserved the marker.
 - Existing Plex, Prowlarr, qBittorrent, Radarr and Sonarr were not modified.
+- All three validation containers were stopped after the checks; the new test
+  volume, owner-protected local secrets and backup were preserved. All five
+  existing multimedia HTTP services returned 200 after the checks.
 
 ## Not verified / activation requirements
 
