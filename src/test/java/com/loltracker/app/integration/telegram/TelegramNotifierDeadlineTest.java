@@ -20,7 +20,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClient;
-import tools.jackson.databind.json.JsonMapper;
+// Jackson 2.15+ provides `com.fasterxml.jackson.databind.json.JsonMapper`.  The
+// previous `tools.jackson` package was part of the Spring Boot 4.0 pre‑relases.
+// Switching to the official Jackson package ensures the test compiles against
+// the current dependency set.
+import com.fasterxml.jackson.databind.json.JsonMapper;
 
 class TelegramNotifierDeadlineTest {
 

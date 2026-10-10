@@ -7,7 +7,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Configuration
 public class HttpClientConfig {
@@ -15,20 +14,6 @@ public class HttpClientConfig {
   @Bean
   public RestClient.Builder restClientBuilder(ClientHttpRequestFactory requestFactory) {
     return RestClient.builder().requestFactory(requestFactory);
-  }
-
-  /**
-   * Provide a default {@link ObjectMapper} bean.
-   *
-   * <p>The application requires an {@code ObjectMapper} for parsing Riot API
-   * JSON responses.  The missing bean caused {@link
-   * com.loltracker.app.integration.riot.RiotClient} to fail during application
-   * context initialization.  Adding this bean restores the dependency chain
-   * while respecting the original design that keeps configuration minimal.
-   */
-  @Bean
-  public ObjectMapper objectMapper() {
-    return new ObjectMapper();
   }
 
   /**

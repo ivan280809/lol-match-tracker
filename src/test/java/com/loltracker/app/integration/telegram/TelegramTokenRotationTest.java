@@ -19,6 +19,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
+import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * Test that TelegramNotifier rotates its bot token and chat id between consecutive calls.
@@ -43,6 +44,7 @@ class TelegramTokenRotationTest {
     OpsMetrics opsMetrics = mock(OpsMetrics.class);
     TelegramNotifier notifier = new TelegramNotifier(restClientBuilder, configService,
         new ObjectMapper(), opsMetrics);
+    ReflectionTestUtils.setField(notifier, "telegramApiBaseUrl", "https://api.telegram.org");
 
     // Expect first request with token-a and chat-a. Verify that the body contains the correct chat_id.
     server.expect(requestTo("https://api.telegram.org/bottoken-a/sendMessage"))
