@@ -1,0 +1,9 @@
+{
+  "data_root": "/var/lib/lol-tracker",
+  "project": "lol-tracker",
+  "public_port": 18085,
+  "admin_port": 18086,
+  "repository": "ivan280809/lol-match-tracker",
+  "branch": "master",
+  "workflow": "publish-ghcr.yml"
+}
