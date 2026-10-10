@@ -1,23 +1,22 @@
 # Issue #9: Actualizar el proyecto local a Java 26
 
-Implement the approved Java 26 upgrade on the current baseline, preserving Spring Boot 4.1.1 and application behavior. The repository excerpt identifies the relevant build, runtime, CI, and setup files; no additional owner decision is needed.
+Proceed with the authorized Java 26 upgrade against the verified baseline, keeping Spring Boot 4.1.1 and repairing the Maven plugin resolution failure by selecting a released compiler plugin version available from Maven Central. The failed run did not reach compilation or tests, so it is not evidence of a source incompatibility.
 
 ## Steps
 
-- Update pom.xml to target Java 26 and ensure the compiler and Lombok annotation processing are compatible with JDK 26 while retaining Spring Boot 4.1.1.
-- Update .github/workflows/publish-ghcr.yml to use a compatible JDK 26 distribution for build and verification.
-- Update Dockerfile build and runtime images to compatible Temurin 26 images; keep the existing Docker Compose configuration unless inspection shows an active Java 17 reference there.
-- Review .mvn/wrapper/maven-wrapper.properties and wrapper scripts; update only if the current wrapper itself prevents operation on JDK 26, keeping wrapper metadata aligned.
-- Update README.md and active setup/build documentation to state JDK 26 requirements and remove Java 17 from active setup instructions. Update WORKFLOW.md and AGENTS.md only where they describe current build or verification requirements.
-- Inspect relevant files for other active Java 17 references, including workflows and Compose configuration, and update only those needed for the issue. Do not change historical records or unrelated dependencies.
-- Run ./mvnw -B -ntp verify under the configured Temurin 26 runtime, investigate any compatibility failures within this upgrade scope, and record the result and known limitations.
-- Build the Docker image(s) used by the repository and record successful build evidence; do not deploy or publish.
+- Inspect the current Maven configuration and align Java compilation settings to 26; prefer the `release` setting for the target and avoid introducing unrelated dependency changes.
+- Replace the unavailable `maven-compiler-plugin` 3.18.1 pin with a released version resolvable from Maven Central that supports JDK 26. Preserve Lombok annotation processing and verify its configured version supports JDK 26.
+- Check the Maven Wrapper scripts and properties for Java-version requirements; keep wrapper distribution integrity settings intact and ensure the documented local runtime requirement is JDK 26.
+- Review active build/runtime references across Dockerfile, both Compose files, GitHub Actions, README, CONTRIBUTING, and WORKFLOW. Align any Java-version references to 26; retain already-compatible Temurin 26 Docker and Actions configuration.
+- Update setup documentation to state JDK 26 is required for local builds and that the project targets Java 26; remove stale Java 17 build instructions from active paths.
+- Run `./mvnw.cmd -B -ntp verify` under the configured Temurin 26 runtime, with Docker available so PostgreSQL tests are not skipped. Record the test totals and Maven result.
+- Build the Docker image through the project Dockerfile and validate the Compose configuration; report any environmental limitation separately from code failures.
 
 ## Acceptance
 
-- Maven consistently targets Java 26 and the project compiles under the configured Temurin 26 runtime.
-- Lombok and annotation processing work on JDK 26 with Spring Boot 4.1.1 retained.
-- Active wrapper, Docker build/runtime, GitHub Actions, and setup/build documentation use Java versions compatible with JDK 26 and no longer prescribe Java 17.
-- ./mvnw -B -ntp verify completes with the full suite and no skipped tests.
-- Docker image build succeeds.
-- Documentation states the local JDK requirement and any compatibility limitation discovered; no preview features or Java 27 are introduced.
+- Maven declares and compiles for Java 26 consistently, using a compiler plugin version that resolves from Maven Central and supports JDK 26.
+- Lombok annotation processing works on JDK 26, and Spring Boot remains at 4.1.1.
+- Active wrapper, Docker, Compose, GitHub Actions, and setup documentation paths consistently support Java 26, with no stale Java 17 build instructions.
+- `./mvnw.cmd -B -ntp verify` succeeds under Temurin 26 with no skipped tests.
+- Docker image build and Compose configuration validation succeed.
+- Only files necessary for the Java 26 migration and documentation are changed; known limitations are documented.
