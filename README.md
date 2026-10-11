@@ -1,5 +1,9 @@
 # LOL Match Tracker
 
+## Requisitos de Java
+
+El proyecto está configurado para compilar y ejecutarse sobre **Java 26**. Asegúrate de que la variable `JAVA_HOME` apunte a una instalación de JDK 26 antes de ejecutar cualquier comando de Maven o Docker. La versión de Maven utilizada es 3.10.0, que es compatible con Java 26.
+
 ## Documentacion interna
 
 - Referencia Riot/LoL API: [docs/reference/riot-lol-api.md](docs/reference/riot-lol-api.md)
@@ -236,4 +240,4 @@ La ruta `/actuator/health` queda abierta para Docker, Compose y el workflow de d
 
 The project uses the Maven Wrapper and does not require a globally installed Maven. The wrapper downloads Maven 3.10.0 from Maven Central and validates the distribution with the SHA-256 value in `.mvn/wrapper/maven-wrapper.properties`. Run `./mvnw -B -ntp verify` on Unix or `mvnw.cmd -B -ntp verify` on Windows.
 
-To update Maven reproducibly, select a released Maven 3.x version from the Apache Maven release history, download its `-bin.zip` from Maven Central, verify the archive against the published SHA-512 sidecar, calculate the archive's SHA-256, and update `distributionUrl` and `distributionSha256Sum` together. Keep the checked-in wrapper scripts and `wrapperVersion` aligned with a stable Maven Wrapper release. The build uses Java 17; newer JDKs may run Maven, but changing the project's Java target is a separate upgrade.
+To update Maven reproducibly, select a released Maven 3.x version from the Apache Maven release history, download its `-bin.zip` from Maven Central, verify the archive against the published SHA-512 sidecar, calculate the archive's SHA-256, and update `distributionUrl` and `distributionSha256Sum` together. Keep the checked-in wrapper scripts and `wrapperVersion` aligned with a stable Maven Wrapper release. The build requires JDK 26, including wrapper-based builds. Maven Wrapper selects Maven; it does not install or enforce the JDK. Configure JAVA_HOME to a JDK 26 installation before running the wrapper.
