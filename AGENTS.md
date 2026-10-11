@@ -1,6 +1,6 @@
 # LoL Match Tracker: project map
 
-Java 17 / Spring Boot modular monolith with PostgreSQL, Riot polling and Telegram. Preserve the cohesive monolith and behavior unless the admitted issue changes it.
+Java 26 / Spring Boot modular monolith with PostgreSQL, Riot polling and Telegram. Preserve the cohesive monolith and behavior unless the admitted issue changes it.
 
 - Architecture and approved decisions: docs/plans/.
 - Historical refactors and validation: docs/refactor-iterations/.
@@ -12,4 +12,4 @@ Use application services, ports/adapters and persistence boundaries. No internal
 
 One task and one sequential executor. project-agents/ contains historical descriptions, not live workers or mandatory delegation. Six-document bundles apply to historical refactor waves; routine factory tasks use approved plans and verification evidence.
 
-Run ./mvnw.cmd -B -ntp verify with Java 17. PostgreSQL tests require Docker; skipped tests are incomplete release evidence. Avoid real Riot/Telegram calls. Record changed files, meaningful checks and residual risks. Never publish credentials.
+Run ./mvnw.cmd -B -ntp verify with Java 26. PostgreSQL tests require Docker; skipped tests are incomplete release evidence. Avoid real Riot/Telegram calls. Record changed files, meaningful checks and residual risks. Never publish credentials.
