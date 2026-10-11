@@ -115,8 +115,10 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.16.0</version>
                 <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
+                    <!-- Use the release flag to emit bytecode for the target Java
+                         version. This avoids potential mismatches between source
+                         and target settings on newer compiler releases. -->
+                    <release>${java.version}</release>
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>

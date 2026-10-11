@@ -1,5 +1,9 @@
 # LOL Match Tracker
 
+## Requisitos de Java
+
+El proyecto está configurado para compilar y ejecutarse sobre **Java 26**. Asegúrate de que la variable `JAVA_HOME` apunte a una instalación de JDK 26 antes de ejecutar cualquier comando de Maven o Docker. La versión de Maven utilizada es 3.10.0, que es compatible con Java 26.
+
 ## Documentacion interna
 
 - Referencia Riot/LoL API: [docs/reference/riot-lol-api.md](docs/reference/riot-lol-api.md)
