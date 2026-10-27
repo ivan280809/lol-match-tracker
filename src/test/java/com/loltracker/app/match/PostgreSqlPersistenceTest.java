@@ -12,7 +12,6 @@ import com.loltracker.lolmatchtracker.LolMatchTrackerApplication;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
-import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,38 +23,27 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 @SpringBootTest(
     classes = LolMatchTrackerApplication.class,
     properties = {
       "spring.datasource.driver-class-name=org.postgresql.Driver",
       "spring.jpa.hibernate.ddl-auto=validate",
       "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect",
-      "spring.flyway.enabled=false"
+      "spring.flyway.enabled=true"
     })
 @DirtiesContext
 class PostgreSqlPersistenceTest {
 
   @Container
-  static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+  static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>(
+      "postgres@sha256:c961aa287d8698297cb26cdfadfbe9fd2cbaf77e53cfffe9636e8d8a1e4d842c");
 
   @DynamicPropertySource
   static void configurePostgreSql(DynamicPropertyRegistry registry) {
-    migratePostgreSqlSchema();
     registry.add("spring.datasource.url", postgres::getJdbcUrl);
     registry.add("spring.datasource.username", postgres::getUsername);
     registry.add("spring.datasource.password", postgres::getPassword);
-  }
-
-  private static void migratePostgreSqlSchema() {
-    if (!postgres.isRunning()) {
-      postgres.start();
-    }
-    Flyway.configure()
-        .dataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword())
-        .locations("classpath:db/migration")
-        .load()
-        .migrate();
   }
 
   @Autowired private PlayerRepository playerRepository;

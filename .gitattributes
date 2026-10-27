@@ -1,2 +1,4 @@
 /mvnw text eol=lf
 *.cmd text eol=crlf
+ops/** text eol=lf
+.github/workflows/*.yml text eol=lf

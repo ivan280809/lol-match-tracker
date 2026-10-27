@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily verified LoL Tracker backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=10min
+Persistent=true
+Unit=lol-tracker-backup.service
+
+[Install]
+WantedBy=timers.target
