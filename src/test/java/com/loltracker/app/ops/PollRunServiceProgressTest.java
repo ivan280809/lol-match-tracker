@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import com.loltracker.app.player.PlayerEntity;
-import com.loltracker.app.ops.PollRunEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,8 +20,7 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.test.util.ReflectionTestUtils;
-import static org.mockito.Mockito.when;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class PollRunServiceProgressTest {
@@ -44,12 +42,11 @@ class PollRunServiceProgressTest {
     pollRunService = new PollRunService(pollRunRepository, clock);
     run = new PollRunEntity();
     run.setId(1L);
-    // capture saves
     savedEntities = new ArrayList<>();
     run.setStatus("RUNNING");
     when(pollRunRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(run));
-    org.mockito.Mockito.lenient()
-        .when(pollRunRepository.save(org.mockito.ArgumentMatchers.any(PollRunEntity.class)))
+    lenient()
+        .when(pollRunRepository.save(any(PollRunEntity.class)))
         .thenAnswer(invocation -> {
           PollRunEntity arg = invocation.getArgument(0);
           savedEntities.add(arg);
@@ -58,24 +55,34 @@ class PollRunServiceProgressTest {
   }
 
   @Test
+  void groupsOneHundredPlayerProgressUpdatesIntoTwentyWrites() {
+    for (int index = 0; index < 100; index++) {
+      PlayerEntity player = new PlayerEntity();
+      player.setGameName("player-" + index);
+      player.setTagLine("EUW");
+      pollRunService.updateProgress(run, player, "Procesando jugadores");
+      clock.setInstant(clock.instant().plusSeconds(1));
+    }
+    assertEquals(20, savedEntities.size());
+    verify(pollRunRepository, times(20)).findByIdForUpdate(1L);
+    verify(pollRunRepository, times(20)).save(run);
+  }
+
+  @Test
   void testUpdateProgressFlushesOnlyOnStageChangeOrInterval() {
-    // First call – should flush
     pollRunService.updateProgress(run, null, "StageA");
-    assertEquals(1, savedEntities.size(), "First update should flush");
+    assertEquals(1, savedEntities.size());
 
-    // Second call same stage within 5s – should not flush
     pollRunService.updateProgress(run, null, "StageA");
-    assertEquals(1, savedEntities.size(), "Second update within interval should not flush");
-    org.mockito.Mockito.verify(pollRunRepository, org.mockito.Mockito.times(1)).findByIdForUpdate(1L);
+    assertEquals(1, savedEntities.size());
+    verify(pollRunRepository, times(1)).findByIdForUpdate(1L);
 
-    // Advancing to the 5-second boundary flushes the latest buffered progress.
     clock.setInstant(clock.instant().plusSeconds(5));
     pollRunService.updateProgress(run, null, "StageA");
-    assertEquals(2, savedEntities.size(), "Third update after interval should flush");
+    assertEquals(2, savedEntities.size());
 
-    // Different stage – should flush immediately
     pollRunService.updateProgress(run, null, "StageB");
-    assertEquals(3, savedEntities.size(), "Update with new stage should flush");
+    assertEquals(3, savedEntities.size());
   }
 
   @Test
@@ -89,7 +96,7 @@ class PollRunServiceProgressTest {
     assertEquals(2, savedEntities.size());
 
     pollRunService.updateProgress(run, null, "StageA");
-    assertEquals(2, savedEntities.size(), "A terminal run must not accept more progress writes");
+    assertEquals(2, savedEntities.size());
     assertEquals("Finalizado", run.getCurrentStage());
   }
 
@@ -98,8 +105,8 @@ class PollRunServiceProgressTest {
     ReflectionTestUtils.setField(pollRunService, "taskScheduler", taskScheduler);
     AtomicReference<Runnable> scheduled = new AtomicReference<>();
     when(taskScheduler.schedule(
-            org.mockito.ArgumentMatchers.any(Runnable.class),
-            org.mockito.ArgumentMatchers.any(Instant.class)))
+            any(Runnable.class),
+            any(Instant.class)))
         .thenAnswer(
             invocation -> {
               scheduled.set(invocation.getArgument(0));
@@ -118,8 +125,8 @@ class PollRunServiceProgressTest {
     assertEquals(1, savedEntities.size());
     org.mockito.ArgumentCaptor<Instant> deadline =
         org.mockito.ArgumentCaptor.forClass(Instant.class);
-    org.mockito.Mockito.verify(taskScheduler)
-        .schedule(org.mockito.ArgumentMatchers.any(Runnable.class), deadline.capture());
+    verify(taskScheduler)
+        .schedule(any(Runnable.class), deadline.capture());
     assertEquals(Instant.parse("2023-01-01T00:00:04.500Z"), deadline.getValue());
 
     clock.setInstant(clock.instant().plusSeconds(4));
@@ -143,7 +150,7 @@ class PollRunServiceProgressTest {
 
     pollRunService.updateProgress(run, null, "StageA");
 
-    assertEquals(2, savedEntities.size(), "A rolled-back write must be retried instead of treated as persisted");
+    assertEquals(2, savedEntities.size());
   }
 
   @Test
@@ -152,15 +159,15 @@ class PollRunServiceProgressTest {
     AtomicReference<Runnable> scheduled = new AtomicReference<>();
     AtomicReference<Instant> retryDeadline = new AtomicReference<>();
     when(taskScheduler.schedule(
-            org.mockito.ArgumentMatchers.any(Runnable.class),
-            org.mockito.ArgumentMatchers.any(Instant.class)))
+            any(Runnable.class),
+            any(Instant.class)))
         .thenAnswer(invocation -> {
           scheduled.set(invocation.getArgument(0));
           retryDeadline.set(invocation.getArgument(1));
           return null;
         });
     java.util.concurrent.atomic.AtomicInteger writes = new java.util.concurrent.atomic.AtomicInteger();
-    org.mockito.Mockito.doAnswer(invocation -> {
+    doAnswer(invocation -> {
       PollRunEntity value = invocation.getArgument(0);
       if (writes.incrementAndGet() == 2) {
         throw new org.springframework.dao.DataAccessResourceFailureException("fixture database outage");
@@ -176,7 +183,7 @@ class PollRunServiceProgressTest {
 
     clock.setInstant(clock.instant().plusSeconds(4));
     firstScheduledFlush.run();
-    assertEquals(1, savedEntities.size(), "A failed scheduled write must leave pending progress intact");
+    assertEquals(1, savedEntities.size());
     Runnable retry = scheduled.get();
     assertEquals(Instant.parse("2023-01-01T00:00:06Z"), retryDeadline.get());
 
@@ -192,8 +199,8 @@ class PollRunServiceProgressTest {
     ReflectionTestUtils.setField(pollRunService, "taskScheduler", taskScheduler);
     AtomicReference<Runnable> scheduled = new AtomicReference<>();
     when(taskScheduler.schedule(
-            org.mockito.ArgumentMatchers.any(Runnable.class),
-            org.mockito.ArgumentMatchers.any(Instant.class)))
+            any(Runnable.class),
+            any(Instant.class)))
         .thenAnswer(invocation -> {
           scheduled.set(invocation.getArgument(0));
           return null;
@@ -209,10 +216,10 @@ class PollRunServiceProgressTest {
 
     assertEquals("SUCCESS", run.getStatus());
     assertEquals("Finalizado", run.getCurrentStage());
-    org.mockito.Mockito.verify(pollRunRepository, org.mockito.Mockito.times(1)).save(run);
+    verify(pollRunRepository, times(1)).save(run);
   }
 
-  /** Simple mutable clock for testing. */
+
   private static class MutableClock extends Clock {
     private Instant instant;
 
@@ -248,7 +255,7 @@ class PollRunServiceProgressTest {
     assertEquals("Error", run.getCurrentStage());
     assertEquals(2, savedEntities.size());
     pollRunService.updateProgress(run, null, "StageB");
-    assertEquals(2, savedEntities.size(), "A terminal run must not be overwritten by cached progress");
+    assertEquals(2, savedEntities.size());
   }
 
   @Test
@@ -260,6 +267,6 @@ class PollRunServiceProgressTest {
     assertEquals("Pausado por rate limit Riot", run.getCurrentStage());
     assertEquals(2, savedEntities.size());
     pollRunService.updateProgress(run, null, "StageB");
-    assertEquals(2, savedEntities.size(), "A terminal run must not be overwritten by cached progress");
+    assertEquals(2, savedEntities.size());
   }
 }

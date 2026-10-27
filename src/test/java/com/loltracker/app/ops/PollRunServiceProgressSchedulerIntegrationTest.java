@@ -75,4 +75,23 @@ class PollRunServiceProgressSchedulerIntegrationTest {
     player.setTagLine("EUW");
     return player;
   }
+
+  @Test
+  void finalStageVisibleWithinFiveSecondsAfterHundredUpdates() throws Exception {
+    PollRunEntity run = pollRunService.startRun();
+    for (int index = 0; index < 100; index++) {
+      pollRunService.updateProgress(run, player("player" + index), "Processing many players");
+    }
+    Instant updatedAt = Instant.now();
+    Instant deadline = updatedAt.plusSeconds(5);
+    PollRunEntity visible;
+    do {
+      visible = pollRunRepository.findById(run.getId()).orElseThrow();
+      if ("player99#EUW".equals(visible.getCurrentPlayer())) break;
+      Thread.sleep(10);
+    } while (Instant.now().isBefore(deadline));
+    assertEquals("player99#EUW", visible.getCurrentPlayer());
+    assertEquals("Processing many players", visible.getCurrentStage());
+    assertTrue(Duration.between(updatedAt, Instant.now()).toMillis() <= 5_000);
+  }
 }

@@ -41,6 +41,27 @@ class PollRunServiceProgressComparisonTest {
   @Autowired private MutableClock clock;
 
   @Test
+  void measuresHibernateUpdatesForOneHundredPlayers() {
+    ReflectionTestUtils.setField(service, "taskScheduler", null);
+    clock.reset(Instant.parse("2026-10-05T00:00:00Z"));
+    PollRunEntity run = service.startRun();
+    Statistics statistics = sessionFactory.getStatistics();
+    statistics.clear();
+    for (int index = 0; index < 100; index++) {
+      PlayerEntity player = new PlayerEntity();
+      player.setGameName("player-" + index);
+      player.setTagLine("EUW");
+      service.updateProgress(run, player, "Procesando jugadores");
+      clock.advance(Duration.ofSeconds(1));
+    }
+    assertEquals(20, statistics.getEntityUpdateCount());
+    assertEquals(40, statistics.getPrepareStatementCount());
+    assertEquals("player-95#EUW", repository.findById(run.getId()).orElseThrow().getCurrentPlayer());
+    service.completeRun(run, 100, 0, 0, List.of());
+    assertEquals(21, statistics.getEntityUpdateCount());
+  }
+
+  @Test
   @Transactional
   void comparesOneHundredActualPerCallUpdatesWithBatchedProgress() {
     ReflectionTestUtils.setField(service, "taskScheduler", null);
@@ -62,9 +83,8 @@ class PollRunServiceProgressComparisonTest {
     entityManager.flush();
     long baselineUpdates = statistics.getEntityUpdateCount();
     long baselineStatements = statistics.getPrepareStatementCount();
-    assertEquals(101, baselineUpdates, "Executed legacy read/update baseline and final run update");
-    // baselineStatements is expected to be 202 after 100 select/update pairs and a final update
-    assertEquals(202, baselineStatements, "Executed 100 select/update pairs and final update");
+    assertEquals(101, baselineUpdates);
+    assertEquals(202, baselineStatements);
 
     clock.reset(Instant.parse("2026-10-05T00:00:00Z"));
     PollRunEntity batched = service.startRun();
@@ -81,17 +101,30 @@ class PollRunServiceProgressComparisonTest {
     service.completeRun(batched, 100, 0, 0, List.of());
     entityManager.flush();
     long batchedUpdates = statistics.getEntityUpdateCount();
-    // Capture statements *after* terminal reads to include the final update and any additional selects
     long batchedStatements = statistics.getPrepareStatementCount();
     System.out.printf("100-update progress measurement: baseline=%d updates/%d statements; batched=%d updates/%d statements%n", baselineUpdates, baselineStatements, batchedUpdates, batchedStatements);
-    assertEquals(21, batchedUpdates, "Observed 20 progress flushes and the immediate terminal update");
-    // batchedStatements should be 42 after 20 progress flushes (each with a select/update pair) and a final update
-    assertEquals(42, batchedStatements, "Observed 20 select/update pairs and final update");
-    // Verify terminal state on both baseline and batched runs
+    assertEquals(21, batchedUpdates);
+    assertEquals(42, batchedStatements);
     assertEquals("Finalizado", repository.findById(baseline.getId()).orElseThrow().getCurrentStage());
     assertEquals("Finalizado", repository.findById(batched.getId()).orElseThrow().getCurrentStage());
     assertNull(repository.findById(batched.getId()).orElseThrow().getCurrentPlayer(), "Current player should be cleared on terminal state");
-    assertEquals("SUCCESS", repository.findById(batched.getId()).orElseThrow().getStatus(), "Terminal status should be SUCCESS");
+    assertEquals("SUCCESS", repository.findById(batched.getId()).orElseThrow().getStatus());
+  }
+
+  @Test
+  void terminalRunStateIsNotOverwrittenAfterCompletion() {
+    ReflectionTestUtils.setField(service, "taskScheduler", null);
+    PollRunEntity run = service.startRun();
+    service.updateProgress(run, null, "Initial stage");
+    service.updateProgress(run, null, "Second stage");
+    service.completeRun(run, 10, 0, 0, List.of());
+    PollRunEntity persisted = repository.findById(run.getId()).orElseThrow();
+    assertEquals("Finalizado", persisted.getCurrentStage());
+    assertNull(persisted.getCurrentPlayer());
+    assertEquals(0, ((java.util.Map<?, ?>) ReflectionTestUtils.getField(service, "progressCache")).size());
+    long before = sessionFactory.getStatistics().getEntityUpdateCount();
+    service.updateProgress(run, null, "Post-completion stage");
+    assertEquals(before, sessionFactory.getStatistics().getEntityUpdateCount());
   }
 
   @TestConfiguration
