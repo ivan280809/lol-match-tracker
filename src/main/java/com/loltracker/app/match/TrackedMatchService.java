@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Collection;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -32,10 +33,22 @@ public class TrackedMatchService {
         || (matchReadModelService != null && matchReadModelService.exists(player.getId(), matchId));
   }
 
+  /**
+   * Return an existing {@link TrackedMatchEntity} for the given player and match id, if any.
+   * <p>
+   * Check the player's tracked-match rows first, then use the player-scoped read model as
+   * a fallback for matches already imported before the tracked-match row existed. The
+   * fallback returns a marker so the caller skips duplicate import work. A row belonging
+   * to another player does not count as a match for this player, preserving shared games
+   * for each participant.
+   */
   @Transactional(readOnly = true)
   public Optional<TrackedMatchEntity> findExisting(PlayerEntity player, String matchId) {
-    Optional<TrackedMatchEntity> legacy = trackedMatchRepository.findByPlayerIdAndMatchId(player.getId(), matchId);
-    if (legacy.isPresent() || matchReadModelService == null || !matchReadModelService.exists(player.getId(), matchId)) {
+    Optional<TrackedMatchEntity> legacy =
+        trackedMatchRepository.findByPlayerIdAndMatchId(player.getId(), matchId);
+    if (legacy.isPresent()
+        || matchReadModelService == null
+        || !matchReadModelService.exists(player.getId(), matchId)) {
       return legacy;
     }
     TrackedMatchEntity marker = new TrackedMatchEntity();
@@ -204,6 +217,31 @@ public class TrackedMatchService {
   @Transactional(readOnly = true)
   public Optional<SharedMatchStatsView> getSharedMatchStats(String matchId) {
     return matchReadModelService == null ? Optional.empty() : matchReadModelService.getSharedMatchStats(matchId);
+  }
+
+  /**
+   * Batch fetch existing match identifiers for a player. Used to reduce the number of
+   * round‑trip database queries when polling many matches at once. The method returns
+   * the set of match identifiers that are already known to the database (including
+   * markers for already imported matches).
+   *
+   * @param player  the player whose match history is being checked
+   * @param matchIds the collection of match identifiers to check
+   * @return a set of match identifiers that exist in the database
+   */
+  @Transactional(readOnly = true)
+  public Set<String> findExistingMatchIds(PlayerEntity player, Collection<String> matchIds) {
+    if (matchIds == null || matchIds.isEmpty()) {
+      return Set.of();
+    }
+    Set<String> existing =
+        trackedMatchRepository.findAllByPlayerIdAndMatchIdIn(player.getId(), matchIds).stream()
+            .map(TrackedMatchEntity::getMatchId)
+            .collect(Collectors.toSet());
+    if (matchReadModelService != null) {
+      existing.addAll(matchReadModelService.findExistingMatchIds(player.getId(), matchIds));
+    }
+    return existing;
   }
 
   private String recentForm(List<TrackedMatchEntity> matches) {

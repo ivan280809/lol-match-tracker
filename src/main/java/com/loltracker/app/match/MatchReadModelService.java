@@ -6,6 +6,8 @@ import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Collection;
+import java.util.Set;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -26,6 +28,14 @@ public class MatchReadModelService {
   @Transactional(readOnly = true)
   public boolean exists(Long playerId, String matchId) {
     return playerMatchRepository.existsByPlayerIdAndMatchMatchId(playerId, matchId);
+  }
+
+  @Transactional(readOnly = true)
+  public Set<String> findExistingMatchIds(Long playerId, Collection<String> matchIds) {
+    if (matchIds == null || matchIds.isEmpty()) {
+      return Set.of();
+    }
+    return Set.copyOf(playerMatchRepository.findExistingMatchIdsForPlayer(playerId, matchIds));
   }
 
   @Transactional(readOnly = true)

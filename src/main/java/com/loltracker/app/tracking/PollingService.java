@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -177,13 +178,16 @@ public class PollingService {
     boolean stopPagination = false;
     for (int page = 0; page < pageLimit && !stopPagination; page++) {
       int start = page * pageSize;
-      pollRunService.updateProgress(run, player, "Consultando historial Riot " + (page + 1) + "/" + pageLimit);
+      pollRunService.updateProgress(
+          run, player, "Consultando historial Riot " + (page + 1) + "/" + pageLimit);
       List<String> matchIds = fetchMatchIds(puuid, start, pageSize);
       if (matchIds.isEmpty()) {
         break;
       }
+      // Query both persistence generations once for this ordered player/page batch.
+      Set<String> existingTracked = trackedMatchService.findExistingMatchIds(player, matchIds);
       for (String matchId : matchIds) {
-        if (trackedMatchService.findExisting(player, matchId).isPresent()) {
+        if (existingTracked.contains(matchId)) {
           stopPagination = true;
           break;
         }
