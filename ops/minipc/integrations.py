@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import sys
 import urllib.error
 import urllib.request
@@ -21,7 +22,10 @@ def request(url, data=None, headers=None):
             return json.load(response)
     except urllib.error.HTTPError as error:
         # Never print the exception (Telegram puts the token in the URL).
-        after = error.headers.get("Retry-After", "not provided")
+        value = error.headers.get("Retry-After", "")
+        after = (str(int(value)) if re.fullmatch(r"[0-9]{1,5}", value)
+                 and int(value) <= 86400 else "not provided")
+        error.close()
         if error.code == 429:
             raise RuntimeError("Rate limited; no automatic retry. Retry-After: " + after) from None
         raise RuntimeError("Integration request failed: HTTP " + str(error.code)) from None
