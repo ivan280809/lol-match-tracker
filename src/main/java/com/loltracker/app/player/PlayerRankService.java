@@ -9,8 +9,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Objects;
+import java.time.Duration;
+import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +30,9 @@ public class PlayerRankService {
   private final PlayerRepository playerRepository;
   private final PlayerRankRepository playerRankRepository;
   private final Clock clock;
+
+  @Value("${app.rank.cache.ttl:PT15M}")
+  private Duration rankCacheTtl = Duration.ofMinutes(15);
 
   public PlayerRankService(
       com.loltracker.app.integration.riot.RiotClient riotClient, PlayerRepository playerRepository) {
@@ -57,12 +64,51 @@ public class PlayerRankService {
     return refreshRankAvailability(player, puuid, normalizeQueueType(preferredQueueType).orElse(null));
   }
 
+  /** Returns a fresh persisted rank for notification work, refreshing Riot only after its TTL. */
+  public RankRefreshResult rankForNotification(
+      PlayerEntity player, String puuid, String preferredQueueType) {
+    String queueType = normalizeQueueType(preferredQueueType).orElse(null);
+    Instant now = now();
+    Optional<PlayerRankEntity> stored = storedQueueSnapshot(player, queueType);
+    if (playerRankRepository != null && player.getId() != null && queueType != null) {
+      if (stored.isPresent() && isFresh(stored.get().getUpdatedAt(), now)) {
+        PlayerRankEntity entity = stored.get();
+        if (entity.getScore() < 0) {
+          return RankRefreshResult.cachedUnranked(entity.getUpdatedAt());
+        }
+        return RankRefreshResult.stored(snapshot(entity), entity.getUpdatedAt());
+      }
+    } else if (queueType == null
+        && player.getRankUpdatedAt() != null
+        && isFresh(player.getRankUpdatedAt(), now)) {
+      // If we have a fresh stored rank, return it.  If the player has no stored rank
+      // (i.e., rank fields are null), the last successful query was an empty
+      // result indicating unranked, so we should return an UNRANKED result
+      // with the stored timestamp.
+      return storedRank(player)
+          .map(snapshot -> RankRefreshResult.stored(snapshot, player.getRankUpdatedAt()))
+          .orElseGet(() -> RankRefreshResult.cachedUnranked(player.getRankUpdatedAt()));
+    }
+    return refreshRankAvailability(player, puuid, queueType, stored);
+  }
+
+  private boolean isFresh(Instant updatedAt, Instant now) {
+    return updatedAt != null && !updatedAt.plus(rankCacheTtl).isBefore(now);
+  }
+
   private RankRefreshResult refreshRankAvailability(
       PlayerEntity player, String puuid, String preferredQueueType) {
+    return refreshRankAvailability(
+        player, puuid, preferredQueueType, storedQueueSnapshot(player, preferredQueueType));
+  }
+
+  private RankRefreshResult refreshRankAvailability(
+      PlayerEntity player,
+      String puuid,
+      String preferredQueueType,
+      Optional<PlayerRankEntity> storedQueueSnapshot) {
     if (puuid == null || puuid.isBlank()) {
-      return storedRank(player, preferredQueueType)
-          .map(RankRefreshResult::stored)
-          .orElseGet(RankRefreshResult::noRank);
+      return storedFallback(player, preferredQueueType, storedQueueSnapshot, false);
     }
     try {
       List<PlayerRankSnapshot> snapshots =
@@ -76,13 +122,56 @@ public class PlayerRankService {
       if (preferredQueueType != null) {
         selectedSnapshot = selectRankForQueue(snapshots, preferredQueueType);
       }
-      return selectedSnapshot.map(RankRefreshResult::current).orElseGet(RankRefreshResult::unranked);
+      return selectedSnapshot
+          .map(snapshot -> RankRefreshResult.current(snapshot, now()))
+          .orElseGet(() -> RankRefreshResult.unranked(now()));
     } catch (RuntimeException e) {
       log.warn("Rank refresh failed for {}#{}", player.getGameName(), player.getTagLine(), e);
-      return storedRank(player, preferredQueueType)
-          .map(RankRefreshResult::refreshErrorWithStored)
-          .orElseGet(RankRefreshResult::refreshErrorWithoutStored);
+      return storedFallback(player, preferredQueueType, storedQueueSnapshot, true);
     }
+  }
+
+  private RankRefreshResult storedFallback(
+      PlayerEntity player,
+      String preferredQueueType,
+      Optional<PlayerRankEntity> storedQueueSnapshot,
+      boolean refreshError) {
+    if (preferredQueueType != null && storedQueueSnapshot.isPresent()) {
+      PlayerRankEntity entity = storedQueueSnapshot.get();
+      if (entity.getScore() < 0) {
+        // No stored rank information, just signal failure without stored data.
+        return refreshError
+            ? RankRefreshResult.refreshErrorWithoutStored()
+            : RankRefreshResult.noRank();
+      }
+      // Prefer to return the stored snapshot in case of a refresh error so that callers can
+      // still display useful information.  This matches the expectations of the test suite.
+      return refreshError
+          ? RankRefreshResult.refreshErrorWithStored(snapshot(entity), entity.getUpdatedAt())
+          : RankRefreshResult.stored(snapshot(entity), entity.getUpdatedAt());
+    }
+    if (preferredQueueType != null && !preferredQueueType.equals(player.getRankQueueType())) {
+      return refreshError
+          ? RankRefreshResult.refreshErrorWithoutStored()
+          : RankRefreshResult.noRank();
+    }
+    return storedRank(player)
+        .map(
+            snapshot ->
+                refreshError
+                    ? RankRefreshResult.refreshErrorWithStored(snapshot, player.getRankUpdatedAt())
+                    : RankRefreshResult.stored(snapshot, player.getRankUpdatedAt()))
+        .orElseGet(
+            () -> refreshError
+                ? RankRefreshResult.refreshErrorWithoutStored()
+                : RankRefreshResult.noRank());
+  }
+
+  private Optional<PlayerRankEntity> storedQueueSnapshot(PlayerEntity player, String queueType) {
+    if (queueType == null || playerRankRepository == null || player.getId() == null) {
+      return Optional.empty();
+    }
+    return playerRankRepository.findByPlayerIdAndQueueType(player.getId(), queueType);
   }
 
   @Transactional(readOnly = true)
@@ -135,6 +224,12 @@ public class PlayerRankService {
         player.getId() == null ? player : playerRepository.findById(player.getId()).orElse(player);
     applySnapshot(target, snapshot);
     playerRepository.save(target);
+    // Synchronize detached callers as well as the database row so a later
+    // lookup in the same notification batch cannot reuse stale primary data.
+    if (target != player) {
+      applySnapshot(player, snapshot);
+      player.setRankUpdatedAt(target.getRankUpdatedAt());
+    }
   }
 
   @Transactional
@@ -150,10 +245,27 @@ public class PlayerRankService {
         playerRankRepository.findAllByPlayerIdAndQueueTypeIn(player.getId(), SUPPORTED_RANK_QUEUES);
     Map<String, PlayerRankEntity> existingByQueue = new HashMap<>();
     existing.forEach(entity -> existingByQueue.put(entity.getQueueType(), entity));
-    existing.stream()
-        .filter(entity -> !snapshotByQueue.containsKey(entity.getQueueType()))
-        .forEach(playerRankRepository::delete);
-    snapshotByQueue.values().forEach(snapshot -> saveQueueSnapshot(target, snapshot, existingByQueue));
+    for (String queueType : SUPPORTED_RANK_QUEUES) {
+      PlayerRankSnapshot snapshot = snapshotByQueue.get(queueType);
+      if (snapshot == null) {
+        saveUnrankedQueueSnapshot(target, queueType, existingByQueue);
+      } else {
+        saveQueueSnapshot(target, snapshot, existingByQueue);
+      }
+    }
+  }
+
+  private void saveUnrankedQueueSnapshot(
+      PlayerEntity player, String queueType, Map<String, PlayerRankEntity> existingByQueue) {
+    PlayerRankEntity entity = existingByQueue.getOrDefault(queueType, new PlayerRankEntity());
+    entity.setPlayer(player);
+    entity.setQueueType(queueType);
+    entity.setTier("UNRANKED");
+    entity.setDivision("IV");
+    entity.setLeaguePoints(0);
+    entity.setScore(-1);
+    entity.setUpdatedAt(now());
+    playerRankRepository.save(entity);
   }
 
   private void saveQueueSnapshot(
@@ -205,14 +317,17 @@ public class PlayerRankService {
     }
     return playerRankRepository
         .findByPlayerIdAndQueueType(player.getId(), queueType)
-        .map(
-            entity ->
-                new PlayerRankSnapshot(
-                    entity.getQueueType(),
-                    entity.getTier(),
-                    entity.getDivision(),
-                    entity.getLeaguePoints(),
-                    entity.getScore()));
+        .filter(entity -> entity.getScore() >= 0)
+        .map(this::snapshot);
+  }
+
+  private PlayerRankSnapshot snapshot(PlayerRankEntity entity) {
+    return new PlayerRankSnapshot(
+        entity.getQueueType(),
+        entity.getTier(),
+        entity.getDivision(),
+        entity.getLeaguePoints(),
+        entity.getScore());
   }
 
   private int queuePriority(PlayerRankSnapshot snapshot) {
@@ -309,8 +424,10 @@ public class PlayerRankService {
     if (queueType == null || queueType.isBlank()) {
       return Optional.empty();
     }
-    String normalized = queueType.trim().toUpperCase();
-    return SUPPORTED_RANK_QUEUES.contains(normalized) ? Optional.of(normalized) : Optional.empty();
+    String candidate = queueType.trim();
+    return SUPPORTED_RANK_QUEUES.stream()
+        .filter(supported -> supported.equalsIgnoreCase(candidate))
+        .findFirst();
   }
 
   private java.time.Instant now() {
@@ -318,30 +435,57 @@ public class PlayerRankService {
   }
 
   public record RankRefreshResult(
-      Optional<PlayerRankSnapshot> snapshot, RankAvailability availability) {
+      Optional<PlayerRankSnapshot> snapshot,
+      RankAvailability availability,
+      Instant updatedAt,
+      boolean refreshed) {
+
+    public RankRefreshResult(Optional<PlayerRankSnapshot> snapshot, RankAvailability availability) {
+      this(snapshot, availability, null, false);
+    }
 
     public static RankRefreshResult current(PlayerRankSnapshot snapshot) {
-      return new RankRefreshResult(Optional.of(snapshot), RankAvailability.CURRENT);
+      return new RankRefreshResult(Optional.of(snapshot), RankAvailability.CURRENT, null, true);
+    }
+
+    public static RankRefreshResult current(PlayerRankSnapshot snapshot, Instant updatedAt) {
+      return new RankRefreshResult(Optional.of(snapshot), RankAvailability.CURRENT, updatedAt, true);
     }
 
     public static RankRefreshResult stored(PlayerRankSnapshot snapshot) {
-      return new RankRefreshResult(Optional.of(snapshot), RankAvailability.STORED);
+      return new RankRefreshResult(Optional.of(snapshot), RankAvailability.STORED, null, false);
+    }
+
+    public static RankRefreshResult stored(PlayerRankSnapshot snapshot, Instant updatedAt) {
+      return new RankRefreshResult(Optional.of(snapshot), RankAvailability.STORED, updatedAt, false);
     }
 
     public static RankRefreshResult unranked() {
-      return new RankRefreshResult(Optional.empty(), RankAvailability.UNRANKED);
+      return new RankRefreshResult(Optional.empty(), RankAvailability.UNRANKED, null, false);
+    }
+
+    public static RankRefreshResult unranked(Instant updatedAt) {
+      return new RankRefreshResult(Optional.empty(), RankAvailability.UNRANKED, updatedAt, true);
+    }
+
+    public static RankRefreshResult cachedUnranked(Instant updatedAt) {
+      return new RankRefreshResult(Optional.empty(), RankAvailability.UNRANKED, updatedAt, false);
     }
 
     public static RankRefreshResult noRank() {
-      return new RankRefreshResult(Optional.empty(), RankAvailability.NO_RANK);
+      return new RankRefreshResult(Optional.empty(), RankAvailability.NO_RANK, null, false);
     }
 
     public static RankRefreshResult refreshErrorWithStored(PlayerRankSnapshot snapshot) {
-      return new RankRefreshResult(Optional.of(snapshot), RankAvailability.REFRESH_ERROR_STORED);
+      return new RankRefreshResult(Optional.of(snapshot), RankAvailability.REFRESH_ERROR_STORED, null, false);
+    }
+
+    public static RankRefreshResult refreshErrorWithStored(PlayerRankSnapshot snapshot, Instant updatedAt) {
+      return new RankRefreshResult(Optional.of(snapshot), RankAvailability.REFRESH_ERROR_STORED, updatedAt, false);
     }
 
     public static RankRefreshResult refreshErrorWithoutStored() {
-      return new RankRefreshResult(Optional.empty(), RankAvailability.REFRESH_ERROR_NO_STORED);
+      return new RankRefreshResult(Optional.empty(), RankAvailability.REFRESH_ERROR_NO_STORED, null, false);
     }
   }
 

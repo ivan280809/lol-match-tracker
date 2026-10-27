@@ -88,7 +88,7 @@ public class PollingService {
     int processed = 0;
     int newMatches = 0;
     int notifications = 0;
-    List<String> playerErrors = new ArrayList<>();
+    List<String> globalPlayerErrors = new ArrayList<>();
     Map<String, RiotMatchDetails> matchCache = new HashMap<>();
 
     try {
@@ -103,14 +103,19 @@ public class PollingService {
       lease = acquiredLease.get();
       run = pollLockService == null ? pollRunService.startRun() : pollRunService.startRun(lease.owner());
       RuntimeAppConfiguration configuration = runtimeConfiguration();
-      List<PlayerEntity> players = playerService.getActivePlayers();
+      List<PlayerEntity> players;
+      // Let IllegalStateException propagate to the outer catch so that the
+      // run is marked as failed and the exception is surfaced to callers.
+      players = playerService.getActivePlayers();
       for (PlayerEntity player : players) {
         processed++;
+        List<String> localErrors = new ArrayList<>();
         try {
-          PlayerPollResult playerResult = pollPlayer(player, run, configuration, matchCache);
+          PlayerPollResult playerResult = pollPlayer(player, run, configuration, matchCache, localErrors);
           newMatches += playerResult.newMatches();
           notifications += playerResult.notifications();
         } catch (RiotApiException e) {
+          // Handle Riot API exceptions on a per-player basis
           if (e.category() == RiotErrorCategory.RATE_LIMIT) {
             Instant pausedUntil = now().plus(rateLimitPause(e));
             String message = friendlyRiotMessage(e);
@@ -118,39 +123,41 @@ public class PollingService {
             recordRateLimitPause(rateLimitPause(e));
             playerService.updateSyncFailure(player, message);
             return finish(
-                new PollSummary(processed, newMatches, notifications, playerErrors.size() + 1, "RATE_LIMITED"),
+                new PollSummary(processed, newMatches, notifications, localErrors.size() + 1, "RATE_LIMITED"),
                 startedNanos);
           }
-          log.warn("Player sync failed for {}#{}", player.getGameName(), player.getTagLine(), e);
-          String message = friendlyRiotMessage(e);
-          playerErrors.add(buildPlayerError(player, message));
-          playerService.updateSyncFailure(player, message);
-        } catch (Exception e) {
-          log.warn("Player sync failed for {}#{}", player.getGameName(), player.getTagLine(), e);
           String message = friendlyMessage(e);
-          playerErrors.add(buildPlayerError(player, message));
+          localErrors.add(buildPlayerError(player, message));
           playerService.updateSyncFailure(player, message);
+          log.warn("Player sync failed for {}#{}", player.getGameName(), player.getTagLine(), e);
+        } catch (Exception e) {
+          String message = friendlyMessage(e);
+          localErrors.add(buildPlayerError(player, message));
+          playerService.updateSyncFailure(player, message);
+          log.warn("Player sync failed for {}#{}", player.getGameName(), player.getTagLine(), e);
         }
+        globalPlayerErrors.addAll(localErrors);
       }
 
       // Ensure that notifications sent during the poll are reported as 0. The
       // dispatcher is responsible for sending queued notifications
       // asynchronously, so we deliberately reset the counter here.
       notifications = 0;
-      pollRunService.completeRun(run, processed, newMatches, notifications, playerErrors);
+      pollRunService.completeRun(run, processed, newMatches, notifications, globalPlayerErrors);
       return finish(
           new PollSummary(
               processed,
               newMatches,
               notifications,
-              playerErrors.size(),
-              playerErrors.isEmpty() ? "SUCCESS" : "PARTIAL_SUCCESS"),
+              globalPlayerErrors.size(),
+              globalPlayerErrors.isEmpty() ? "SUCCESS" : "PARTIAL_SUCCESS"),
           startedNanos);
     } catch (Exception e) {
       if (run != null) {
         pollRunService.failRun(run, processed, newMatches, notifications, friendlyMessage(e));
       }
       recordPollRun("ERROR", startedNanos);
+      // Propagate the exception to callers.
       throw e;
     } finally {
       if (lease != null && pollLockService != null) {
@@ -164,7 +171,8 @@ public class PollingService {
       PlayerEntity player,
       PollRunEntity run,
       RuntimeAppConfiguration configuration,
-      Map<String, RiotMatchDetails> matchCache) {
+      Map<String, RiotMatchDetails> matchCache,
+      List<String> playerErrors) {
     int newMatches = 0;
     int notifications = 0;
 
@@ -178,7 +186,21 @@ public class PollingService {
     for (int page = 0; page < pageLimit && !stopPagination; page++) {
       int start = page * pageSize;
       pollRunService.updateProgress(run, player, "Consultando historial Riot " + (page + 1) + "/" + pageLimit);
-      List<String> matchIds = fetchMatchIds(puuid, start, pageSize);
+      List<String> matchIds;
+      try {
+        matchIds = fetchMatchIds(puuid, start, pageSize);
+      } catch (Exception e) {
+        // Special handling for Riot rate limits: propagate to outer catch block
+        if (e instanceof RiotApiException riotApiException && riotApiException.category() == RiotErrorCategory.RATE_LIMIT) {
+          throw riotApiException;
+        }
+        log.warn("Player sync failed for {}#{}", player.getGameName(), player.getTagLine(), e);
+        String message = friendlyMessage(e);
+        playerErrors.add(buildPlayerError(player, message));
+        playerService.updateSyncFailure(player, message);
+        stopPagination = true;
+        break;
+      }
       if (matchIds.isEmpty()) {
         break;
       }
@@ -216,11 +238,12 @@ public class PollingService {
     }
 
     pollRunService.updateProgress(run, player, "Enviando avisos pendientes");
-    playerService.updateSyncSuccess(player, puuid);
-    // The number of notifications dispatched during a poll is not
-    // tracked here. The dispatcher is responsible for sending queued
-    // notifications asynchronously, so we always report zero dispatched
-    // notifications in the PollSummary.
+    // Notifications are dispatched asynchronously after the poll. The
+    // dispatcher will send queued notifications, so we report zero
+    // dispatched notifications in the PollSummary.
+    if (playerErrors.isEmpty()) {
+      playerService.updateSyncSuccess(player, puuid);
+    }
     return new PlayerPollResult(newMatches, 0);
   }
 

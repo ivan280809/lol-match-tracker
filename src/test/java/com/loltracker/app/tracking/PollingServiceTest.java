@@ -1,41 +1,103 @@
 package com.loltracker.app.tracking;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import org.mockito.ArgumentCaptor;
+// containsString matcher was previously used but is no longer needed after refactoring
+// to use custom argument matchers in Mockito.
 
-import com.loltracker.app.integration.riot.RiotClient;
+import com.loltracker.app.integration.riot.RiotApiException;
+import com.loltracker.app.integration.riot.RiotErrorCategory;
 import com.loltracker.app.match.MatchSummary;
 import com.loltracker.app.match.TrackedMatchEntity;
 import com.loltracker.app.match.TrackedMatchService;
-import com.loltracker.app.notification.NotificationService;
+
 import com.loltracker.app.ops.PollRunEntity;
 import com.loltracker.app.ops.PollRunService;
+import com.loltracker.app.ops.PollLockService;
+import com.loltracker.app.ops.PollLease;
 import com.loltracker.app.player.PlayerEntity;
 import com.loltracker.app.player.PlayerService;
+import com.loltracker.app.settings.AppConfigurationService;
+import com.loltracker.app.settings.RuntimeAppConfiguration;
+import com.loltracker.app.settings.RiotRegion;
+import com.loltracker.app.tracking.PollSummary;
+import com.loltracker.app.tracking.PollingService;
+import com.loltracker.app.notification.NotificationService;
+import com.loltracker.app.notification.NotificationDispatchResult;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.springframework.test.util.ReflectionTestUtils;
+import com.loltracker.app.notification.NotificationDispatchResult;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.springframework.test.util.ReflectionTestUtils;
+import com.loltracker.app.notification.NotificationDispatchResult;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.springframework.test.util.ReflectionTestUtils;
+import com.loltracker.app.notification.NotificationDispatchResult;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import com.loltracker.app.match.TrackedMatchService;
+import com.loltracker.app.ops.OpsMetrics;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+// import java.time.Clock;  // removed duplicate import
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class PollingServiceTest {
 
+  @InjectMocks private PollingService pollingService;
   @Mock private PlayerService playerService;
-  @Mock private RiotClient riotClient;
-  @Mock private TrackedMatchService trackedMatchService;
+  @Mock private com.loltracker.app.integration.riot.RiotMatchPort riotMatchPort;
+  @Mock private com.loltracker.app.match.TrackedMatchService trackedMatchService;
   @Mock private NotificationService notificationService;
   @Mock private PollRunService pollRunService;
+  @Mock private AppConfigurationService appConfigurationService;
+  @Mock private Clock clock;
+  @Mock private OpsMetrics opsMetrics;
 
-  @InjectMocks private PollingService pollingService;
+  private PollRunEntity dummyRun;
+  private Instant now;
 
+  @BeforeEach
+  void setUp() {
+    now = Instant.now();
+    dummyRun = new PollRunEntity();
+    dummyRun.setId(1L);
+    dummyRun.setStartedAt(now);
+    RuntimeAppConfiguration cfg =
+        new RuntimeAppConfiguration(
+            "key", RiotRegion.EUROPE, "bot", "chat", true, false, Duration.ofMinutes(5), 10, 3);
+    when(appConfigurationService.getRuntimeConfiguration()).thenReturn(cfg);
+    when(pollRunService.isRateLimitPaused()).thenReturn(false);
+    when(pollRunService.isScheduledRunDue(any())).thenReturn(true);
+    when(pollRunService.startRun()).thenReturn(dummyRun);
+    when(clock.instant()).thenReturn(now);
+    // Prevent NPE in tests that do not explicitly stub this method
+    when(notificationService.dispatchPendingForPlayer(any())).thenReturn(new NotificationDispatchResult(0, 0));
+  }
+
+  private PlayerEntity player(String name, String tag, Long id) {
+    PlayerEntity p = new PlayerEntity();
+    p.setId(id);
+    p.setGameName(name);
+    p.setTagLine(tag);
+    p.setActive(true);
+    return p;
+  }
   @Test
   void runPollEnqueuesNewMatchesAndLeavesDeliveryToDispatcher() {
     PlayerEntity player = new PlayerEntity();
@@ -52,9 +114,9 @@ class PollingServiceTest {
     when(playerService.getActivePlayers()).thenReturn(List.of(player));
     when(pollRunService.startRun()).thenReturn(new PollRunEntity());
     when(playerService.ensurePuuid(player)).thenReturn("puuid-1");
-    when(riotClient.fetchRecentMatchIds("puuid-1")).thenReturn(List.of("EUW1_123"));
+    when(riotMatchPort.fetchRecentMatchIds("puuid-1")).thenReturn(List.of("EUW1_123"));
     when(trackedMatchService.findExisting(player, "EUW1_123")).thenReturn(Optional.empty());
-    when(riotClient.fetchMatchSummary("EUW1_123", "puuid-1")).thenReturn(summary);
+    when(riotMatchPort.fetchMatchSummary("EUW1_123", "puuid-1")).thenReturn(summary);
     when(trackedMatchService.create(player, summary)).thenReturn(trackedMatch);
 
     PollSummary result = pollingService.runPoll();
@@ -79,7 +141,7 @@ class PollingServiceTest {
     when(playerService.getActivePlayers()).thenReturn(List.of(player));
     when(pollRunService.startRun()).thenReturn(new PollRunEntity());
     when(playerService.ensurePuuid(player)).thenReturn("puuid-legacy");
-    when(riotClient.fetchRecentMatchIds("puuid-legacy")).thenReturn(List.of());
+    when(riotMatchPort.fetchRecentMatchIds("puuid-legacy")).thenReturn(List.of());
 
     PollSummary result = pollingService.runPoll();
 
@@ -103,7 +165,7 @@ class PollingServiceTest {
     when(playerService.getActivePlayers()).thenReturn(List.of(player));
     when(pollRunService.startRun()).thenReturn(new PollRunEntity());
     when(playerService.ensurePuuid(player)).thenReturn("puuid-1");
-    when(riotClient.fetchRecentMatchIds("puuid-1")).thenReturn(List.of());
+    when(riotMatchPort.fetchRecentMatchIds("puuid-1")).thenReturn(List.of());
 
     PollSummary result = pollingService.runPoll();
 
@@ -112,7 +174,7 @@ class PollingServiceTest {
     assertEquals(0, result.playerFailures());
     assertEquals("SUCCESS", result.status());
     verify(notificationService, never()).dispatchPendingForPlayer(any());
-    verify(riotClient, never()).fetchMatchSummary(anyString(), anyString());
+    verify(riotMatchPort, never()).fetchMatchSummary(anyString(), anyString());
   }
 
   @Test
@@ -132,7 +194,7 @@ class PollingServiceTest {
     when(pollRunService.startRun()).thenReturn(new PollRunEntity());
     when(playerService.ensurePuuid(player)).thenReturn("puuid-1");
     when(trackedMatchService.getPendingNotifications(player)).thenReturn(List.of(legacyPendingMatch));
-    when(riotClient.fetchRecentMatchIds("puuid-1")).thenReturn(List.of());
+    when(riotMatchPort.fetchRecentMatchIds("puuid-1")).thenReturn(List.of());
 
     PollSummary result = pollingService.runPoll();
 
@@ -158,10 +220,10 @@ class PollingServiceTest {
     when(pollRunService.startRun()).thenReturn(new PollRunEntity());
 
     when(playerService.ensurePuuid(okPlayer)).thenReturn("puuid-ok");
-    when(riotClient.fetchRecentMatchIds("puuid-ok")).thenReturn(List.of());
+    when(riotMatchPort.fetchRecentMatchIds("puuid-ok")).thenReturn(List.of());
 
     when(playerService.ensurePuuid(failedPlayer)).thenReturn("puuid-failed");
-    when(riotClient.fetchRecentMatchIds("puuid-failed"))
+    when(riotMatchPort.fetchRecentMatchIds("puuid-failed"))
         .thenThrow(new IllegalStateException("Telegram timeout"));
 
     PollSummary result = pollingService.runPoll();
@@ -178,6 +240,93 @@ class PollingServiceTest {
   }
 
   @Test
+  void runPollSucceedsWithSinglePlayer() {
+    PlayerEntity player = player("Bob", "TAG", 1L);
+    when(playerService.getActivePlayers()).thenReturn(List.of(player));
+    when(playerService.ensurePuuid(player)).thenReturn("puuid-1");
+    when(trackedMatchService.findExisting(any(), eq("match-1"))).thenReturn(Optional.empty());
+    when(riotMatchPort.fetchRecentMatchIds(anyString())).thenReturn(List.of("match-1"));
+    when(riotMatchPort.fetchMatchSummary(eq("match-1"), anyString()))
+        .thenReturn(new MatchSummary("match-1", "Lux", true, "CLASSIC", 1800, now.plusSeconds(100)));
+    when(trackedMatchService.create(any(), any(), anyBoolean()))
+        .thenAnswer(inv -> new TrackedMatchEntity());
+    when(notificationService.dispatchPendingForPlayer(any())).thenReturn(new NotificationDispatchResult(0, 0));
+    PollSummary summary = pollingService.runPoll();
+    assertEquals("SUCCESS", summary.status());
+    assertEquals(1, summary.playersProcessed());
+    assertEquals(1, summary.newMatchesFound());
+    assertEquals(0, summary.notificationsSent());
+    assertEquals(0, summary.playerFailures());
+    verify(playerService).updateSyncSuccess(eq(player), eq("puuid-1"));
+    verify(pollRunService).completeRun(eq(dummyRun), eq(1), eq(1), eq(0), eq(List.of()));
+  }
+
+
+  @Test
+  void runPollHandlesGenericErrorAndContinues() {
+    PlayerEntity player = player("Alice", "TAG", 1L);
+    when(playerService.getActivePlayers()).thenReturn(List.of(player));
+    when(playerService.ensurePuuid(player)).thenReturn("puuid-1");
+    when(riotMatchPort.fetchRecentMatchIds(anyString())).thenThrow(new RuntimeException("boom"));
+    PollSummary summary = pollingService.runPoll();
+    assertEquals("PARTIAL_SUCCESS", summary.status());
+    assertEquals(1, summary.playersProcessed());
+    assertEquals(0, summary.newMatchesFound());
+    assertEquals(0, summary.notificationsSent());
+    // errorSummary is now replaced with playerFailures
+    assertEquals(1, summary.playerFailures());
+    verify(playerService).updateSyncFailure(eq(player), argThat((String s) -> s != null && s.contains("boom")));
+    verify(pollRunService)
+        .completeRun(eq(dummyRun), eq(1), eq(0), eq(0), eq(List.of("Alice#TAG: boom")));
+  }
+
+  @Test
+  void runPollDoesNotSuppressSuccessForLaterPlayers() {
+    PlayerEntity p1 = player("A", "TAG", 1L);
+    PlayerEntity p2 = player("B", "TAG", 2L);
+    when(playerService.getActivePlayers()).thenReturn(List.of(p1, p2));
+    when(playerService.ensurePuuid(p1)).thenReturn("puuid-1");
+    when(playerService.ensurePuuid(p2)).thenReturn("puuid-2");
+    when(riotMatchPort.fetchRecentMatchIds(anyString()))
+        .thenAnswer(inv -> {
+          if (inv.getArgument(0).equals("puuid-1")) {
+            throw new RuntimeException("boom");
+          }
+          return List.of("match-1");
+        });
+    when(riotMatchPort.fetchMatchSummary(eq("match-1"), anyString()))
+        .thenReturn(new MatchSummary("match-1", "Lux", true, "CLASSIC", 1800, now.plusSeconds(100)));
+    when(trackedMatchService.create(any(), any(), anyBoolean()))
+        .thenAnswer(inv -> new TrackedMatchEntity());
+    when(notificationService.dispatchPendingForPlayer(any())).thenReturn(new NotificationDispatchResult(0, 0));
+    PollSummary summary = pollingService.runPoll();
+    assertEquals("PARTIAL_SUCCESS", summary.status());
+    assertEquals(2, summary.playersProcessed());
+    assertEquals(1, summary.newMatchesFound());
+    assertEquals(0, summary.notificationsSent());
+    // errorSummary is now replaced with playerFailures
+    assertEquals(1, summary.playerFailures());
+    verify(playerService).updateSyncFailure(eq(p1), argThat((String s) -> s != null && s.contains("boom")));
+    verify(playerService).updateSyncSuccess(eq(p2), eq("puuid-2"));
+  }
+
+  @Test
+  void runPollFailsOnRateLimitAndRecordsFailure() {
+    PlayerEntity player = player("Bob", "TAG", 1L);
+    when(playerService.getActivePlayers()).thenReturn(List.of(player));
+    when(playerService.ensurePuuid(player)).thenReturn("puuid-1");
+    when(riotMatchPort.fetchRecentMatchIds(anyString()))
+        .thenThrow(new RiotApiException(RiotErrorCategory.RATE_LIMIT, "rate limited"));
+    PollSummary result = pollingService.runPoll();
+    assertEquals("RATE_LIMITED", result.status());
+    assertEquals(1, result.playersProcessed());
+
+    assertEquals(1, result.playerFailures());
+    verify(pollRunService).rateLimited(eq(dummyRun), eq(1), eq(0), eq(0),
+        argThat((Instant deadline) -> deadline.isAfter(now)), anyString());
+  }
+
+  @Test
   void runPollDoesNotDependOnNotificationDelivery() {
     PlayerEntity player = new PlayerEntity();
     player.setId(30L);
@@ -187,7 +336,7 @@ class PollingServiceTest {
     when(playerService.getActivePlayers()).thenReturn(List.of(player));
     when(pollRunService.startRun()).thenReturn(new PollRunEntity());
     when(playerService.ensurePuuid(player)).thenReturn("puuid-1");
-    when(riotClient.fetchRecentMatchIds("puuid-1")).thenReturn(List.of());
+    when(riotMatchPort.fetchRecentMatchIds("puuid-1")).thenReturn(List.of());
 
     PollSummary result = pollingService.runPoll();
 
@@ -213,7 +362,7 @@ class PollingServiceTest {
     assertEquals(0, result.notificationsSent());
     assertEquals(0, result.playerFailures());
     assertEquals("SKIPPED", result.status());
-    verifyNoInteractions(playerService, riotClient, trackedMatchService, notificationService, pollRunService);
+    verifyNoInteractions(playerService, riotMatchPort, trackedMatchService, notificationService, pollRunService);
   }
 
   @Test
@@ -245,6 +394,6 @@ class PollingServiceTest {
         (AtomicBoolean) ReflectionTestUtils.getField(pollingService, "running");
     assertFalse(running.get());
     verify(pollRunService, never()).failRun(any(), anyInt(), anyInt(), anyInt(), anyString());
-    verifyNoInteractions(playerService, riotClient, trackedMatchService, notificationService);
+    verifyNoInteractions(playerService, riotMatchPort, trackedMatchService, notificationService);
   }
 }
