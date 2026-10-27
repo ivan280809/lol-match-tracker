@@ -190,6 +190,13 @@ class PostgreSqlPersistenceTest {
             210, 13200, 26000, 28, 1800, Instant.parse("2030-04-03T18:00:00Z"), "EUW1", "EUROPE"),
         false);
 
+    // Exercise raw persisted whitespace. The recording service deliberately
+    // normalizes blank incoming game modes to "Unknown" before persistence.
+    jdbcTemplate.update("UPDATE matches SET game_mode = ? WHERE match_id = ?",
+        "\u001c\u2003", "EUW1_NULL_QUEUE_WS");
+    jdbcTemplate.update("UPDATE matches SET game_mode = ? WHERE match_id = ?",
+        "\u2003\u001c", "EUW1_UNKNOWN_QUEUE_WS");
+
     assertEquals(
         Set.of(nullQueue.getId()),
         trackedMatchService.findPlayerIdsMatchingHistory("unknown queue", "", null, null));
