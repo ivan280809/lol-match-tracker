@@ -1,5 +1,14 @@
 # LOL Match Tracker
 
+## Despliegue seguro del miniPC
+
+El procedimiento vigente está en [ops/minipc/README.md](ops/minipc/README.md).
+Sustituye las instrucciones históricas de runner self-hosted y tags `latest`
+que aparecen más abajo. No instalar ese runner ni seguir el despliegue antiguo.
+La nueva automatización solo publica desde `master`; el miniPC consulta una
+entrega verificada por digest. La publicación inicial queda en modo demostración,
+con administración local privada y sin claves Riot/Telegram.
+
 ## Documentacion interna
 
 - Referencia Riot/LoL API: [docs/reference/riot-lol-api.md](docs/reference/riot-lol-api.md)

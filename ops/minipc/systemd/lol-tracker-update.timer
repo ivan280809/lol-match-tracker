@@ -1,0 +1,12 @@
+[Unit]
+Description=Check verified LoL Tracker deliveries
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=10min
+RandomizedDelaySec=60s
+Persistent=true
+Unit=lol-tracker-update.service
+
+[Install]
+WantedBy=timers.target
