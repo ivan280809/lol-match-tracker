@@ -19,6 +19,14 @@ import org.springframework.context.annotation.Primary;
 @Configuration
 public class SchedulerConfig {
 
+  @Bean(name = "progressScheduler")
+  public TaskScheduler progressScheduler() {
+    ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+    scheduler.setPoolSize(1);
+    scheduler.setThreadNamePrefix("progress-scheduler-");
+    return scheduler;
+  }
+
   /**
    * Scheduler dedicated to the polling cycle. A single thread is sufficient as
    * the poll is intentionally serial.

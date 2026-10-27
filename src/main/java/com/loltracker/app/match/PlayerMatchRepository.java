@@ -3,12 +3,17 @@ package com.loltracker.app.match;
 import java.util.Optional;
 import java.util.List;
 import java.time.Instant;
+import java.util.Collection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface PlayerMatchRepository extends JpaRepository<PlayerMatchEntity, Long> {
+
+  @Query("select pm.match.matchId from PlayerMatchEntity pm where pm.player.id = :playerId and pm.match.matchId in :matchIds")
+  List<String> findExistingMatchIdsForPlayer(
+      @Param("playerId") Long playerId, @Param("matchIds") Collection<String> matchIds);
 
   boolean existsByPlayerIdAndMatchMatchId(Long playerId, String matchId);
 

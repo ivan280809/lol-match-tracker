@@ -1,6 +1,7 @@
 package com.loltracker.app.match;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
@@ -97,4 +98,6 @@ public interface TrackedMatchRepository extends JpaRepository<TrackedMatchEntity
       @Param("from") Instant from,
       @Param("to") Instant to,
       @Param("javaWhitespace") String javaWhitespace);
+  // New batch existence query
+  List<TrackedMatchEntity> findAllByPlayerIdAndMatchIdIn(Long playerId, Collection<String> matchIds);
 }

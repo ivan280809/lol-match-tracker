@@ -7,10 +7,15 @@ import com.loltracker.app.player.PlayerRepository;
 import com.loltracker.lolmatchtracker.LolMatchTrackerApplication;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
@@ -19,7 +24,8 @@ import org.springframework.test.annotation.DirtiesContext;
     classes = LolMatchTrackerApplication.class,
     properties = {
       "spring.jpa.hibernate.ddl-auto=create-drop",
-      "spring.flyway.enabled=false"
+      "spring.flyway.enabled=false",
+      "spring.jpa.properties.hibernate.generate_statistics=true"
     })
 @DirtiesContext
 class PersistenceIntegrationTest {
@@ -30,6 +36,7 @@ class PersistenceIntegrationTest {
   @Autowired private PlayerMatchRepository playerMatchRepository;
   @Autowired private PlayerMatchService playerMatchService;
   @Autowired private TrackedMatchService trackedMatchService;
+  @Autowired private SessionFactory sessionFactory;
 
   @BeforeEach
   void setUp() {
@@ -117,6 +124,55 @@ class PersistenceIntegrationTest {
     assertEquals(0, trackedMatchRepository.count());
   }
 
+  @Test
+  void batchExistingMatchLookupCombinesLegacyAndGlobalRows() {
+    PlayerEntity player = player("Bazaga", "ESP", "puuid-batch-dedupe");
+    playerMatchService.record(player, rankedSoloSummary("EUW1_GLOBAL_BATCH", "Lux", true), false);
+    legacyMatch(player, "EUW1_LEGACY_BATCH", "Jinx", "CLASSIC", 420, Instant.parse("2030-04-03T18:00:00Z"));
+
+    assertEquals(
+        Set.of("EUW1_GLOBAL_BATCH", "EUW1_LEGACY_BATCH"),
+        trackedMatchService.findExistingMatchIds(
+            player, List.of("EUW1_GLOBAL_BATCH", "EUW1_LEGACY_BATCH", "EUW1_NEW")));
+  }
+
+  @Test
+  void batchLookupReducesQueriesForOneHundredPlayersAndSamePage() {
+    List<PlayerEntity> players = new ArrayList<>();
+    List<String> pageIds = new ArrayList<>();
+    for (int match = 0; match < 20; match++) pageIds.add("EUW1_BATCH_MEASURE_%02d".formatted(match));
+    for (int playerIndex = 0; playerIndex < 100; playerIndex++) {
+      PlayerEntity player = player("batch-player-" + playerIndex, "EUW", "puuid-batch-measure-" + playerIndex);
+      players.add(player);
+      for (String matchId : pageIds) {
+        legacyMatch(player, matchId, "Lux", "CLASSIC", 420, Instant.parse("2030-04-03T18:00:00Z"));
+      }
+    }
+
+    Statistics statistics = sessionFactory.getStatistics();
+    Map<Long, Set<String>> baselineResults = new HashMap<>();
+    statistics.clear();
+    for (PlayerEntity player : players) {
+      Set<String> existing = new java.util.HashSet<>();
+      for (String matchId : pageIds) {
+        if (trackedMatchService.findExisting(player, matchId).isPresent()) existing.add(matchId);
+      }
+      baselineResults.put(player.getId(), existing);
+    }
+    long baselineQueries = statistics.getPrepareStatementCount();
+
+    Map<Long, Set<String>> batchedResults = new HashMap<>();
+    statistics.clear();
+    for (PlayerEntity player : players) {
+      batchedResults.put(player.getId(), trackedMatchService.findExistingMatchIds(player, pageIds));
+    }
+    long batchedQueries = statistics.getPrepareStatementCount();
+
+    assertEquals(baselineResults, batchedResults);
+    assertEquals(2_000, baselineQueries, "The executed baseline performs one tracked-row lookup per ID");
+    assertEquals(200, batchedQueries, "The executed batch performs one legacy and one global lookup per player page");
+    System.out.printf("100-player dedupe query measurement: baseline=%d, batched=%d%n", baselineQueries, batchedQueries);
+  }
   @Test
   void globalReadPathsExposeQueueLabelsAndRecentPlayerStats() {
     PlayerEntity player = player("Bazaga", "ESP", "puuid-read");
@@ -403,5 +459,25 @@ class PersistenceIntegrationTest {
     player.setPuuid(puuid);
     player.setActive(true);
     return playerRepository.save(player);
+  }
+
+  private TrackedMatchEntity legacyMatch(
+      PlayerEntity player,
+      String matchId,
+      String championName,
+      String gameMode,
+      Integer queueId,
+      Instant gameEndAt) {
+    TrackedMatchEntity match = new TrackedMatchEntity();
+    match.setPlayer(player);
+    match.setMatchId(matchId);
+    match.setChampionName(championName);
+    match.setResult("VICTORY");
+    match.setGameMode(gameMode);
+    match.setQueueId(queueId);
+    match.setDurationSeconds(1800);
+    match.setGameEndAt(gameEndAt);
+    match.setNotificationSent(false);
+    return trackedMatchRepository.save(match);
   }
 }

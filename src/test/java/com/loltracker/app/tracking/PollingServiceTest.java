@@ -53,7 +53,8 @@ class PollingServiceTest {
     when(pollRunService.startRun()).thenReturn(new PollRunEntity());
     when(playerService.ensurePuuid(player)).thenReturn("puuid-1");
     when(riotClient.fetchRecentMatchIds("puuid-1")).thenReturn(List.of("EUW1_123"));
-    when(trackedMatchService.findExisting(player, "EUW1_123")).thenReturn(Optional.empty());
+    when(trackedMatchService.findExistingMatchIds(player, List.of("EUW1_123")))
+        .thenReturn(java.util.Set.of());
     when(riotClient.fetchMatchSummary("EUW1_123", "puuid-1")).thenReturn(summary);
     when(trackedMatchService.create(player, summary)).thenReturn(trackedMatch);
 
@@ -67,6 +68,7 @@ class PollingServiceTest {
     verify(notificationService).enqueueMatchNotification(trackedMatch);
     verify(notificationService, never()).dispatchPendingForPlayer(any());
     verify(playerService).updateSyncSuccess(player, "puuid-1");
+    verify(trackedMatchService, never()).findExisting(player, "EUW1_123");
   }
 
   @Test
