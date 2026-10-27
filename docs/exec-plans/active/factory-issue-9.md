@@ -20,3 +20,11 @@ Proceed with the authorized Java 26 upgrade against the verified baseline, keepi
 - `./mvnw.cmd -B -ntp verify` succeeds under Temurin 26 with no skipped tests.
 - Docker image build and Compose configuration validation succeed.
 - Only files necessary for the Java 26 migration and documentation are changed; known limitations are documented.
+
+## Revision del 27 de octubre de 2026
+
+- Repetir la validacion con el wrapper real, JDK 26 y Docker disponible; rechazar omisiones.
+- Construir el Dockerfile y comprobar el arranque con PostgreSQL aislado.
+- Corregir la descripcion de Java 26 como LTS y la supuesta comprobacion del JDK por el wrapper.
+- Contrastar el resultado con la PR #16: su correccion de Flyway es necesaria para el arranque sobre una base vacia y se valida por separado.
+- Mantener las PR como borradores y los cambios locales del propietario intactos.

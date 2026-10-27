@@ -19,10 +19,9 @@
     <description>Unified LOL match tracker service</description>
 
     <properties>
-        <!-- Java 26 is the target for local development and CI builds.  The
-             application uses Spring Boot 4.x which fully supports Java 26
-             (LTS).  The property is used by the maven-compiler-plugin and
-             by the Maven wrapper to enforce a consistent JDK version. -->
+        <!-- Java 26 is the target for local development and CI builds.
+             It is a feature release, not an LTS release. The compiler uses
+             this property for the release flag; Maven Wrapper selects Maven only. -->
         <java.version>26</java.version>
         <!-- Lombok version for annotation processing -->
         <lombok.version>1.18.48</lombok.version>
