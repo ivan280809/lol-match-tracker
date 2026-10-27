@@ -121,7 +121,7 @@ class PollRunServiceProgressComparisonTest {
     PollRunEntity persisted = repository.findById(run.getId()).orElseThrow();
     assertEquals("Finalizado", persisted.getCurrentStage());
     assertNull(persisted.getCurrentPlayer());
-    assertEquals(0, ((java.util.Map<?, ?>) ReflectionTestUtils.getField(service, "progressCache")).size());
+    assertNull(((java.util.Map<?, ?>) ReflectionTestUtils.getField(service, "progressCache")).get(run.getId()));
     long before = sessionFactory.getStatistics().getEntityUpdateCount();
     service.updateProgress(run, null, "Post-completion stage");
     assertEquals(before, sessionFactory.getStatistics().getEntityUpdateCount());

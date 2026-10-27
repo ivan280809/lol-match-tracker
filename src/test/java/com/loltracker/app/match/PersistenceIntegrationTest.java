@@ -127,7 +127,7 @@ class PersistenceIntegrationTest {
   void batchExistingMatchLookupCombinesLegacyAndGlobalRows() {
     PlayerEntity player = player("Bazaga", "ESP", "puuid-batch-dedupe");
     playerMatchService.record(player, rankedSoloSummary("EUW1_GLOBAL_BATCH", "Lux", true), false);
-    legacyMatch(player, "EUW1_LEGACY_BATCH", "Jinx", "CLASSIC", 420, Instant.parse("2030-04-03T18:00:00Z"));
+    legacyDedupMatch(player, "EUW1_LEGACY_BATCH", "Jinx", "CLASSIC", 420, Instant.parse("2030-04-03T18:00:00Z"));
 
     assertEquals(
         Set.of("EUW1_GLOBAL_BATCH", "EUW1_LEGACY_BATCH"),
@@ -144,7 +144,7 @@ class PersistenceIntegrationTest {
       PlayerEntity player = player("batch-player-" + playerIndex, "EUW", "puuid-batch-measure-" + playerIndex);
       players.add(player);
       for (String matchId : pageIds) {
-        legacyMatch(player, matchId, "Lux", "CLASSIC", 420, Instant.parse("2030-04-03T18:00:00Z"));
+        legacyDedupMatch(player, matchId, "Lux", "CLASSIC", 420, Instant.parse("2030-04-03T18:00:00Z"));
       }
     }
 
@@ -287,7 +287,7 @@ class PersistenceIntegrationTest {
     return playerRepository.save(player);
   }
 
-  private TrackedMatchEntity legacyMatch(
+  private TrackedMatchEntity legacyDedupMatch(
       PlayerEntity player,
       String matchId,
       String championName,
