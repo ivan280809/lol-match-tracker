@@ -11,9 +11,12 @@ import com.loltracker.app.player.PlayerRankSnapshot;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
+import java.util.HashMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -90,6 +93,59 @@ public class NotificationStatsService {
         delta,
         highlights(match, recentFormMatches, championProfile, delta, sharedPlayers));
   }
+  /**
+   * Build statistics using cached rank and roster data. This is used when a batch of notifications
+   * for the same player is processed to avoid repeated external calls.
+   */
+  public NotificationStatsSnapshot buildFor(
+      TrackedMatchEntity match,
+      RankRefreshResult cachedRank,
+      Optional\u003cPlayerRankSnapshot\u003e cachedRosterAvg) {
+    Long playerId = match.getPlayer().getId();
+    RankQueueContext rankQueue = rankQueueContext(match);
+    List\u003cTrackedMatchEntity\u003e recentMatches = recentMatches(playerId);
+    List\u003cTrackedMatchEntity\u003e recentFormMatches =
+        safeList(trackedMatchRepository.findTop10ByPlayerIdOrderByGameEndAtDesc(playerId));
+    if (recentFormMatches.isEmpty()) {
+      recentFormMatches = recentMatches.stream().limit(10).toList();
+    }
+    List\u003cTrackedMatchEntity\u003e championMatches =
+        safeList(
+            trackedMatchRepository
+                .findTop20ByPlayerIdAndChampionNameIgnoreCaseOrderByGameEndAtDesc(
+                    playerId, match.getChampionName()));
+    List\u003cTrackedMatchEntity\u003e queueMatches = queueMatches(playerId, match);
+    List\u003cTrackedMatchEntity\u003e positionMatches = positionMatches(playerId, match);
+    List\u003cTrackedMatchEntity\u003e dayMatches = findMatchesFromSameLocalDay(match, playerId);
+    NotificationPerformanceProfile recentProfile = profile("Ult. 30", recentMatches);
+    NotificationPerformanceProfile queueProfile = profile(rankQueue.label(), queueMatches);
+    NotificationPerformanceProfile championProfile = profile(match.getChampionName(), championMatches);
+    NotificationPerformanceProfile positionProfile = profile(positionLabel(match), positionMatches);
+    NotificationPerformanceDelta delta = delta(match, baseline(recentMatches, match));
+    List\u003cNotificationSharedPlayer\u003e sharedPlayers = sharedPlayersFor(match);
+
+    return new NotificationStatsSnapshot(
+        recentForm(recentFormMatches),
+        currentStreakCount(recentFormMatches),
+        currentStreakResult(recentFormMatches),
+        wins(dayMatches),
+        losses(dayMatches),
+        wins(championMatches),
+        losses(championMatches),
+        averageDuration(recentMatches.isEmpty() ? recentFormMatches : recentMatches),
+        formatPlayerRankValue(cachedRank),
+        formatPlayerRankNote(cachedRank, rankQueue),
+        formatPlayerRankQueueLabel(cachedRank, rankQueue),
+        cachedRosterAvg.map(PlayerRankSnapshot::displayName).orElse("Sin media disponible"),
+        rankDelta(cachedRank.snapshot(), cachedRosterAvg),
+        sharedPlayers,
+        recentProfile,
+        queueProfile,
+        championProfile,
+        positionProfile,
+        delta,
+        highlights(match, recentFormMatches, championProfile, delta, sharedPlayers));
+  }
 
   private String formatPlayerRankValue(RankRefreshResult playerRank) {
     return switch (playerRank.availability()) {
@@ -101,7 +157,7 @@ public class NotificationStatsService {
   }
 
   private String formatPlayerRankNote(RankRefreshResult playerRank, RankQueueContext rankQueue) {
-    return switch (playerRank.availability()) {
+    String note = switch (playerRank.availability()) {
       case CURRENT -> "actualizado ahora";
       case STORED -> "guardado";
       case UNRANKED -> rankQueue.specific() ? "sin rank " + rankQueue.label() : "sin SoloQ/Flex";
@@ -109,6 +165,12 @@ public class NotificationStatsService {
       case REFRESH_ERROR_STORED -> "guardado; no se pudo actualizar";
       case REFRESH_ERROR_NO_STORED -> "no se pudo consultar Riot";
     };
+    if (playerRank.updatedAt() == null) {
+      return note;
+    }
+    String queriedAt =
+        DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").format(playerRank.updatedAt().atZone(appZoneId));
+    return note + "; consulta " + queriedAt;
   }
 
   private String formatPlayerRankQueueLabel(RankRefreshResult playerRank, RankQueueContext rankQueue) {
@@ -121,7 +183,8 @@ public class NotificationStatsService {
         .orElse(rankQueue.label());
   }
 
-  private RankQueueContext rankQueueContext(TrackedMatchEntity match) {
+  /* Package-private to allow NotificationService to access */
+  static RankQueueContext rankQueueContext(TrackedMatchEntity match) {
     MatchQueueDescriptor queue = MatchQueueCatalog.describe(match.getQueueId(), match.getGameMode());
     return switch (queue.type()) {
       case RANKED_SOLO -> new RankQueueContext("Solo/Duo", PlayerRankService.SOLO_QUEUE, true);
@@ -405,5 +468,7 @@ public class NotificationStatsService {
     return "VICTORY".equalsIgnoreCase(match.getResult());
   }
 
-  private record RankQueueContext(String label, String queueType, boolean specific) {}
+  // Package-private record so that other classes in the same package can
+  // use it to access the queue type when building notification stats.
+  record RankQueueContext(String label, String queueType, boolean specific) {}
 }

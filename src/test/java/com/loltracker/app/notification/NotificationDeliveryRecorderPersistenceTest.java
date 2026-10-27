@@ -118,7 +118,7 @@ class NotificationDeliveryRecorderPersistenceTest {
     String longMsg = "x".repeat(600); // 600 chars
     RestClientResponseException exception = new RestClientResponseException(
         longMsg,
-        429,
+        org.springframework.http.HttpStatus.TOO_MANY_REQUESTS,
         "Too Many Requests",
         new HttpHeaders(),
         longMsg.getBytes(StandardCharsets.UTF_8),
