@@ -83,7 +83,7 @@ class NotificationServiceTest {
                 org.mockito.ArgumentMatchers.anyCollection(),
                 org.mockito.ArgumentMatchers.any(Instant.class)))
         .thenReturn(List.of(outbox));
-    when(notificationStatsService.buildFor(trackedMatch)).thenReturn(stats);
+    when(notificationStatsService.buildFor(trackedMatch, com.loltracker.app.player.PlayerRankService.RankRefreshResult.unranked(), Optional.empty())).thenReturn(stats);
     when(notificationMessageFactory.build(trackedMatch, stats)).thenReturn("telegram-message");
     when(telegramNotifier.send("telegram-message")).thenReturn(new TelegramDeliveryReceipt(1234));
 
@@ -91,7 +91,7 @@ class NotificationServiceTest {
 
     assertEquals(1, result.sent());
     assertEquals(0, result.failed());
-    verify(notificationStatsService).buildFor(trackedMatch);
+    verify(notificationStatsService).buildFor(trackedMatch, com.loltracker.app.player.PlayerRankService.RankRefreshResult.unranked(), Optional.empty());
     verify(notificationMessageFactory).build(trackedMatch, stats);
     verify(telegramNotifier).send("telegram-message");
     verify(notificationDeliveryRecorder).recordAttempt(outbox);
@@ -109,7 +109,7 @@ class NotificationServiceTest {
                 org.mockito.ArgumentMatchers.anyCollection(),
                 org.mockito.ArgumentMatchers.any(Instant.class)))
         .thenReturn(List.of(outbox));
-    when(notificationStatsService.buildFor(trackedMatch)).thenThrow(new IllegalStateException("Telegram down"));
+    when(notificationStatsService.buildFor(trackedMatch, com.loltracker.app.player.PlayerRankService.RankRefreshResult.unranked(), Optional.empty())).thenThrow(new IllegalStateException("Telegram down"));
 
     NotificationDispatchResult result = notificationService.dispatchPendingForPlayer(player);
 
