@@ -2,6 +2,12 @@
 
 ## Reparacion del 27 de octubre de 2026
 
+La combinacion con Java 26 y PostgreSQL 15 detecta un p95 superior a 500 ms
+en CI 40431533041. Se conserva el umbral y se registra la medicion antes de
+afirmar su cumplimiento. El EXPLAIN usa la consulta real del repositorio con
+los mismos parametros; la copia anterior no representaba todas sus expresiones.
+Primero se analizara este plan y despues se aplicara la optimizacion necesaria.
+
 Se conserva el trabajo de la issue en una copia aislada. La reproduccion inicial
 falla en tres pruebas de etiquetas de cola: TRIM SQL no reproduce String.isBlank.
 Se pasara a SQL el conjunto de caracteres que Java considera whitespace para

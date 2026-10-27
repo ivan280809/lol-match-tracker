@@ -26,6 +26,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -324,46 +327,18 @@ class PostgreSqlPersistenceTest {
     assertEquals(100_000, baseline.materializedEntities());
     assertEquals(0, optimized.materializedEntities());
     assertEquals(1, optimized.resultIds());
-    assertTrue(optimized.p95Millis() < 500.0,
-        "Optimized history search must satisfy the issue's 500 ms p95 threshold");
-    String optimizedExplain = jdbcTemplate.queryForObject(
-        """
-        EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
-        SELECT DISTINCT pm.player_id
-        FROM player_matches pm
-        JOIN players p ON p.id = pm.player_id
-        JOIN matches m ON m.id = pm.match_id
-        WHERE lower(pm.champion_name) LIKE '%lux%' ESCAPE E'\\\\'
-          AND (lower(pm.champion_name) LIKE '%player0001%' ESCAPE E'\\\\'
-            OR lower(m.game_mode) LIKE '%player0001%' ESCAPE E'\\\\'
-            OR lower(m.match_id) LIKE '%player0001%' ESCAPE E'\\\\'
-            OR lower(pm.result) LIKE '%player0001%' ESCAPE E'\\\\'
-            OR lower(p.game_name) LIKE '%player0001%' ESCAPE E'\\\\'
-            OR lower(p.tag_line) LIKE '%player0001%' ESCAPE E'\\\\'
-            OR lower(case
-                when m.queue_id = 0 then 'Custom'
-                when m.queue_id = 400 then 'Normal Draft'
-                when m.queue_id = 420 then 'Ranked Solo/Duo'
-                when m.queue_id = 430 then 'Normal Blind'
-                when m.queue_id = 440 then 'Ranked Flex'
-                when m.queue_id = 450 then 'ARAM'
-                when m.queue_id = 490 then 'Quickplay'
-                when m.queue_id = 700 then 'Clash'
-                when m.queue_id = 830 then 'Co-op vs AI Intro'
-                when m.queue_id = 840 then 'Co-op vs AI Beginner'
-                when m.queue_id = 850 then 'Co-op vs AI Intermediate'
-                when m.queue_id in (1700, 1710) then 'Arena'
-                else case
-                    when m.game_mode is not null
-                         and regexp_replace(m.game_mode, '^[\\u0009-\\u000d\\u001c-\\u0020\\u1680\\u2000-\\u2006\\u2008-\\u200a\\u2028\\u2029\\u205f\\u3000]*$', '') <> ''
-                      then lower(replace(regexp_replace(m.game_mode, '^[\\u0001-\\u0020]+|[\\u0001-\\u0020]+$', '', 'g'), '_', ' '))
-                    when m.queue_id is null then 'Unknown queue'
-                    else 'Queue ' || m.queue_id
-                end
-            end) LIKE '%player0001%' ESCAPE E'\\\\')
-          AND m.game_end_at >= TIMESTAMPTZ '2030-04-03 00:00:00+00'
-          AND m.game_end_at < TIMESTAMPTZ '2030-04-04 00:00:00+00'
-        """,
+    String historySql = PlayerMatchRepository.class.getMethod(
+        "findDistinctPlayerIdsMatchingHistory",
+        String.class, String.class, Instant.class, Instant.class, String.class)
+        .getAnnotation(Query.class).value();
+    String optimizedExplain = new NamedParameterJdbcTemplate(jdbcTemplate).queryForObject(
+        "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + historySql,
+        new MapSqlParameterSource()
+            .addValue("champion", champion)
+            .addValue("text", text)
+            .addValue("from", java.sql.Timestamp.from(fromDate.atStartOfDay().toInstant(ZoneOffset.UTC)))
+            .addValue("to", java.sql.Timestamp.from(toDate.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC)))
+            .addValue("javaWhitespace", MatchQueueCatalog.JAVA_WHITESPACE),
         String.class);
     String baselineExplain = jdbcTemplate.queryForObject(
         """
@@ -381,6 +356,11 @@ class PostgreSqlPersistenceTest {
         baseline.peakHeapDeltaBytes(), optimized.p95Millis(), optimized.peakHeapDeltaBytes());
     System.out.println("HISTORY_BENCHMARK_EXPLAIN_BASELINE_JSON=" + baselineExplain);
     System.out.println("HISTORY_BENCHMARK_EXPLAIN_OPTIMIZED_JSON=" + optimizedExplain);
+    System.out.printf("HISTORY_BENCHMARK_RUNTIME java=%s postgres=%s cpus=%d os=%s%n",
+        System.getProperty("java.version"), jdbcTemplate.queryForObject("SELECT version()", String.class),
+        Runtime.getRuntime().availableProcessors(), System.getProperty("os.name"));
+    assertTrue(optimized.p95Millis() < 500.0,
+        "Optimized history search p95=" + optimized.p95Millis() + " ms must remain below 500 ms");
   }
 
   /** Recreates the former full materialization followed by Java-side filtering. */
