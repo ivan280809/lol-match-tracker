@@ -188,8 +188,8 @@ public class TrackedMatchService {
     // Global store has no rows, fall back to legacy data.
     return trackedMatchRepository
         .findDistinctPlayerIdsMatchingHistory(
-            escapeLike(normalizedChampion.isBlank() ? null : normalizedChampion),
-            escapeLike(normalizedText.isBlank() ? null : normalizedText),
+            containsPattern(normalizedChampion.isBlank() ? null : normalizedChampion),
+            containsPattern(normalizedText.isBlank() ? null : normalizedText),
             from,
             to,
             MatchQueueCatalog.JAVA_WHITESPACE)
@@ -283,17 +283,17 @@ public class TrackedMatchService {
   }
 
   /**
-   * Escape any SQL LIKE wildcards so that {@code "%"}, {@code "_"} and
+   * Build a contains pattern, escaping SQL LIKE wildcards so that {@code "%"}, {@code "_"} and
    * {@code "\\"} are treated literally.  The query in {@link
    * PlayerMatchRepository#findDistinctPlayerIdsMatchingHistory} declares an
    * escape character of backslash.  This method escapes both the escape
    * character itself and the wildcard characters.
    */
-  private String escapeLike(String value) {
+  private String containsPattern(String value) {
     if (value == null) {
       return null;
     }
-    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+    return "%" + value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
   }
 
   private Instant now() {
