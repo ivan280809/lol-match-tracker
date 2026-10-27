@@ -71,13 +71,15 @@ public class MatchReadModelService {
       return Set.of();
     }
     Instant from = fromDate == null ? null : fromDate.atStartOfDay().toInstant(ZoneOffset.UTC);
-    Instant to = toDate == null ? null : fromDateExclusive(toDate);
-    return playerMatchRepository.findAllForHistorySearch().stream()
-        .filter(match -> from == null || !match.getMatch().getGameEndAt().isBefore(from))
-        .filter(match -> to == null || match.getMatch().getGameEndAt().isBefore(to))
-        .filter(match -> normalizedChampion.isBlank() || contains(match.getChampionName(), normalizedChampion))
-        .filter(match -> matchesText(match, normalizedText))
-        .map(match -> match.getPlayer().getId())
+    Instant to = toDate == null ? null : toDate.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+    // Keep champion and free text parameters distinct when delegating to SQL.
+    return playerMatchRepository.findDistinctPlayerIdsMatchingHistory(
+            escapeLike(normalizedChampion.isBlank() ? null : normalizedChampion),
+            escapeLike(normalizedText.isBlank() ? null : normalizedText),
+            from,
+            to,
+            MatchQueueCatalog.JAVA_WHITESPACE)
+        .stream()
         .collect(Collectors.toSet());
   }
 
@@ -206,10 +208,32 @@ public class MatchReadModelService {
   }
 
   private boolean contains(String value, String query) {
-    return value != null && value.toLowerCase().contains(query);
+    if (value == null) {
+      return false;
+    }
+    // Normalize both the source string and the query for consistent comparison,
+    // including Greek final sigma handling.
+    String normalized = value.toLowerCase().replace('ς', 'σ');
+    return normalized.contains(query);
   }
 
   private String normalize(String value) {
-    return value == null ? "" : value.trim().toLowerCase();
+    // Convert to lower case and collapse Greek final sigma (ς) to regular sigma (σ)
+    return value == null
+        ? ""
+        : value.trim().toLowerCase().replace('ς', 'σ');
+  }
+
+  /**
+   * Escape wildcard characters for use with a SQL {@code LIKE} predicate.  The
+   * repository declares an escape character of backslash, so this method
+   * prefixes backslashes to existing escape characters and to the wildcard
+   * symbols {@code %} and {@code _}.
+   */
+  private String escapeLike(String value) {
+    if (value == null) {
+      return null;
+    }
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
   }
 }
