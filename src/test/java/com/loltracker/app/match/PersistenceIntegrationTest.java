@@ -6,6 +6,7 @@ import com.loltracker.app.player.PlayerEntity;
 import com.loltracker.app.player.PlayerRepository;
 import com.loltracker.lolmatchtracker.LolMatchTrackerApplication;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
@@ -176,6 +177,153 @@ class PersistenceIntegrationTest {
         trackedMatchService.findPlayerIdsMatchingHistory("", "jinx", null, null));
   }
 
+  @Test
+  void historySearchMatchesKnownQueueLabelGlobal() {
+    PlayerEntity player = player("QueueTest", "ESP", "puuid-queue");
+    // Record a match with queueId 450 (ARAM)
+    playerMatchService.record(player, rankedSoloSummary("EUW1_QUEUE_ARAM", "Lux", true), false);
+    MatchEntity match = matchRepository.findByMatchId("EUW1_QUEUE_ARAM").orElseThrow();
+    match.setQueueId(450);
+    matchRepository.save(match);
+    assertEquals(Set.of(player.getId()),
+        trackedMatchService.findPlayerIdsMatchingHistory("aram", "", null, null));
+  }
+
+  @Test
+  void historySearchMatchesFallbackQueueLabelsGlobal() {
+    PlayerEntity playerUnknown = player("UnknownQueue", "ESP", "puuid-unknown");
+    // Record with queueId null and empty gameMode
+    playerMatchService.record(playerUnknown, rankedSoloSummary("EUW1_UNKNOWN", "Lux", true), false);
+    MatchEntity unknownMatch = matchRepository.findByMatchId("EUW1_UNKNOWN").orElseThrow();
+    unknownMatch.setQueueId(null);
+    unknownMatch.setGameMode("");
+    matchRepository.save(unknownMatch);
+    assertEquals(Set.of(playerUnknown.getId()),
+        trackedMatchService.findPlayerIdsMatchingHistory("unknown queue", "", null, null));
+
+    PlayerEntity playerTitle = player("TitleCaseQueue", "ESP", "puuid-title");
+    // Record with queueId 999 (unknown) and gameMode CLASSIC to trigger title case fallback
+    playerMatchService.record(playerTitle, rankedSoloSummary("EUW1_TITLE", "Lux", true), false);
+    MatchEntity titleMatch = matchRepository.findByMatchId("EUW1_TITLE").orElseThrow();
+    titleMatch.setQueueId(999);
+    titleMatch.setGameMode("ARENA_SPECIAL");
+    matchRepository.save(titleMatch);
+    assertEquals(Set.of(playerTitle.getId()),
+        trackedMatchService.findPlayerIdsMatchingHistory("arena special", "", null, null));
+  }
+
+  @Test
+  void historySearchTreatsLikeWildcardsLiterallyAcrossLegacyAndGlobalRows() {
+    PlayerEntity literalMatch = player("Percent%Player", "ESP", "puuid-literal");
+    PlayerEntity wildcardNeighbor = player("PercentXPlayer", "ESP", "puuid-neighbor");
+    legacyMatch(literalMatch, "EUW1_LITERAL", "Lux", "CLASSIC", 420, Instant.parse("2030-04-03T18:00:00Z"));
+    legacyMatch(wildcardNeighbor, "EUW1_NEIGHBOR", "Lux", "CLASSIC", 420, Instant.parse("2030-04-03T18:00:00Z"));
+
+    assertEquals(
+        Set.of(literalMatch.getId()),
+        trackedMatchService.findPlayerIdsMatchingHistory("percent%player", "", null, null));
+
+    PlayerEntity literalUnderscore = player("Underscore_Player", "ESP", "puuid-underscore-literal");
+    PlayerEntity underscoreNeighbor = player("UnderscoreXPlayer", "ESP", "puuid-underscore-neighbor");
+    legacyMatch(literalUnderscore, "EUW1_UNDERSCORE", "Lux", "CLASSIC", 420, Instant.parse("2030-04-03T18:00:00Z"));
+    legacyMatch(underscoreNeighbor, "EUW1_UNDERSCORE_NEIGHBOR", "Lux", "CLASSIC", 420, Instant.parse("2030-04-03T18:00:00Z"));
+    assertEquals(
+        Set.of(literalUnderscore.getId()),
+        trackedMatchService.findPlayerIdsMatchingHistory("underscore_player", "", null, null));
+
+    PlayerEntity literalBackslash = player("Back\\slash", "ESP", "puuid-backslash-literal");
+    PlayerEntity backslashNeighbor = player("BackXslash", "ESP", "puuid-backslash-neighbor");
+    legacyMatch(literalBackslash, "EUW1_BACKSLASH", "Lux", "CLASSIC", 420, Instant.parse("2030-04-03T18:00:00Z"));
+    legacyMatch(backslashNeighbor, "EUW1_BACKSLASH_NEIGHBOR", "Lux", "CLASSIC", 420, Instant.parse("2030-04-03T18:00:00Z"));
+    assertEquals(
+        Set.of(literalBackslash.getId()),
+        trackedMatchService.findPlayerIdsMatchingHistory("back\\slash", "", null, null));
+
+    PlayerEntity globalPercent = player("Global%Percent", "ESP", "puuid-global-percent");
+    PlayerEntity globalPercentNeighbor = player("GlobalXPercent", "ESP", "puuid-global-percent-neighbor");
+    playerMatchService.record(globalPercent, rankedSoloSummary("EUW1_GLOBAL_PERCENT", "Lux", true), false);
+    playerMatchService.record(globalPercentNeighbor, rankedSoloSummary("EUW1_GLOBAL_PERCENT_NEIGHBOR", "Lux", true), false);
+    assertEquals(Set.of(globalPercent.getId()),
+        trackedMatchService.findPlayerIdsMatchingHistory("global%percent", "", null, null));
+
+    PlayerEntity globalUnderscore = player("Global_Underscore", "ESP", "puuid-global-underscore");
+    PlayerEntity globalUnderscoreNeighbor = player("GlobalXUnderscore", "ESP", "puuid-global-underscore-neighbor");
+    playerMatchService.record(globalUnderscore, rankedSoloSummary("EUW1_GU_LITERAL", "Lux", true), false);
+    playerMatchService.record(globalUnderscoreNeighbor, rankedSoloSummary("EUW1_GU_NEIGHBOR", "Lux", true), false);
+    assertEquals(Set.of(globalUnderscore.getId()),
+        trackedMatchService.findPlayerIdsMatchingHistory("global_underscore", "", null, null));
+
+    PlayerEntity globalBackslash = player("Global\\Slash", "ESP", "puuid-global-backslash");
+    PlayerEntity globalBackslashNeighbor = player("GlobalXSlash", "ESP", "puuid-global-backslash-neighbor");
+    playerMatchService.record(globalBackslash, rankedSoloSummary("EUW1_GLOBAL_BACKSLASH", "Lux", true), false);
+    playerMatchService.record(globalBackslashNeighbor, rankedSoloSummary("EUW1_GLOBAL_BACKSLASH_NEIGHBOR", "Lux", true), false);
+    assertEquals(Set.of(globalBackslash.getId()),
+        trackedMatchService.findPlayerIdsMatchingHistory("global\\slash", "", null, null));
+
+    PlayerEntity globalChampionUnderscore = player("GlobalChampionUnderscore", "ESP", "puuid-global-champion-underscore");
+    PlayerEntity globalChampionUnderscoreNeighbor = player("GlobalChampionUnderscoreNeighbor", "ESP", "puuid-global-champion-underscore-neighbor");
+    playerMatchService.record(globalChampionUnderscore, rankedSoloSummary("EUW1_GCU_LITERAL", "Ah_ri", true), false);
+    playerMatchService.record(globalChampionUnderscoreNeighbor, rankedSoloSummary("EUW1_GCU_NEIGHBOR", "AhXri", true), false);
+    assertEquals(Set.of(globalChampionUnderscore.getId()),
+        trackedMatchService.findPlayerIdsMatchingHistory("", "ah_ri", null, null));
+
+    PlayerEntity globalChampionSlash = player("GlobalChampionSlash", "ESP", "puuid-global-champion-slash");
+    PlayerEntity globalChampionSlashNeighbor = player("GlobalChampionSlashNeighbor", "ESP", "puuid-global-champion-slash-neighbor");
+    playerMatchService.record(globalChampionSlash, rankedSoloSummary("EUW1_GCS_LITERAL", "Ah\\\\ri", true), false);
+    playerMatchService.record(globalChampionSlashNeighbor, rankedSoloSummary("EUW1_GCS_NEIGHBOR", "AhXri", true), false);
+    assertEquals(Set.of(globalChampionSlash.getId()),
+        trackedMatchService.findPlayerIdsMatchingHistory("", "ah\\\\ri", null, null));    PlayerEntity globalChampionLiteral = player("ChampionLiteral", "ESP", "puuid-global-champion-literal");
+    PlayerEntity globalChampionNeighbor = player("ChampionNeighbor", "ESP", "puuid-global-champion-neighbor");
+    playerMatchService.record(globalChampionLiteral, rankedSoloSummary("EUW1_GLOBAL_CHAMPION_LITERAL", "Ah%ri", true), false);
+    playerMatchService.record(globalChampionNeighbor, rankedSoloSummary("EUW1_GLOBAL_CHAMPION_NEIGHBOR", "AhXri", true), false);
+    assertEquals(Set.of(globalChampionLiteral.getId()),
+        trackedMatchService.findPlayerIdsMatchingHistory("", "ah%ri", null, null));
+  }
+
+  @Test
+  void historySearchIncludesLegacyOnlyMatchesAndQueueFallbackLabels() {
+    PlayerEntity fallbackQueue = player("Fallback", "ESP", "puuid-fallback");
+    PlayerEntity other = player("Other", "ESP", "puuid-other");
+    legacyMatch(fallbackQueue, "EUW1_FALLBACK", "Lux", "", 987, Instant.parse("2030-04-03T18:00:00Z"));
+    legacyMatch(other, "EUW1_OTHER", "Jinx", "CLASSIC", 420, Instant.parse("2030-04-03T18:00:00Z"));
+    // Preserve legacy queue-label matching required by issue4.
+    assertEquals(Set.of(fallbackQueue.getId()), trackedMatchService.findPlayerIdsMatchingHistory("queue 987", "", null, null));
+  }
+
+  @Test
+  void historySearchUsesUtcStartInclusiveAndFollowingDayExclusive() {
+    PlayerEntity start = player("Start", "ESP", "puuid-start");
+    PlayerEntity end = player("End", "ESP", "puuid-end");
+    playerMatchService.record(
+        start, summaryAt("EUW1_START", "Lux", Instant.parse("2030-04-03T00:00:00Z")), false);
+    playerMatchService.record(
+        end, summaryAt("EUW1_END", "Jinx", Instant.parse("2030-04-04T00:00:00Z")), false);
+
+    assertEquals(
+        Set.of(start.getId()),
+        trackedMatchService.findPlayerIdsMatchingHistory(
+            "", "", LocalDate.parse("2030-04-03"), LocalDate.parse("2030-04-03")));
+    assertEquals(
+        Set.of(start.getId()),
+        trackedMatchService.findPlayerIdsMatchingHistory(
+            "victory", "lux", LocalDate.parse("2030-04-03"), LocalDate.parse("2030-04-03")));
+  }
+
+  @Test
+  void historySearchWithGlobalNonMatchingAndLegacyMatchingReturnsEmpty() {
+    // Global record that does NOT match the query "jinx"
+    PlayerEntity globalPlayer = player("GlobalUser", "EUW", "puuid-global");
+    playerMatchService.record(
+        globalPlayer,
+        rankedSoloSummary("EUW1_GLOBAL", "Lux", true),
+        false);
+    // Legacy record that WOULD match the query "jinx"
+    PlayerEntity legacyPlayer = player("LegacyUser", "EUW", "puuid-legacy");
+    legacyMatch(legacyPlayer, "EUW1_LEGACY", "Jinx", "CLASSIC", 420, Instant.parse("2030-04-03T18:00:00Z"));
+    // Since global has no matching rows, legacy should not be returned
+    assertEquals(Set.of(), trackedMatchService.findPlayerIdsMatchingHistory("jinx", "", null, null));
+  }
+
   private MatchSummary rankedSoloSummary(String matchId, String championName, boolean win) {
     return new MatchSummary(
         matchId,
@@ -197,6 +345,32 @@ class PersistenceIntegrationTest {
         Instant.parse("2030-04-03T18:00:00Z"),
         "EUW1",
         "EUROPE");
+  }
+
+  private MatchSummary summaryAt(String matchId, String championName, Instant gameEndAt) {
+    return new MatchSummary(
+        matchId, 99, championName, true, "CLASSIC", 420, "MIDDLE", "SOLO", 8, 2, 11,
+        210, 13200, 26000, 28, 1800, gameEndAt, "EUW1", "EUROPE");
+  }
+
+  private TrackedMatchEntity legacyMatch(
+      PlayerEntity player,
+      String matchId,
+      String champion,
+      String gameMode,
+      Integer queueId,
+      Instant gameEndAt) {
+    TrackedMatchEntity match = new TrackedMatchEntity();
+    match.setPlayer(player);
+    match.setMatchId(matchId);
+    match.setChampionName(champion);
+    match.setResult("VICTORY");
+    match.setGameMode(gameMode);
+    match.setQueueId(queueId);
+    match.setDurationSeconds(1800);
+    match.setGameEndAt(gameEndAt);
+    match.setNotificationSent(false);
+    return trackedMatchRepository.save(match);
   }
 
   private MatchSummary aramSummary(String matchId, String championName, boolean win) {
