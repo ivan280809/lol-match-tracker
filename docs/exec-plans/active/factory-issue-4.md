@@ -8,6 +8,15 @@ afirmar su cumplimiento. El EXPLAIN usa la consulta real del repositorio con
 los mismos parametros; la copia anterior no representaba todas sus expresiones.
 Primero se analizara este plan y despues se aplicara la optimizacion necesaria.
 
+CI 40433207036 registra p95 505,252 ms, Java 26.0.2.1 y PostgreSQL 15.19
+en un runner Linux de cuatro CPU. EXPLAIN de la consulta real tarda 354,845 ms
+y evalua el filtro de texto tras unir 50.000 filas. CONCAT conserva expresiones
+de etiquetas constantes en el filtro. Se preparan los patrones de contenido una
+sola vez en Java, manteniendo escapes y valores nulos, y se enlazan con CAST
+para conservar el tipado y evitar que Spring Data reescriba los parametros LIKE.
+No se cambia el umbral, ni se anaden indices o dependencias. Pendiente repetir
+la medicion sobre la combinacion final antes de afirmar una mejora.
+
 Se conserva el trabajo de la issue en una copia aislada. La reproduccion inicial
 falla en tres pruebas de etiquetas de cola: TRIM SQL no reproduce String.isBlank.
 Se pasara a SQL el conjunto de caracteres que Java considera whitespace para

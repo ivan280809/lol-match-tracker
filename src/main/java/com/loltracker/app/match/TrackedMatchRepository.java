@@ -53,13 +53,13 @@ public interface TrackedMatchRepository extends JpaRepository<TrackedMatchEntity
       """
       select distinct tm.player.id
       from TrackedMatchEntity tm
-      where (:champion is null or lower(tm.championName) like concat('%',:champion,'%') ESCAPE '\\')
-        and (:text is null or lower(tm.championName) like concat('%',:text,'%') ESCAPE '\\'
-            or lower(tm.gameMode) like concat('%',:text,'%') ESCAPE '\\'
-            or lower(tm.matchId) like concat('%',:text,'%') ESCAPE '\\'
-            or lower(tm.result) like concat('%',:text,'%') ESCAPE '\\'
-            or lower(tm.player.gameName) like concat('%',:text,'%') ESCAPE '\\'
-            or lower(tm.player.tagLine) like concat('%',:text,'%') ESCAPE '\\'
+      where (:champion is null or lower(tm.championName) like cast(:champion as string) ESCAPE '\\')
+        and (:text is null or lower(tm.championName) like cast(:text as string) ESCAPE '\\'
+            or lower(tm.gameMode) like cast(:text as string) ESCAPE '\\'
+            or lower(tm.matchId) like cast(:text as string) ESCAPE '\\'
+            or lower(tm.result) like cast(:text as string) ESCAPE '\\'
+            or lower(tm.player.gameName) like cast(:text as string) ESCAPE '\\'
+            or lower(tm.player.tagLine) like cast(:text as string) ESCAPE '\\'
             or (REPLACE(
                     CASE
                         WHEN tm.queueId IN (0,400,420,430,440,450,490,700,830,840,850,1700,1710) THEN NULL
@@ -71,21 +71,21 @@ public interface TrackedMatchRepository extends JpaRepository<TrackedMatchEntity
                     END,
                     'ς',
                     'σ'
-                ) ILIKE CONCAT('%',replace(lower(:text),'ς','σ'),'%')
+                ) ILIKE replace(:text,'ς','σ')
             )
-            or (tm.queueId = 0 AND 'Custom' ILIKE CONCAT('%',replace(lower(:text),'ς','σ'),'%') )
-            or (tm.queueId = 400 AND 'Normal Draft' ILIKE CONCAT('%',replace(lower(:text),'ς','σ'),'%') )
-            or (tm.queueId = 420 AND 'Ranked Solo/Duo' ILIKE CONCAT('%',replace(lower(:text),'ς','σ'),'%') )
-            or (tm.queueId = 430 AND 'Normal Blind' ILIKE CONCAT('%',replace(lower(:text),'ς','σ'),'%') )
-            or (tm.queueId = 440 AND 'Ranked Flex' ILIKE CONCAT('%',replace(lower(:text),'ς','σ'),'%') )
-            or (tm.queueId = 450 AND 'ARAM' ILIKE CONCAT('%',replace(lower(:text),'ς','σ'),'%') )
-            or (tm.queueId = 490 AND 'Quickplay' ILIKE CONCAT('%',replace(lower(:text),'ς','σ'),'%') )
-            or (tm.queueId = 700 AND 'Clash' ILIKE CONCAT('%',replace(lower(:text),'ς','σ'),'%') )
-            or (tm.queueId = 830 AND 'Co-op vs AI Intro' ILIKE CONCAT('%',replace(lower(:text),'ς','σ'),'%') )
-            or (tm.queueId = 840 AND 'Co-op vs AI Beginner' ILIKE CONCAT('%',replace(lower(:text),'ς','σ'),'%') )
-            or (tm.queueId = 850 AND 'Co-op vs AI Intermediate' ILIKE CONCAT('%',replace(lower(:text),'ς','σ'),'%') )
-            or (tm.queueId = 1700 AND 'Arena' ILIKE CONCAT('%',replace(lower(:text),'ς','σ'),'%') )
-            or (tm.queueId = 1710 AND 'Arena' ILIKE CONCAT('%',replace(lower(:text),'ς','σ'),'%') )
+            or (tm.queueId = 0 AND 'Custom' ILIKE replace(:text,'ς','σ') )
+            or (tm.queueId = 400 AND 'Normal Draft' ILIKE replace(:text,'ς','σ') )
+            or (tm.queueId = 420 AND 'Ranked Solo/Duo' ILIKE replace(:text,'ς','σ') )
+            or (tm.queueId = 430 AND 'Normal Blind' ILIKE replace(:text,'ς','σ') )
+            or (tm.queueId = 440 AND 'Ranked Flex' ILIKE replace(:text,'ς','σ') )
+            or (tm.queueId = 450 AND 'ARAM' ILIKE replace(:text,'ς','σ') )
+            or (tm.queueId = 490 AND 'Quickplay' ILIKE replace(:text,'ς','σ') )
+            or (tm.queueId = 700 AND 'Clash' ILIKE replace(:text,'ς','σ') )
+            or (tm.queueId = 830 AND 'Co-op vs AI Intro' ILIKE replace(:text,'ς','σ') )
+            or (tm.queueId = 840 AND 'Co-op vs AI Beginner' ILIKE replace(:text,'ς','σ') )
+            or (tm.queueId = 850 AND 'Co-op vs AI Intermediate' ILIKE replace(:text,'ς','σ') )
+            or (tm.queueId = 1700 AND 'Arena' ILIKE replace(:text,'ς','σ') )
+            or (tm.queueId = 1710 AND 'Arena' ILIKE replace(:text,'ς','σ') )
             )
         and (:from is null or tm.gameEndAt >= :from)
         and (:to is null or tm.gameEndAt < :to)

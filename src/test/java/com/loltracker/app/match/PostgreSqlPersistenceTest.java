@@ -346,8 +346,8 @@ class PostgreSqlPersistenceTest {
     String optimizedExplain = new NamedParameterJdbcTemplate(jdbcTemplate).queryForObject(
         "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + historySql,
         new MapSqlParameterSource()
-            .addValue("champion", champion)
-            .addValue("text", text)
+            .addValue("champion", "%" + champion + "%")
+            .addValue("text", "%" + text + "%")
             .addValue("from", java.sql.Timestamp.from(fromDate.atStartOfDay().toInstant(ZoneOffset.UTC)))
             .addValue("to", java.sql.Timestamp.from(toDate.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC)))
             .addValue("javaWhitespace", MatchQueueCatalog.JAVA_WHITESPACE),

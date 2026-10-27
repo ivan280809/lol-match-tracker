@@ -74,8 +74,8 @@ public class MatchReadModelService {
     Instant to = toDate == null ? null : toDate.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
     // Keep champion and free text parameters distinct when delegating to SQL.
     return playerMatchRepository.findDistinctPlayerIdsMatchingHistory(
-            escapeLike(normalizedChampion.isBlank() ? null : normalizedChampion),
-            escapeLike(normalizedText.isBlank() ? null : normalizedText),
+            containsPattern(normalizedChampion.isBlank() ? null : normalizedChampion),
+            containsPattern(normalizedText.isBlank() ? null : normalizedText),
             from,
             to,
             MatchQueueCatalog.JAVA_WHITESPACE)
@@ -225,15 +225,15 @@ public class MatchReadModelService {
   }
 
   /**
-   * Escape wildcard characters for use with a SQL {@code LIKE} predicate.  The
+   * Build an escaped contains pattern for use with a SQL {@code LIKE} predicate.  The
    * repository declares an escape character of backslash, so this method
    * prefixes backslashes to existing escape characters and to the wildcard
    * symbols {@code %} and {@code _}.
    */
-  private String escapeLike(String value) {
+  private String containsPattern(String value) {
     if (value == null) {
       return null;
     }
-    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+    return "%" + value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
   }
 }

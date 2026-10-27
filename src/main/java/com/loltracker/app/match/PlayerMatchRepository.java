@@ -84,21 +84,10 @@ public interface PlayerMatchRepository extends JpaRepository<PlayerMatchEntity, 
   List<PlayerMatchEntity> findByMatchMatchIdWithPlayerAndMatch(@Param("matchId") String matchId);
 
   /**
-   * Return distinct player ids that match the given history search criteria.
-   * The query implements the same semantics as {@link MatchReadModelService#findPlayerIdsMatchingHistory}
-   * but performs the filtering inside the database.
-   */
-  /**
-   * Find distinct player ids that match the history search criteria. The query is written in native
-   * SQL to avoid PostgreSQL type inference issues when binding parameters of null values. The
-   * parameters are escaped in {@link MatchReadModelService#escapeLike(String)} before being passed
-   * to this repository, so the query uses {@code ILIKE} with the escape character '\'.
-   */
-  /**
-   * <p>Because PostgreSQL cannot infer the data type of a named parameter that is used
-   * multiple times in a native query, we rewrite the query to use positional
-   * parameters.  JPA will bind the same value for every occurrence of the same
-   * index, preserving the original semantics.</p>
+   * Filter in PostgreSQL and return IDs without materializing history entities. The service binds
+   * escaped contains patterns once, so PostgreSQL can fold constant queue-label predicates and
+   * avoids rebuilding the same pattern for every joined row. Cast nullable native parameters to
+   * retain PostgreSQL type inference.
    */
   @Query(
       value = """
@@ -107,14 +96,14 @@ public interface PlayerMatchRepository extends JpaRepository<PlayerMatchEntity, 
       JOIN players p ON p.id = pm.player_id
       JOIN matches m ON m.id = pm.match_id
       WHERE (CAST(:champion AS text) IS NULL OR
-            replace(lower(pm.champion_name), 'ς', 'σ') ILIKE CONCAT('%', replace(lower(:champion),'ς','σ'),'%') )
-        AND (CAST(:text AS text) IS NULL OR trim(lower(:text)) = '' OR (
-          replace(lower(pm.champion_name), 'ς', 'σ') ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%')
-          OR replace(lower(TRIM(m.game_mode)), 'ς', 'σ') ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%')
-          OR replace(lower(m.match_id), 'ς', 'σ') ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%')
-          OR replace(lower(pm.result::text), 'ς', 'σ') ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%')
-          OR replace(lower(p.game_name), 'ς', 'σ') ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%')
-          OR replace(lower(p.tag_line), 'ς', 'σ') ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%')
+            replace(lower(pm.champion_name), 'ς', 'σ') ILIKE CAST(:champion AS text) )
+        AND (CAST(:text AS text) IS NULL OR (
+          replace(lower(pm.champion_name), 'ς', 'σ') ILIKE CAST(:text AS text)
+          OR replace(lower(TRIM(m.game_mode)), 'ς', 'σ') ILIKE CAST(:text AS text)
+          OR replace(lower(m.match_id), 'ς', 'σ') ILIKE CAST(:text AS text)
+          OR replace(lower(pm.result::text), 'ς', 'σ') ILIKE CAST(:text AS text)
+          OR replace(lower(p.game_name), 'ς', 'σ') ILIKE CAST(:text AS text)
+          OR replace(lower(p.tag_line), 'ς', 'σ') ILIKE CAST(:text AS text)
           OR (REPLACE(
                 CASE
 
@@ -127,22 +116,22 @@ public interface PlayerMatchRepository extends JpaRepository<PlayerMatchEntity, 
                 END,
                 'ς',
                 'σ'
-              ) ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%')
+              ) ILIKE CAST(:text AS text)
           )
           -- Known queue labels
-          OR (m.queue_id = 0 AND 'Custom' ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%') )
-          OR (m.queue_id = 400 AND 'Normal Draft' ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%') )
-          OR (m.queue_id = 420 AND 'Ranked Solo/Duo' ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%') )
-          OR (m.queue_id = 430 AND 'Normal Blind' ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%') )
-          OR (m.queue_id = 440 AND 'Ranked Flex' ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%') )
-          OR (m.queue_id = 450 AND 'ARAM' ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%') )
-          OR (m.queue_id = 490 AND 'Quickplay' ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%') )
-          OR (m.queue_id = 700 AND 'Clash' ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%') )
-          OR (m.queue_id = 830 AND 'Co-op vs AI Intro' ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%') )
-          OR (m.queue_id = 840 AND 'Co-op vs AI Beginner' ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%') )
-          OR (m.queue_id = 850 AND 'Co-op vs AI Intermediate' ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%') )
-          OR (m.queue_id = 1700 AND 'Arena' ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%') )
-          OR (m.queue_id = 1710 AND 'Arena' ILIKE CONCAT('%', replace(lower(:text),'ς','σ'),'%') )
+          OR (m.queue_id = 0 AND 'Custom' ILIKE CAST(:text AS text) )
+          OR (m.queue_id = 400 AND 'Normal Draft' ILIKE CAST(:text AS text) )
+          OR (m.queue_id = 420 AND 'Ranked Solo/Duo' ILIKE CAST(:text AS text) )
+          OR (m.queue_id = 430 AND 'Normal Blind' ILIKE CAST(:text AS text) )
+          OR (m.queue_id = 440 AND 'Ranked Flex' ILIKE CAST(:text AS text) )
+          OR (m.queue_id = 450 AND 'ARAM' ILIKE CAST(:text AS text) )
+          OR (m.queue_id = 490 AND 'Quickplay' ILIKE CAST(:text AS text) )
+          OR (m.queue_id = 700 AND 'Clash' ILIKE CAST(:text AS text) )
+          OR (m.queue_id = 830 AND 'Co-op vs AI Intro' ILIKE CAST(:text AS text) )
+          OR (m.queue_id = 840 AND 'Co-op vs AI Beginner' ILIKE CAST(:text AS text) )
+          OR (m.queue_id = 850 AND 'Co-op vs AI Intermediate' ILIKE CAST(:text AS text) )
+          OR (m.queue_id = 1700 AND 'Arena' ILIKE CAST(:text AS text) )
+          OR (m.queue_id = 1710 AND 'Arena' ILIKE CAST(:text AS text) )
         ))
         AND (CAST(:from AS timestamp) IS NULL OR m.game_end_at >= CAST(:from AS timestamp))
         AND (CAST(:to AS timestamp) IS NULL OR m.game_end_at < CAST(:to AS timestamp))
