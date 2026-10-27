@@ -11,11 +11,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Collection;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.Instant;
+import java.time.LocalDate;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +27,7 @@ public class TrackedMatchService {
   private final TrackedMatchRepository trackedMatchRepository;
   private final PlayerMatchService playerMatchService;
   private final MatchReadModelService matchReadModelService;
+  private final PlayerMatchRepository playerMatchRepository;
   private final Clock clock;
 
   @Transactional(readOnly = true)
@@ -32,10 +36,14 @@ public class TrackedMatchService {
         || (matchReadModelService != null && matchReadModelService.exists(player.getId(), matchId));
   }
 
+  /** Preserve per-player read-model markers when the legacy row is absent. */
   @Transactional(readOnly = true)
   public Optional<TrackedMatchEntity> findExisting(PlayerEntity player, String matchId) {
-    Optional<TrackedMatchEntity> legacy = trackedMatchRepository.findByPlayerIdAndMatchId(player.getId(), matchId);
-    if (legacy.isPresent() || matchReadModelService == null || !matchReadModelService.exists(player.getId(), matchId)) {
+    Optional<TrackedMatchEntity> legacy =
+        trackedMatchRepository.findByPlayerIdAndMatchId(player.getId(), matchId);
+    if (legacy.isPresent()
+        || matchReadModelService == null
+        || !matchReadModelService.exists(player.getId(), matchId)) {
       return legacy;
     }
     TrackedMatchEntity marker = new TrackedMatchEntity();
@@ -159,29 +167,33 @@ public class TrackedMatchService {
     if (!hasHistoryFilter) {
       return Set.of();
     }
+
+    Instant from = fromDate == null ? null : fromDate.atStartOfDay().toInstant(ZoneOffset.UTC);
+    Instant to = toDate == null ? null : toDate.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+
+    // Preserve original source‑precedence semantics: if the global read
+    // model returns any results, it is authoritative. Only when the
+    // global store has no rows at all do we fall back to the legacy
+    // tracked_matches table.
     if (matchReadModelService != null) {
       Set<Long> globalMatches =
           matchReadModelService.findPlayerIdsMatchingHistory(text, champion, fromDate, toDate);
+      // If the global store contains any matches, return the global
+      // results – even if they are empty, because that indicates
+      // legacy filtering is no longer desired.
       if (!globalMatches.isEmpty() || matchReadModelService.countMatches() > 0) {
         return globalMatches;
       }
     }
-    Instant from = fromDate == null ? null : fromDate.atStartOfDay().toInstant(ZoneOffset.UTC);
-    Instant to = toDate == null ? null : toDate.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
-    return trackedMatchRepository.findAll().stream()
-        .filter(match -> from == null || !match.getGameEndAt().isBefore(from))
-        .filter(match -> to == null || match.getGameEndAt().isBefore(to))
-        .filter(match -> normalizedChampion.isBlank() || contains(match.getChampionName(), normalizedChampion))
-        .filter(
-            match ->
-                normalizedText.isBlank()
-                    || contains(match.getChampionName(), normalizedText)
-                    || contains(match.getGameMode(), normalizedText)
-                    || contains(match.getMatchId(), normalizedText)
-                    || contains(match.getResult(), normalizedText)
-                    || contains(match.getPlayer().getGameName(), normalizedText)
-                    || contains(match.getPlayer().getTagLine(), normalizedText))
-        .map(match -> match.getPlayer().getId())
+    // Global store has no rows, fall back to legacy data.
+    return trackedMatchRepository
+        .findDistinctPlayerIdsMatchingHistory(
+            containsPattern(normalizedChampion.isBlank() ? null : normalizedChampion),
+            containsPattern(normalizedText.isBlank() ? null : normalizedText),
+            from,
+            to,
+            MatchQueueCatalog.JAVA_WHITESPACE)
+        .stream()
         .collect(Collectors.toSet());
   }
 
@@ -204,6 +216,22 @@ public class TrackedMatchService {
   @Transactional(readOnly = true)
   public Optional<SharedMatchStatsView> getSharedMatchStats(String matchId) {
     return matchReadModelService == null ? Optional.empty() : matchReadModelService.getSharedMatchStats(matchId);
+  }
+
+  /** Read one page of existing IDs from both operational stores. */
+  @Transactional(readOnly = true)
+  public Set<String> findExistingMatchIds(PlayerEntity player, Collection<String> matchIds) {
+    if (matchIds == null || matchIds.isEmpty()) {
+      return Set.of();
+    }
+    Set<String> existing =
+        trackedMatchRepository.findAllByPlayerIdAndMatchIdIn(player.getId(), matchIds).stream()
+            .map(TrackedMatchEntity::getMatchId)
+            .collect(Collectors.toSet());
+    if (matchReadModelService != null) {
+      existing.addAll(matchReadModelService.findExistingMatchIds(player.getId(), matchIds));
+    }
+    return existing;
   }
 
   private String recentForm(List<TrackedMatchEntity> matches) {
@@ -252,6 +280,20 @@ public class TrackedMatchService {
 
   private String normalize(String value) {
     return value == null ? "" : value.trim().toLowerCase();
+  }
+
+  /**
+   * Build a contains pattern, escaping SQL LIKE wildcards so that {@code "%"}, {@code "_"} and
+   * {@code "\\"} are treated literally.  The query in {@link
+   * PlayerMatchRepository#findDistinctPlayerIdsMatchingHistory} declares an
+   * escape character of backslash.  This method escapes both the escape
+   * character itself and the wildcard characters.
+   */
+  private String containsPattern(String value) {
+    if (value == null) {
+      return null;
+    }
+    return "%" + value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
   }
 
   private Instant now() {

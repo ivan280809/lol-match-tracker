@@ -6,6 +6,8 @@ import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Collection;
+import java.util.Set;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -26,6 +28,14 @@ public class MatchReadModelService {
   @Transactional(readOnly = true)
   public boolean exists(Long playerId, String matchId) {
     return playerMatchRepository.existsByPlayerIdAndMatchMatchId(playerId, matchId);
+  }
+
+  @Transactional(readOnly = true)
+  public Set<String> findExistingMatchIds(Long playerId, Collection<String> matchIds) {
+    if (matchIds == null || matchIds.isEmpty()) {
+      return Set.of();
+    }
+    return Set.copyOf(playerMatchRepository.findExistingMatchIdsForPlayer(playerId, matchIds));
   }
 
   @Transactional(readOnly = true)
@@ -71,13 +81,15 @@ public class MatchReadModelService {
       return Set.of();
     }
     Instant from = fromDate == null ? null : fromDate.atStartOfDay().toInstant(ZoneOffset.UTC);
-    Instant to = toDate == null ? null : fromDateExclusive(toDate);
-    return playerMatchRepository.findAllForHistorySearch().stream()
-        .filter(match -> from == null || !match.getMatch().getGameEndAt().isBefore(from))
-        .filter(match -> to == null || match.getMatch().getGameEndAt().isBefore(to))
-        .filter(match -> normalizedChampion.isBlank() || contains(match.getChampionName(), normalizedChampion))
-        .filter(match -> matchesText(match, normalizedText))
-        .map(match -> match.getPlayer().getId())
+    Instant to = toDate == null ? null : toDate.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+    // Keep champion and free text parameters distinct when delegating to SQL.
+    return playerMatchRepository.findDistinctPlayerIdsMatchingHistory(
+            containsPattern(normalizedChampion.isBlank() ? null : normalizedChampion),
+            containsPattern(normalizedText.isBlank() ? null : normalizedText),
+            from,
+            to,
+            MatchQueueCatalog.JAVA_WHITESPACE)
+        .stream()
         .collect(Collectors.toSet());
   }
 
@@ -206,10 +218,32 @@ public class MatchReadModelService {
   }
 
   private boolean contains(String value, String query) {
-    return value != null && value.toLowerCase().contains(query);
+    if (value == null) {
+      return false;
+    }
+    // Normalize both the source string and the query for consistent comparison,
+    // including Greek final sigma handling.
+    String normalized = value.toLowerCase().replace('ς', 'σ');
+    return normalized.contains(query);
   }
 
   private String normalize(String value) {
-    return value == null ? "" : value.trim().toLowerCase();
+    // Convert to lower case and collapse Greek final sigma (ς) to regular sigma (σ)
+    return value == null
+        ? ""
+        : value.trim().toLowerCase().replace('ς', 'σ');
+  }
+
+  /**
+   * Build an escaped contains pattern for use with a SQL {@code LIKE} predicate.  The
+   * repository declares an escape character of backslash, so this method
+   * prefixes backslashes to existing escape characters and to the wildcard
+   * symbols {@code %} and {@code _}.
+   */
+  private String containsPattern(String value) {
+    if (value == null) {
+      return null;
+    }
+    return "%" + value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
   }
 }

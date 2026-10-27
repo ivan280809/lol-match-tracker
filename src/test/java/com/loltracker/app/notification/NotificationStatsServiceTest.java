@@ -15,6 +15,7 @@ import com.loltracker.app.player.PlayerRankService;
 import com.loltracker.app.player.PlayerRankService.RankRefreshResult;
 import com.loltracker.app.player.PlayerRankSnapshot;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Pageable;
@@ -39,7 +40,8 @@ class NotificationStatsServiceTest {
             player, "puuid-1", PlayerRankService.SOLO_QUEUE))
         .thenReturn(
             RankRefreshResult.current(
-                new PlayerRankSnapshot("RANKED_SOLO_5x5", "GOLD", "II", 43, 1443)));
+                new PlayerRankSnapshot("RANKED_SOLO_5x5", "GOLD", "II", 43, 1443),
+                Instant.parse("2026-04-02T15:30:00Z")));
     when(playerRankService.rosterAverageRank())
         .thenReturn(Optional.of(new PlayerRankSnapshot("ROSTER_AVERAGE", "SILVER", "I", 78, 1178)));
 
@@ -77,7 +79,7 @@ class NotificationStatsServiceTest {
     assertEquals(67, stats.championWinRate());
     assertEquals(1300, stats.recentAverageDurationSeconds());
     assertEquals("Gold II 43 LP", stats.playerRank());
-    assertEquals("actualizado ahora", stats.playerRankNote());
+    assertEquals("actualizado ahora; consulta 02/04/2026 17:30", stats.playerRankNote());
     assertEquals("Solo/Duo", stats.playerRankQueueLabel());
     assertEquals("Silver I 78 LP", stats.rosterAverageRank());
     assertEquals(265, stats.rankDelta());
@@ -144,6 +146,103 @@ class NotificationStatsServiceTest {
     assertEquals("", noRank.playerRankNote());
     assertEquals("Sin rank actualizado", refreshError.playerRank());
     assertEquals("no se pudo consultar Riot", refreshError.playerRankNote());
+  }
+
+  @Test
+  void cachedStoredRankShowsItsLastQueryTime() {
+    NotificationStatsService service = new NotificationStatsService(trackedMatchRepository, playerRankService);
+    TrackedMatchEntity current = match(player(), "VICTORY", "Lux", 1800, "2026-04-03T18:00:00Z");
+    stubCurrentOnlyStats(current);
+    RankRefreshResult storedRank =
+        RankRefreshResult.stored(
+            new PlayerRankSnapshot(PlayerRankService.SOLO_QUEUE, "GOLD", "II", 43, 1443),
+            Instant.parse("2026-04-02T15:30:00Z"));
+
+    NotificationStatsSnapshot stats = service.buildFor(current, storedRank, Optional.empty());
+
+    assertEquals("guardado; consulta 02/04/2026 17:30", stats.playerRankNote());
+  }
+
+  @Test
+  void confirmedUnrankedResultShowsItsLastQueryTime() {
+    NotificationStatsService service = new NotificationStatsService(trackedMatchRepository, playerRankService);
+    TrackedMatchEntity current = match(player(), "VICTORY", "Lux", 1800, "2026-04-03T18:00:00Z");
+    stubCurrentOnlyStats(current);
+
+    NotificationStatsSnapshot stats = service.buildFor(
+        current,
+        RankRefreshResult.unranked(Instant.parse("2026-04-02T15:30:00Z")),
+        Optional.empty());
+
+    assertEquals("Unranked", stats.playerRank());
+    assertEquals("sin rank Solo/Duo; consulta 02/04/2026 17:30", stats.playerRankNote());
+  }
+
+  @Test
+  void cachedBuildPreservesProfilesAndHighlightsWhenFilteredHistoryPredatesLatestThirty() {
+    NotificationStatsService service = new NotificationStatsService(trackedMatchRepository, playerRankService);
+    PlayerEntity player = player();
+    TrackedMatchEntity current = match(player, "VICTORY", "Lux", 1800, "2026-04-03T18:00:00Z");
+    current.setLane("MID");
+
+    List<TrackedMatchEntity> latestThirty = new ArrayList<>();
+    latestThirty.add(current);
+    for (int index = 1; index < 30; index++) {
+      TrackedMatchEntity recentOtherQueue =
+          match(player, index % 2 == 0 ? "VICTORY" : "DEFEAT", "Ahri", 1500,
+              Instant.parse("2026-04-02T18:00:00Z").minusSeconds(index).toString());
+      recentOtherQueue.setQueueId(440);
+      recentOtherQueue.setLane("TOP");
+      latestThirty.add(recentOtherQueue);
+    }
+
+    List<TrackedMatchEntity> olderFilteredMatches = new ArrayList<>();
+    olderFilteredMatches.add(current);
+    for (int index = 1; index < 20; index++) {
+      TrackedMatchEntity older =
+          match(player, index % 2 == 0 ? "VICTORY" : "DEFEAT", "Lux", 1800,
+              Instant.parse("2026-04-01T18:00:00Z").minusSeconds(index).toString());
+      older.setLane("MID");
+      olderFilteredMatches.add(older);
+    }
+
+    when(playerRankService.refreshRankAvailabilityForQueue(
+            player, "puuid-1", PlayerRankService.SOLO_QUEUE))
+        .thenReturn(RankRefreshResult.stored(
+            new PlayerRankSnapshot(PlayerRankService.SOLO_QUEUE, "GOLD", "II", 43, 1443),
+            Instant.parse("2026-04-02T15:30:00Z")));
+    when(playerRankService.rosterAverageRank())
+        .thenReturn(Optional.of(new PlayerRankSnapshot("ROSTER_AVERAGE", "SILVER", "I", 78, 1178)));
+    when(trackedMatchRepository.findByPlayerIdOrderByGameEndAtDesc(eq(7L), any(Pageable.class)))
+        .thenReturn(latestThirty);
+    when(trackedMatchRepository.findTop10ByPlayerIdOrderByGameEndAtDesc(7L))
+        .thenReturn(latestThirty.subList(0, 10));
+    when(trackedMatchRepository.findTop20ByPlayerIdAndChampionNameIgnoreCaseOrderByGameEndAtDesc(7L, "Lux"))
+        .thenReturn(olderFilteredMatches);
+    when(trackedMatchRepository.findTop20ByPlayerIdAndQueueIdOrderByGameEndAtDesc(7L, 420))
+        .thenReturn(olderFilteredMatches);
+    when(trackedMatchRepository.findTop20ByPlayerIdAndLaneIgnoreCaseOrderByGameEndAtDesc(7L, "MID"))
+        .thenReturn(olderFilteredMatches);
+    when(trackedMatchRepository
+            .findAllByPlayerIdAndGameEndAtGreaterThanEqualAndGameEndAtLessThanOrderByGameEndAtDesc(
+                eq(7L), any(Instant.class), any(Instant.class)))
+        .thenReturn(List.of(current));
+
+    NotificationStatsSnapshot uncached = service.buildFor(current);
+    NotificationStatsSnapshot cached = service.buildFor(
+        current,
+        RankRefreshResult.stored(
+            new PlayerRankSnapshot(PlayerRankService.SOLO_QUEUE, "GOLD", "II", 43, 1443),
+            Instant.parse("2026-04-02T15:30:00Z")),
+        Optional.of(new PlayerRankSnapshot("ROSTER_AVERAGE", "SILVER", "I", 78, 1178)));
+
+    assertEquals(30, uncached.recentProfile().games());
+    assertEquals(20, uncached.championProfile().games());
+    assertEquals(20, uncached.queueProfile().games());
+    assertEquals(20, uncached.positionProfile().games());
+    assertEquals(uncached, cached);
+    assertEquals(uncached.performanceDelta(), cached.performanceDelta());
+    assertEquals(uncached.highlights(), cached.highlights());
   }
 
   @Test

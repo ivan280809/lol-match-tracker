@@ -5,17 +5,22 @@ import com.loltracker.app.settings.AppConfigurationService;
 import com.loltracker.app.settings.RuntimeAppConfiguration;
 import java.time.Duration;
 import java.net.http.HttpClient;
+import java.nio.charset.StandardCharsets;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.client.RestClientException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -76,8 +81,51 @@ public class TelegramNotifier implements TelegramNotificationPort {
       return receipt;
     } catch (RuntimeException e) {
       recordTelegram("ERROR", telegramCategory(e), startedNanos);
-      throw e;
+      throw safeFailure(e);
     }
+  }
+
+  // Telegram authenticates in the URL. Do not propagate raw HTTP exceptions,
+  // causes or bodies to persisted errors, dashboards or exception stack traces.
+  private RuntimeException safeFailure(RuntimeException failure) {
+    if (failure instanceof RestClientResponseException response) {
+      HttpHeaders headers = new HttpHeaders();
+      String retry = response.getResponseHeaders() == null
+          ? null : response.getResponseHeaders().getFirst(HttpHeaders.RETRY_AFTER);
+      if (retry != null) {
+        try {
+          headers.set(HttpHeaders.RETRY_AFTER, Long.toString(Long.parseLong(retry.trim())));
+        } catch (NumberFormatException notSeconds) {
+          try {
+            headers.set(HttpHeaders.RETRY_AFTER,
+                ZonedDateTime.parse(retry, DateTimeFormatter.RFC_1123_DATE_TIME)
+                    .format(DateTimeFormatter.RFC_1123_DATE_TIME));
+          } catch (RuntimeException invalidHeader) {
+            // Unvalidated external header text must not escape the adapter.
+          }
+        }
+      }
+      byte[] safeBody = new byte[0];
+      if (response.getStatusCode().value() == 429) {
+        try {
+          JsonNode seconds = objectMapper.readTree(response.getResponseBodyAsString())
+              .path("parameters").path("retry_after");
+          if (seconds.isIntegralNumber() && seconds.canConvertToLong()) {
+            safeBody = ("{\"parameters\":{\"retry_after\":" + seconds.asLong() + "}}")
+                .getBytes(StandardCharsets.UTF_8);
+          }
+        } catch (Exception invalidBody) {
+          // Keep status and any validated Retry-After header, never raw content.
+        }
+      }
+      return new RestClientResponseException(
+          "Telegram HTTP " + response.getStatusCode().value(), response.getStatusCode(),
+          "Telegram request failed", headers, safeBody, StandardCharsets.UTF_8);
+    }
+    if (failure instanceof ResourceAccessException) {
+      return new ResourceAccessException("Telegram transport unavailable");
+    }
+    return new RestClientException("Telegram request failed");
   }
 
   private TelegramDeliveryReceipt parseReceipt(String body) {

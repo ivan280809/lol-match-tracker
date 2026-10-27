@@ -4,6 +4,13 @@ import java.util.Map;
 
 public final class MatchQueueCatalog {
 
+  // SQL blank detection must agree with String.isBlank, including U+001C and
+  // Unicode separators. PostgreSQL TRIM removes only the ordinary space.
+  static final String JAVA_WHITESPACE = java.util.stream.IntStream.rangeClosed(1, Character.MAX_VALUE)
+      .filter(Character::isWhitespace)
+      .collect(StringBuilder::new, (text, value) -> text.append((char) value), StringBuilder::append)
+      .toString();
+
   private static final Map<Integer, MatchQueueDescriptor> KNOWN_QUEUES =
       Map.ofEntries(
           Map.entry(0, new MatchQueueDescriptor(0, "Custom", MatchQueueType.CUSTOM)),

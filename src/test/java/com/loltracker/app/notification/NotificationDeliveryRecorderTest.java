@@ -17,6 +17,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.client.RestClientResponseException;
 
 @ExtendWith(MockitoExtension.class)
@@ -79,7 +80,7 @@ class NotificationDeliveryRecorderTest {
     RestClientResponseException rateLimit =
         new RestClientResponseException(
             "Telegram rate limited",
-            429,
+            HttpStatus.TOO_MANY_REQUESTS,
             "Too Many Requests",
             headers,
             new byte[0],
