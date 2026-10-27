@@ -47,8 +47,7 @@ Revisa el diff y las pruebas antes de aceptar los cambios. La fábrica no fusion
 PRs ni despliega automáticamente. El despliegue requiere una decisión separada.
 La rama principal del proyecto es `master`.
 
-La [plantilla de tareas](https://github.com/ivan280809/lol-match-tracker/tree/codex/factory-setup/.github/ISSUE_TEMPLATE)
-y el [flujo del proyecto](https://github.com/ivan280809/lol-match-tracker/blob/codex/factory-setup/WORKFLOW.md)
-están preparados en la PR de configuración. La plantilla aparecerá en la pantalla
-de nuevas issues cuando esa PR se integre en `master`; entretanto puedes abrir
-una issue en blanco con la estructura anterior.
+La [plantilla de tareas](https://github.com/ivan280809/lol-match-tracker/tree/master/.github/ISSUE_TEMPLATE)
+y el [flujo del proyecto](https://github.com/ivan280809/lol-match-tracker/blob/master/WORKFLOW.md)
+ya están integrados en `master`. Puedes usar la plantilla o abrir una issue en
+blanco con la estructura anterior.
