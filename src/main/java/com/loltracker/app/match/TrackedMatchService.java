@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Collection;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -32,10 +33,14 @@ public class TrackedMatchService {
         || (matchReadModelService != null && matchReadModelService.exists(player.getId(), matchId));
   }
 
+  /** Preserve per-player read-model markers when the legacy row is absent. */
   @Transactional(readOnly = true)
   public Optional<TrackedMatchEntity> findExisting(PlayerEntity player, String matchId) {
-    Optional<TrackedMatchEntity> legacy = trackedMatchRepository.findByPlayerIdAndMatchId(player.getId(), matchId);
-    if (legacy.isPresent() || matchReadModelService == null || !matchReadModelService.exists(player.getId(), matchId)) {
+    Optional<TrackedMatchEntity> legacy =
+        trackedMatchRepository.findByPlayerIdAndMatchId(player.getId(), matchId);
+    if (legacy.isPresent()
+        || matchReadModelService == null
+        || !matchReadModelService.exists(player.getId(), matchId)) {
       return legacy;
     }
     TrackedMatchEntity marker = new TrackedMatchEntity();
@@ -204,6 +209,22 @@ public class TrackedMatchService {
   @Transactional(readOnly = true)
   public Optional<SharedMatchStatsView> getSharedMatchStats(String matchId) {
     return matchReadModelService == null ? Optional.empty() : matchReadModelService.getSharedMatchStats(matchId);
+  }
+
+  /** Read one page of existing IDs from both operational stores. */
+  @Transactional(readOnly = true)
+  public Set<String> findExistingMatchIds(PlayerEntity player, Collection<String> matchIds) {
+    if (matchIds == null || matchIds.isEmpty()) {
+      return Set.of();
+    }
+    Set<String> existing =
+        trackedMatchRepository.findAllByPlayerIdAndMatchIdIn(player.getId(), matchIds).stream()
+            .map(TrackedMatchEntity::getMatchId)
+            .collect(Collectors.toSet());
+    if (matchReadModelService != null) {
+      existing.addAll(matchReadModelService.findExistingMatchIds(player.getId(), matchIds));
+    }
+    return existing;
   }
 
   private String recentForm(List<TrackedMatchEntity> matches) {
